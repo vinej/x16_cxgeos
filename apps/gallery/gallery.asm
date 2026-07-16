@@ -23,6 +23,7 @@ WG_BUTTON = 0
 WG_CHECK  = 1
 WG_RADIO  = 2
 WG_SCROLL = 3
+WG_FIELD  = 4
 
 .segment "LOADADDR"
     .word $0801
@@ -147,9 +148,10 @@ W_RAD0  = 3
 W_RAD1  = 4
 W_RAD2  = 5
 W_SCR   = 6
+W_FLD   = 7
 
 widgets
-    .byte 7
+    .byte 8
 
     ; a push button "OK"
     .byte WG_BUTTON, 0
@@ -196,6 +198,15 @@ widgets
     .byte 16, 30, 100
     .addr s_none
     .byte 0, 0, 0
+
+    ; a text field: buffer + capacity. Tab to it, then type.
+    .byte WG_FIELD, 0
+    .word 40, 290, 300
+    .byte 16, 0, 24            ; length 0, capacity 24
+    .addr fieldbuf
+    .byte 0, 0, 0
+
+fieldbuf .res 25, 0           ; capacity + the null
 
 s_marker .byte "GALLERY UP", $0D, 0
 s_title  .byte "widget gallery -- Themes recolours it live; OK or ESC leaves", 0

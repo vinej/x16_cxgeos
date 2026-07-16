@@ -121,9 +121,9 @@ cx_wg_draw = $8088
 
 ; --- keyboard menu nav
 cx_menu_key = $808B
-;     A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key. Call it from your EV_KEY handler
+;     A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key; clobbers X and Y. Call it from your EV_KEY handler
 
 ; --- keyboard widget focus
 cx_wg_key = $808E
-;     A = a key; TAB/DOWN and UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar. Carry set if it was a widget key. Call from EV_KEY
+;     A = a key; TAB/UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar, printable keys type into a focused field. Carry set if it was a widget key; clobbers X and Y. Call from EV_KEY
 

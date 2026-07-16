@@ -107,10 +107,10 @@ __attribute__((weak, used)) volatile unsigned int  cx_slot;
 #define CX_WG_DRAW         0x8088   /* redraw the current widget list */
 
 /* --- keyboard menu nav --- */
-#define CX_MENU_KEY        0x808B   /* A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key. Call it from your EV_KEY handler */
+#define CX_MENU_KEY        0x808B   /* A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key; clobbers X and Y. Call it from your EV_KEY handler */
 
 /* --- keyboard widget focus --- */
-#define CX_WG_KEY          0x808E   /* A = a key; TAB/DOWN and UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar. Carry set if it was a widget key. Call from EV_KEY */
+#define CX_WG_KEY          0x808E   /* A = a key; TAB/UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar, printable keys type into a focused field. Carry set if it was a widget key; clobbers X and Y. Call from EV_KEY */
 
 /* The crossing itself. The slot address is parked in __rc2/3 before
  * anything moves; $22-$25 ride the hardware stack; the mirror is

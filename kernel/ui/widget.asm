@@ -34,6 +34,9 @@ WG_BUTTON = 0
 WG_CHECK  = 1
 WG_RADIO  = 2
 WG_SCROLL = 3                   ; horizontal, click-to-position
+WG_FIELD  = 4                   ; a text field: WG_LBL is a mutable
+                                ; buffer, WG_VAL its length, WG_GRP its
+                                ; capacity. Typed into when focused.
 
 WG_DISABLED = $01               ; flags bit 0
 
@@ -272,8 +275,12 @@ wg_paint
     jmp wg_p_button
 @nb
     cmp #WG_SCROLL
-    bne @nt
+    bne @ns
     jmp wg_p_scroll
+@ns
+    cmp #WG_FIELD
+    bne @nt
+    jmp wg_p_field
 @nt
     jmp wg_p_toggle             ; check and radio share a box and a label
 
@@ -447,6 +454,140 @@ wg_p_scroll
     stz X16_P7
     lda th_hi
     jsr gfx2_rect
+    rts
+
+; a text field: a framed box, the buffer's text inside, and -- when the
+; field is the focused widget -- a caret bar just after the text.
+wg_p_field
+    jsr wg_load_box
+    lda th_paper
+    jsr gfx2_rect
+    jsr wg_load_box
+    lda th_frame
+    jsr gfx2_frame
+
+    clc                         ; the text pen: x+4, y+3
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    adc #4
+    sta X16_P0
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P1
+    clc
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    adc #3
+    sta X16_P2
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P3
+    jsr wg_label_ptr            ; X16_T0 = the buffer
+    lda X16_T0
+    ldx X16_T0+1
+    jsr font_draw               ; hands back the pen past the text in P0/P1
+
+    lda wg_focus                ; a caret only while this field has focus
+    cmp wg_i
+    bne @done
+    ; P0/P1 is the pen after the text; a short vline there
+    ldy #WG_Y                   ; y = field y + 2
+    lda (CX_M_PTR),y
+    clc
+    adc #2
+    sta X16_P2
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P3
+    ldy #WG_H                   ; len = h - 4
+    lda (CX_M_PTR),y
+    sec
+    sbc #4
+    sta X16_P4
+    stz X16_P5
+    lda th_frame
+    jsr gfx2_vline
+@done
+    rts
+
+; ---------------------------------------------------------------------
+; wg_field_key -- A = key, CX_M_PTR = the focused text field. A
+; printable key appends to the buffer (up to WG_GRP), backspace trims,
+; RETURN submits (posts EV_WIDGET with the length). Carry set if the
+; key was the field's.
+; ---------------------------------------------------------------------
+wg_field_key
+    cmp #WK_ENTER
+    beq @submit
+    cmp #$14                    ; DEL (CBM) trims the last char
+    beq @bs
+    cmp #$08                    ; ...and plain backspace too
+    beq @bs
+    cmp #$20                    ; printable $20..$7E types
+    bcc @nope
+    cmp #$7F
+    bcs @nope
+
+    sta wg_ch
+    ldy #WG_VAL                 ; room? length < capacity
+    lda (CX_M_PTR),y
+    ldy #WG_GRP
+    cmp (CX_M_PTR),y
+    bcs @full                   ; no room: swallow the key, do nothing
+
+    jsr wg_bufptr              ; X16_T0 = the buffer
+    ldy #WG_VAL
+    lda (CX_M_PTR),y           ; the length is the insert index
+    tay
+    lda wg_ch
+    sta (X16_T0),y             ; buffer[len] = char
+    iny
+    lda #0
+    sta (X16_T0),y             ; buffer[len+1] = 0
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    clc
+    adc #1
+    sta (CX_M_PTR),y           ; length++
+    jmp @redraw
+@bs
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    beq @full                  ; empty: nothing to trim, but ours
+    sec
+    sbc #1
+    sta (CX_M_PTR),y           ; length--
+    tay
+    jsr wg_bufptr
+    lda #0
+    sta (X16_T0),y             ; buffer[len] = 0
+@redraw
+    jsr wg_paint
+    jsr wg_refocus_frame
+@full
+    sec
+    rts
+@submit
+    ldy #WG_VAL
+    lda (CX_M_PTR),y           ; report the length as the value
+    jsr wg_post_val
+    sec
+    rts
+@nope
+    clc
+    rts
+
+; wg_bufptr -- X16_T0 = the field's WG_LBL buffer pointer.
+wg_bufptr
+    ldy #WG_LBL
+    lda (CX_M_PTR),y
+    sta X16_T0
+    ldy #WG_LBL+1
+    lda (CX_M_PTR),y
+    sta X16_T0+1
     rts
 
 ; ---------------------------------------------------------------------
@@ -736,19 +877,55 @@ WK_STEP  = 5                    ; scrollbar keys move this much
 wg_key
     ldx wg_n
     beq @no                     ; no list: not ours
-    cmp #WK_TAB                 ; TAB forward, UP back. NOT DOWN: that
-    beq @fwd                    ; opens the menu bar, and the menu wins
-    cmp #WK_UP
+    cmp #WK_TAB                 ; focus movement is type-independent.
+    beq @fwd                    ; TAB forward, UP back; NOT DOWN, which
+    cmp #WK_UP                  ; opens the menu bar (the menu wins it)
     beq @back
-    cmp #WK_SPACE
+
+    ; every other key acts on the focused widget, and what it does
+    ; depends on the type: a field is typed into, a scrollbar stepped,
+    ; a button/check/radio activated.
+    ldx wg_focus
+    bmi @no                     ; nothing focused: pass the key
+    stx wg_i
+    pha                         ; wg_rec and the type load both need A;
+    jsr wg_rec                  ; keep the key on the stack across them
+    ldy #WG_TYPE
+    lda (CX_M_PTR),y
+    tax                         ; X = the focused widget's type
+    pla                         ; the key back in A
+    cpx #WG_FIELD
+    beq @field
+    cpx #WG_SCROLL
+    beq @scroll
+    cmp #WK_SPACE               ; button / check / radio
     beq @act
     cmp #WK_ENTER
     beq @act
-    cmp #WK_LEFT
-    beq @left
-    cmp #WK_RIGHT
-    beq @right
     bra @no
+
+@field
+    jsr wg_field_key            ; type / trim / submit; carry if taken
+    bcc @no
+    bra @yes
+@scroll
+    cmp #WK_LEFT
+    beq @sl
+    cmp #WK_RIGHT
+    beq @sr
+    bra @no
+@sl
+    lda #<($100 - WK_STEP)      ; -WK_STEP as a byte
+    jsr wg_scroll_key
+    bra @yes
+@sr
+    lda #WK_STEP
+    jsr wg_scroll_key
+    bra @yes
+@act
+    jsr wg_act                  ; the click path: updates + posts
+    jsr wg_refocus_frame        ; wg_act repainted the widget plain
+    bra @yes
 
 @fwd
     lda #1
@@ -757,30 +934,6 @@ wg_key
 @back
     lda #$FF
     jsr wg_focus_move
-    bra @yes
-
-@act
-    lda wg_focus
-    bmi @no                     ; nothing focused
-    sta wg_i
-    jsr wg_rec
-    ldy #WG_TYPE
-    lda (CX_M_PTR),y
-    cmp #WG_SCROLL
-    beq @no                     ; a bar takes LEFT/RIGHT, not activation
-    jsr wg_act                  ; the click path: updates + posts
-    jsr wg_refocus_frame        ; wg_act repainted the widget plain
-    bra @yes
-
-@left
-    lda #<($100 - WK_STEP)      ; -WK_STEP as a byte
-    jsr wg_scroll_key
-    bra @cont
-@right
-    lda #WK_STEP
-    jsr wg_scroll_key
-@cont
-    bcc @no                     ; not on a scrollbar: pass the key
 @yes
     sec
     rts
@@ -1087,5 +1240,6 @@ wg_res   .word 0
 wg_acc   .word 0
 wg_focus .byte $FF               ; the keyboard-focused widget; $FF none
 wg_step  .byte 0
+wg_ch    .byte 0                  ; the character being typed into a field
 
 .segment "CODE"

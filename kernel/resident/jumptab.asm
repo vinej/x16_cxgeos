@@ -91,10 +91,10 @@ cx_jumptab
     jmp cx_do_wg_draw    ; 40  redraw the current widget list
 
 ; --- keyboard menu nav -------------------------------------------
-    jmp cx_do_menu_key   ; 41  A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key. Call it from your EV_KEY handler
+    jmp cx_do_menu_key   ; 41  A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key; clobbers X and Y. Call it from your EV_KEY handler
 
 ; --- keyboard widget focus ---------------------------------------
-    jmp cx_do_wg_key     ; 42  A = a key; TAB/DOWN and UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar. Carry set if it was a widget key. Call from EV_KEY
+    jmp cx_do_wg_key     ; 42  A = a key; TAB/UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar, printable keys type into a focused field. Carry set if it was a widget key; clobbers X and Y. Call from EV_KEY
 
 .popseg
 

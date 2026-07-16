@@ -26,6 +26,7 @@ EV_MENU       = 7
 EV_WIDGET     = 8
 WG_CHECK      = 1
 WG_RADIO      = 2
+WG_FIELD      = 4
 
 PROBE_X = 40                    ; inside menu 0's box-to-be, and OFF
 PROBE_Y = 32                    ; its text: the items draw in ink 3,
@@ -374,6 +375,49 @@ main
     lda #'0'
     jmp fail
 @wheard
+    ; ---- text field typing ---------------------------------------
+    ; TAB four times to reach record 4 (the field), type "Hi", and the
+    ; buffer and length must read it back -- the same wg_key path a real
+    ; keystroke takes.
+    lda #$09                    ; TAB x4 to reach record 4 (the field).
+    jsr cx_wg_key               ; UNROLLED: cx_wg_key clobbers X and Y --
+    lda #$09                    ; only A and carry survive it -- so a
+    jsr cx_wg_key               ; register loop counter would be corrupt
+    lda #$09
+    jsr cx_wg_key
+    lda #$09
+    jsr cx_wg_key
+    lda #'H'
+    jsr cx_wg_key
+    bcs @wty
+    lda #'R'
+    jmp fail
+@wty
+    lda #'i'
+    jsr cx_wg_key
+    lda wl_buf
+    cmp #'H'
+    beq @wf1
+    lda #'S'
+    jmp fail
+@wf1
+    lda wl_buf+1
+    cmp #'i'
+    beq @wf2
+    lda #'2'
+    jmp fail
+@wf2
+    lda wl_buf+2                ; null-terminated after "Hi"
+    beq @wf3
+    lda #'3'
+    jmp fail
+@wf3
+    lda wg_list + 1 + 4*16 + 9  ; the field's length = 2
+    cmp #2
+    beq @wf4
+    lda #'4'
+    jmp fail
+@wf4
 
 menu_ok
     lda #<s_ok
@@ -483,7 +527,7 @@ got_wg   .byte 0
 ; a checkbox at (50,100) and a three-radio group (group 1), the middle
 ; one selected -- enough for toggle and the group's clear-the-others.
 wg_list
-    .byte 4
+    .byte 5
     .byte WG_CHECK, 0
     .word 50, 100, 140
     .byte 12, 0, 0
@@ -504,10 +548,16 @@ wg_list
     .byte 12, 0, 1
     .addr wl_c2
     .byte 0, 0, 0
+    .byte WG_FIELD, 0            ; record 4: a text field
+    .word 50, 210, 200
+    .byte 16, 0, 8              ; length 0, capacity 8
+    .addr wl_buf
+    .byte 0, 0, 0
 wl_c  .byte "check", 0
 wl_a  .byte "a", 0
 wl_b  .byte "b", 0
 wl_c2 .byte "c", 0
+wl_buf .res 9, 0
 
 ; the menu tree (docs/formats.md)
 bar

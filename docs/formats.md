@@ -164,7 +164,13 @@ A button reports value 1 (momentary). A checkbox toggles. A radio lights
 and clears its group-mates. A scrollbar takes the value its click names.
 The keyboard drives the same list through `cx_wg_key`: TAB/UP move a
 focus frame, SPACE/RETURN activate the focused widget, LEFT/RIGHT step a
-focused scrollbar -- and post the identical `EV_WIDGET`.
+focused scrollbar -- and post the identical `EV_WIDGET`. A **text field**
+(type 4) is different: `WG_LBL` points at a mutable buffer, `WG_VAL` is
+its current length and `WG_GRP` its capacity. With the field focused,
+printable keys append, DEL/backspace trims, and RETURN posts `EV_WIDGET`
+with the length. `cx_menu_key` and `cx_wg_key` clobber X and Y (only A
+and the carry survive), so never carry a register across them -- a loop
+counter in X becomes garbage the moment either is called.
 Every colour is the live theme's, so `cx_theme_set` then `cx_wg_draw`
 recolours the whole list. Registering a list pushes a region over the
 list's bounding box, so its clicks route to the toolkit and nowhere
