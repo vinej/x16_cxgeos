@@ -130,6 +130,31 @@ pulls in, the image carries whether anything calls it or not.
   boot and has no business resident — but with 1,512 spare it is now a
   choice rather than a debt.
 
+## The boot chain (Phase 4c)
+
+Stock ROM runs `AUTOBOOT.X16` from the SD root — that is the entire
+boot hook, and the reason CXGEOS needs no ROM patch. Stage-0 LOADs
+`CXKERNEL.PRG` to $8000 (the file's own header address), checks the
+`CXOS` magic, LOADs `PXL8.CXF` headerless to bank 1:$A000, calls the
+init vector at $8008, then hands off: `AUTORUN.CXA` if the disk has one
+(the boot smoke test's hook), else `cx_exit` — which IS "go to the
+shell". Every stage-0 failure ends at a printed message and BASIC.
+
+Addresses the loader owns:
+
+- **$0400–$041F** — the CXAP header staging area. Judged here before
+  the payload is allowed to overwrite the caller. Below app space, in
+  RAM the KERNAL leaves alone; costs the resident budget nothing.
+- **$0801–$7FFF** — app space, and the loader's hard ceiling. A payload
+  that would reach $8000 is stopped: one byte further is the kernel's
+  header, and $8010 is the jump table every app depends on. (An early
+  draft said $9F00, "where I/O starts" — wrong by 7,936 bytes; the
+  kernel lives in them.)
+- **Bank 1** (`CX_SYSFONT_BANK`) — the kernel data bank. First tenant:
+  the system font at $A000, put there by stage-0, read by the font
+  engine for as long as the font is live. The theme record comes next
+  (Phase 5).
+
 ## The glyph cache lives in banked RAM, not VRAM
 
 Phase 0 budgeted the pre-shifted glyph caches into VRAM at `$17100`.

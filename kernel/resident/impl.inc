@@ -49,3 +49,6 @@ cx_dirty_reset  = dr_reset
 cx_dirty_add    = dr_add
 cx_dirty_count  = dr_count
 cx_dirty_get    = dr_get
+
+cx_app_load     = cxl_load
+cx_ev_init      = ev_init

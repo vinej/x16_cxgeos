@@ -16,6 +16,9 @@ param(
     [switch]$Run,
     [switch]$Capture,      # run windowed with -warp, capture -echo output until DONE
     [switch]$Kernel,       # build the resident image against kernel/kernel.cfg
+    [switch]$Apps,         # build AUTOBOOT.X16, the shell and the hellos
+    [switch]$Image,        # ...and stage a bootable SD root in build\sdroot
+    [switch]$Boot,         # ...and boot it, windowed, from the staged root
     [int]$Scale = 1,
     [int]$TimeoutSec = 90
 )
@@ -43,35 +46,52 @@ if (-not (Test-Path $build)) { New-Item -ItemType Directory -Path $build | Out-N
 # -Kernel builds the resident image: the header at $8000, the jump table
 # at $8010 and the code at $8200, which are the addresses every app is
 # built against. ld65 fails the link if the code overruns $9EFF, so the
-# budget enforces itself. See docs/memory-map.md -- it does not fit yet.
+# budget enforces itself. See docs/memory-map.md for the ledger.
 if ($Kernel) {
     $Source = "kernel\kernel.asm"
     $Config = "kernel\kernel.cfg"
 }
 
-$name = [IO.Path]::GetFileNameWithoutExtension($Source).ToUpper()
-if ($Kernel) { $name = "CXKERNEL" }
-$obj  = Join-Path $build "$name.o"
-$out  = Join-Path $build "$name.PRG"
-$map  = Join-Path $build "$name.map"
+function Build-KernelImage {
+    $o = Join-Path $build "CXKERNEL.o"
+    $p = Join-Path $build "CXKERNEL.PRG"
+    Write-Host "ca65  kernel\kernel.asm -> $p"
+    & $ca65 --cpu 65C02 -I $lib -I $root -o $o (Join-Path $root "kernel\kernel.asm")
+    if ($LASTEXITCODE -ne 0) { Fail "ca65 failed on the kernel" }
+    & $ld65 -C (Join-Path $root "kernel\kernel.cfg") -m (Join-Path $build "CXKERNEL.map") -o $p $o
+    if ($LASTEXITCODE -ne 0) { Fail "ld65 failed on the kernel (over budget?)" }
+    Write-Host "      $((Get-Item $p).Length) bytes"
+}
 
-Write-Host "ca65  $Source -> $out"
-& $ca65 --cpu 65C02 -I $lib -I $root -o $obj (Join-Path $root $Source)
-if ($LASTEXITCODE -ne 0) { Fail "ca65 assembly failed" }
-& $ld65 -C (Join-Path $root $Config) -m $map -o $out $obj
-if ($LASTEXITCODE -ne 0) { Fail "ld65 link failed" }
+# -Apps / -Image / -Boot orchestrate several builds; the single-PRG path
+# below is for everything else (the default runner, a spike, -Kernel).
+$single = -not ($Apps -or $Image -or $Boot)
 
-$size = (Get-Item $out).Length
-Write-Host "      $size bytes"
+if ($single) {
+    $name = [IO.Path]::GetFileNameWithoutExtension($Source).ToUpper()
+    if ($Kernel) { $name = "CXKERNEL" }
+    $obj  = Join-Path $build "$name.o"
+    $out  = Join-Path $build "$name.PRG"
+    $map  = Join-Path $build "$name.map"
 
-# --- run the emulator and capture CHROUT output until DONE -------------
-function Invoke-Emulator([string[]]$extraArgs, [int]$timeout) {
+    Write-Host "ca65  $Source -> $out"
+    & $ca65 --cpu 65C02 -I $lib -I $root -o $obj (Join-Path $root $Source)
+    if ($LASTEXITCODE -ne 0) { Fail "ca65 assembly failed" }
+    & $ld65 -C (Join-Path $root $Config) -m $map -o $out $obj
+    if ($LASTEXITCODE -ne 0) { Fail "ld65 link failed" }
+
+    $size = (Get-Item $out).Length
+    Write-Host "      $size bytes"
+}
+
+# --- run the emulator and capture CHROUT output until a pattern --------
+function Invoke-Emulator([string[]]$emuArgs, [int]$timeout, [string]$until, [string]$tag) {
     $stdin  = Join-Path $env:TEMP "cxgeos-empty.in"
-    $stdout = Join-Path $build "$name-output.txt"
+    $stdout = Join-Path $build "$tag-output.txt"
     [IO.File]::WriteAllText($stdin, "")
     if (Test-Path $stdout) { Remove-Item $stdout -Force }
 
-    $emuArgs = @('-rom', $rom, '-prg', $out, '-run', '-warp', '-echo') + $extraArgs
+    $emuArgs = @('-rom', $rom) + $emuArgs + @('-warp', '-echo')
     $proc = Start-Process -FilePath $emu -ArgumentList $emuArgs -NoNewWindow -PassThru `
                           -RedirectStandardInput $stdin -RedirectStandardOutput $stdout
 
@@ -81,17 +101,89 @@ function Invoke-Emulator([string[]]$extraArgs, [int]$timeout) {
         Start-Sleep -Milliseconds 200
         if (Test-Path $stdout) {
             $text = (Get-Content $stdout -Raw -ErrorAction SilentlyContinue) -replace "`r", ""
-            if ($text -match '(?m)^DONE') { break }
+            if ($text -match $until) { break }
         }
         if ($proc.HasExited) { break }
         if ((Get-Date) -gt $deadline) {
-            if (-not $proc.HasExited) { $proc.Kill() }
-            Fail "emulator timed out after ${timeout}s -- no DONE line"
+            if (-not $proc.HasExited) { try { $proc.Kill() } catch {} }
+            Fail "emulator timed out after ${timeout}s -- nothing matched '$until'"
         }
     }
-    if (-not $proc.HasExited) { $proc.Kill() }
+    # the process may win the race and exit between the check and the
+    # kill; either way it is gone, which is all that was wanted
+    if (-not $proc.HasExited) { try { $proc.Kill() } catch {} }
     $proc.WaitForExit()
     return $text
+}
+
+# --- the apps: assemble a PRG, wrap it as a CXAP ------------------------
+function Build-Prg([string]$src, [string]$prgName) {
+    $o = Join-Path $build "$prgName.o"
+    $p = Join-Path $build "$prgName.PRG"
+    Write-Host "ca65  $src -> $p"
+    & $ca65 --cpu 65C02 -I $lib -I $root -o $o (Join-Path $root $src)
+    if ($LASTEXITCODE -ne 0) { Fail "ca65 failed on $src" }
+    & $ld65 -C (Join-Path $root "prg.cfg") -o $p $o
+    if ($LASTEXITCODE -ne 0) { Fail "ld65 failed on $src" }
+    return $p
+}
+
+function Build-Apps {
+    $py = (Get-Command python -ErrorAction Stop).Source
+    $mkcxap = Join-Path $root "tools\mkcxap.py"
+
+    $boot = Build-Prg "kernel\boot\auto.asm" "AUTOBOOT"
+    Copy-Item $boot (Join-Path $build "AUTOBOOT.X16") -Force
+
+    foreach ($app in @(
+        @{ src = "apps\shell\shell.asm";     prg = "SHELL";  name = "Shell" },
+        @{ src = "apps\hello_asm\hello.asm"; prg = "HELLO1"; name = "Hello (asm)" }
+    )) {
+        $p = Build-Prg $app.src $app.prg
+        & $py $mkcxap $p (Join-Path $build "$($app.prg).CXA") --name $app.name
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on $($app.prg)" }
+    }
+
+    # hello_c wants llvm-mos; a machine without it still builds the rest
+    $mosbin = $null
+    $candidates = @()
+    if ($env:LLVM_MOS_HOME) { $candidates += (Join-Path $env:LLVM_MOS_HOME "bin") }
+    $candidates += "C:\quartus\projects\x16_clib\llvm-mos\bin", "C:\llvm-mos\bin"
+    foreach ($c in $candidates) {
+        if (Test-Path (Join-Path $c "mos-cx16-clang.bat")) { $mosbin = $c; break }
+    }
+    if ($mosbin) {
+        $prg = Join-Path $build "HELLO2.PRG"
+        Write-Host "llvm  apps\hello_c\hello.c -> $prg"
+        # -mreserve-zp=90 keeps clang's whole-program pass out of $26-$7F,
+        # all of which belongs to the kernel or to the app ZP convention;
+        # the sdk header's cx_run() handles the $22-$25 collision with the
+        # compiler's own soft stack pointer. (The soft stack itself sits at
+        # $9F00 growing down with ~1.9KB of free zone before kernel code --
+        # a proper linker cap on RAM is SDK-packaging work, noted there.)
+        & (Join-Path $mosbin "mos-cx16-clang.bat") -Os -mreserve-zp=90 -I $root -o $prg (Join-Path $root "apps\hello_c\hello.c")
+        if ($LASTEXITCODE -ne 0) { Fail "mos-cx16-clang failed on hello.c" }
+        & $py $mkcxap $prg (Join-Path $build "HELLO2.CXA") --name "Hello (C)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on HELLO2" }
+    } else {
+        Write-Host "llvm-mos not found: skipping apps\hello_c" -ForegroundColor Yellow
+    }
+}
+
+# --- stage everything a bootable disk needs -----------------------------
+function Stage-SdRoot {
+    $sdroot = Join-Path $build "sdroot"
+    if (Test-Path $sdroot) { Remove-Item $sdroot -Recurse -Force }
+    New-Item -ItemType Directory -Path $sdroot | Out-Null
+    Copy-Item (Join-Path $build "AUTOBOOT.X16")  $sdroot
+    Copy-Item (Join-Path $build "CXKERNEL.PRG")  $sdroot
+    Copy-Item (Join-Path $root  "fonts\pxl8.cxf") (Join-Path $sdroot "PXL8.CXF")
+    Copy-Item (Join-Path $build "SHELL.CXA")     $sdroot
+    Copy-Item (Join-Path $build "HELLO1.CXA")    $sdroot
+    if (Test-Path (Join-Path $build "HELLO2.CXA")) {
+        Copy-Item (Join-Path $build "HELLO2.CXA") $sdroot
+    }
+    return $sdroot
 }
 
 if ($Test) {
@@ -107,7 +199,9 @@ if ($Test) {
         if ($LASTEXITCODE -ne 0) { Fail "abi: gen_bindings.py selftest failed" }
         & $py.Source (Join-Path $root "tools\fontconv.py") --selftest | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail "fontconv: selftest failed" }
-        Write-Host "abi + fontconv: host checks pass"
+        & $py.Source (Join-Path $root "tools\mkcxap.py") --selftest | Out-Null
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap: selftest failed" }
+        Write-Host "abi + fontconv + mkcxap: host checks pass"
     } else {
         Write-Host "python not found: skipping the host checks" -ForegroundColor Yellow
     }
@@ -118,7 +212,14 @@ if ($Test) {
     if (-not (Test-Path $fsroot)) { New-Item -ItemType Directory -Path $fsroot | Out-Null }
     Get-ChildItem $fsroot -File | Remove-Item -Force
 
-    $text = Invoke-Emulator @('-fsroot', $fsroot, '-testbench') $TimeoutSec
+    # The loader tests open these through real DOS. BADAPP wears the
+    # wrong magic; NEWAPP is a well-formed CXAP that demands ABI $7FFF.
+    $badapp = [byte[]]([Text.Encoding]::ASCII.GetBytes("XXAP") + @(0) * 28 + @(0x01, 0x08, 0xEA))
+    [IO.File]::WriteAllBytes((Join-Path $fsroot "BADAPP.CXA"), $badapp)
+    $newapp = [byte[]]([Text.Encoding]::ASCII.GetBytes("CXAP") + @(0xFF, 0x7F, 0x01, 0x08) + @(0) * 24 + @(0x01, 0x08, 0xEA))
+    [IO.File]::WriteAllBytes((Join-Path $fsroot "NEWAPP.CXA"), $newapp)
+
+    $text = Invoke-Emulator @('-prg', $out, '-run', '-fsroot', $fsroot, '-testbench') $TimeoutSec '(?m)^DONE' $name
 
     $passes = ([regex]::Matches($text, '(?m)^PASS ([A-Z0-9_]+)')).Count
     $fails  = [regex]::Matches($text, '(?m)^FAIL ([A-Z0-9_]+)')
@@ -144,12 +245,66 @@ if ($Test) {
     $summary = "      $reportedPass/$reportedTotal tests passed"
     if ($skips.Count -gt 0) { $summary += ", $($skips.Count) skipped (not runnable headless)" }
     Write-Host $summary -ForegroundColor Green
+
+    # ---- the boot smoke: the whole chain, end to end -------------------
+    # A staged SD root boots for real: AUTOBOOT.X16 loads the kernel and
+    # the font, cx_init comes up, and AUTORUN.CXA -- the COMMITTED canary
+    # binary, built from the sdk of the day the ABI shipped -- runs
+    # against the kernel built ten lines ago. That is the ABI freeze
+    # test. The canary leaves through cx_exit, which reloads the shell,
+    # so one boot proves stage-0, the loader's success path, the frozen
+    # ABI, and the exit path, in order, or times out red.
+    Write-Host "x16emu (boot smoke: stage-0 -> kernel -> canary -> shell)"
+    Build-KernelImage
+    Build-Apps
+    $sdroot = Stage-SdRoot
+    $canary = Join-Path $root "test\canary\CANARY.CXA"
+    if (-not (Test-Path $canary)) { Fail "test\canary\CANARY.CXA is missing -- the ABI freeze test needs the committed binary" }
+    Copy-Item $canary (Join-Path $sdroot "AUTORUN.CXA")
+
+    $text = Invoke-Emulator @('-fsroot', $sdroot) $TimeoutSec '(?m)^CXGEOS SHELL' "boot"
+    if ($text -notmatch '(?m)^CANARY OK') {
+        if ($text -match '(?m)^CANARY FAILED') { Fail "boot smoke: the frozen canary FAILED against this kernel -- the ABI moved" }
+        Fail "boot smoke: the canary never reported"
+    }
+    Write-Host "      boot: kernel up, frozen canary OK, shell up" -ForegroundColor Green
+
+    # The hellos close their own loop -- three seconds with no key and
+    # they leave through cx_exit -- so each can play AUTORUN and be
+    # proven headless: boot, run, exit, and the shell comes back.
+    $hellos = @(@{ cxa = "HELLO1.CXA"; up = "HELLO ASM UP" })
+    if (Test-Path (Join-Path $build "HELLO2.CXA")) {
+        $hellos += @{ cxa = "HELLO2.CXA"; up = "HELLO C UP" }
+    }
+    foreach ($h in $hellos) {
+        Copy-Item (Join-Path $build $h.cxa) (Join-Path $sdroot "AUTORUN.CXA") -Force
+        $text = Invoke-Emulator @('-fsroot', $sdroot) $TimeoutSec '(?m)^CXGEOS SHELL' "boot-$($h.cxa)"
+        # not ^-anchored: -echo renders a control byte ahead of the text
+        # as \X0F, so the marker is not at column 0
+        if ($text -notmatch [regex]::Escape($h.up)) { Fail "boot smoke: $($h.cxa) never came up" }
+        Write-Host "      boot: $($h.cxa) up, timed exit, shell up" -ForegroundColor Green
+    }
+    exit 0
+}
+
+if ($Apps -or $Image -or $Boot) {
+    Build-KernelImage
+    Build-Apps
+    if ($Image -or $Boot) {
+        $sdroot = Stage-SdRoot
+        Write-Host "sdroot: $sdroot"
+        Get-ChildItem $sdroot | ForEach-Object { Write-Host ("      {0,-14} {1,6} bytes" -f $_.Name, $_.Length) }
+    }
+    if ($Boot) {
+        Write-Host "x16emu (booting the staged root)"
+        & $emu -rom $rom -fsroot $sdroot -scale $Scale
+    }
     exit 0
 }
 
 if ($Capture) {
     Write-Host "x16emu (windowed, capturing until DONE)"
-    $text = Invoke-Emulator @() $TimeoutSec
+    $text = Invoke-Emulator @('-prg', $out, '-run') $TimeoutSec '(?m)^DONE' $name
     Write-Host $text
     exit 0
 }

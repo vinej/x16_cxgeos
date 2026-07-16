@@ -44,6 +44,7 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 ; at cx_init, and a test that links the table would not otherwise
 ; resolve it.
 .include "kernel/resident/core.asm"
+.include "kernel/fs/loader.asm"
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/event/event.asm"

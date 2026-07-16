@@ -49,8 +49,24 @@ Repo-local tools, never committed:
 ```powershell
 .\build.ps1 -Source spikes\spike_a.asm      # assemble one program
 .\build.ps1 -Source spikes\spike_a.asm -Run # ... and run it windowed
-.\build.ps1 -Test                           # regression suite, headless
+.\build.ps1 -Test                           # unit suite + the boot smoke, headless
+.\build.ps1 -Kernel                         # the resident image, CXKERNEL.PRG
+.\build.ps1 -Apps                           # AUTOBOOT.X16, the shell, the hellos
+.\build.ps1 -Image                          # ...staged as a bootable root in build\sdroot
+.\build.ps1 -Boot                           # ...and booted, windowed, to play with
 ```
+
+C apps want llvm-mos (found via `LLVM_MOS_HOME`, the sibling
+`x16_clib\llvm-mos`, or `C:\llvm-mos`); without it the C hello is
+skipped and everything else still builds.
+
+`-Test` ends with the boot smoke: a staged SD root boots for real —
+stage-0, kernel, font — and then runs three chains to the shell:
+`test\canary\CANARY.CXA` (the **ABI freeze test**: a committed binary
+built from the sdk of the day the ABI shipped, run against the kernel
+built seconds ago — if a slot ever moves, the past breaks here first),
+then each hello, which draws, waits three seconds, and leaves through
+`cx_exit`. Do not rebuild the canary casually; that is a release act.
 
 ## Vendored x16lib
 
@@ -95,11 +111,21 @@ the resident budget and is why the image fits.
   never dropped silently (a full queue counts the loss); mouse moves
   coalesce so the pointer cannot lag behind the hand. Milestone:
   `demos/evmon.asm`.
-- **Phase 4 in progress** — the ABI. `abi/cxgeos.abi` is the manifest:
-  31 append-only slots, from which `abi/gen_bindings.py` generates the
-  jump table at `$8010` and bindings for all 12 toolchains (7 `.inc`,
-  5 `.h`). `kernel/resident/impl.inc` maps each ABI promise to the
-  kernel routine behind it, so code can be renamed or moved without an
-  app noticing. `.uild.ps1 -Test` fails if `sdk/` has drifted from
-  the manifest. Still to come: `AUTOBOOT.X16`, the CXAP app format,
-  and the loader.
+- **Phase 4 done** — the ABI, and the machine that honours it.
+  `abi/cxgeos.abi` is the manifest: 33 append-only slots, from which
+  `abi/gen_bindings.py` generates the jump table at `$8010` and
+  bindings for all 12 toolchains (7 `.inc`, 5 `.h`).
+  `kernel/resident/impl.inc` maps each ABI promise to the kernel
+  routine behind it, so code can be renamed or moved without an app
+  noticing; `.\build.ps1 -Test` fails if `sdk/` has drifted from the
+  manifest. On top of it: `AUTOBOOT.X16` boots the kernel and the
+  system font off a stock R49 SD root with no ROM patch; the CXAP app
+  format (`docs/formats.md`) turns any toolchain's stock PRG into an
+  app by prepending 32 bytes (`tools/mkcxap.py`); `cx_app_load`
+  validates before it overwrites and refuses with the caller intact;
+  `cx_exit` reloads the shell from disk, so the launch-and-return loop
+  is closed. Proven headless on every `-Test`: the committed canary
+  binary (the ABI freeze test), `apps/hello_asm` (ca65) and
+  `apps/hello_c` (llvm-mos, through the sdk's `cx_run()` veneer — see
+  `docs/formats.md` for why C must not touch `$22` on that compiler)
+  each boot, run, and come back to the shell.

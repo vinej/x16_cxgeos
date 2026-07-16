@@ -79,3 +79,13 @@ version = 1
 28  cx_dirty_add    1   P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h
 29  cx_dirty_count  1   -> A = rects
 30  cx_dirty_get    1   A = index -> P0/P1 = x0, P2/P3 = y0, P4/P5 = x1, P6/P7 = y1
+
+#= the loader
+31  cx_app_load     1   A/X = filename, Y = length; returns only on failure: carry, A = 1 not an app / 2 needs a newer kernel
+
+#= events, continued
+# This slot belongs with the event section for a reader, but slots are
+# append-only and a section cannot be reopened: apps start their own
+# event system (the loader stops it between apps), and the slot that
+# does it arrived after the section was numbered.
+32  cx_ev_init      1   clear the queue and hook the raster; an app calls this before cx_ev_handlers

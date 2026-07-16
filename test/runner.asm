@@ -68,6 +68,10 @@ main
     jsr test_abi_table
     jsr test_abi_call
 
+    jsr test_app_missing
+    jsr test_app_badmagic
+    jsr test_app_toonew
+
     jsr t_summary
     rts
 
@@ -1207,8 +1211,8 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #31
-    bne @report
+    cmp #33                     ; 31 shipped with the table, 32 and 33
+    bne @report                 ; -- the loader, cx_ev_init -- with 4c
     lda cx_hdr_slots+1
     bne @report
     ldy #0
@@ -1288,11 +1292,88 @@ test_abi_call
     jmp t_result
 @name .byte "ABI_CALL", 0
 
+; =====================================================================
+; the app loader (kernel/fs/loader.asm), against real DOS -- the suite
+; runs with -fsroot, so these opens hit an actual filesystem. Only the
+; refusals can be tested here: a load that SUCCEEDS resets the stack
+; and jumps to the new program, and the new program would be standing
+; where this suite is. The success path is the boot smoke test's job,
+; which runs it end to end off a staged SD root. What matters in a
+; refusal is the second half of the contract: carry, the right reason
+; in A, and a caller still standing -- these three tests ARE the caller,
+; and they report their own survival.
+; =====================================================================
+
+; APP_MISSING: no such file. DOS never produces the 32 header bytes,
+; so the judge refuses before anything is touched.
+test_app_missing
+    lda #<@nm
+    ldx #>@nm
+    ldy #@nmlen
+    jsr cxl_load
+    ldy #1
+    bcc @report                 ; came back without carry: very wrong
+    cmp #1
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "APP_MISSING", 0
+@nm   .byte "NOSUCH.CXA"
+@nmlen = * - @nm
+
+; APP_BADMAGIC: the fixture the harness drops into fsroot is a real
+; file whose header does not say CXAP.
+test_app_badmagic
+    lda #<@nm
+    ldx #>@nm
+    ldy #@nmlen
+    jsr cxl_load
+    ldy #1
+    bcc @report
+    cmp #1
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "APP_BADMAGIC", 0
+@nm   .byte "BADAPP.CXA"
+@nmlen = * - @nm
+
+; APP_TOONEW: a well-formed CXAP whose min-ABI is $7FFF. The refusal
+; must be the version one -- A = 2 -- so a user sees "needs a newer
+; kernel" and not "broken file".
+test_app_toonew
+    lda #<@nm
+    ldx #>@nm
+    ldy #@nmlen
+    jsr cxl_load
+    ldy #1
+    bcc @report
+    cmp #2
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "APP_TOONEW", 0
+@nm   .byte "NEWAPP.CXA"
+@nmlen = * - @nm
+
 ; ---------------------------------------------------------------------
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/event/event.asm"
 .include "kernel/resident/core.asm"
+.include "kernel/fs/loader.asm"
 .include "kernel/resident/jumptab.asm"
 
 ; The system font, linked in so the suite needs no SD card. The kernel

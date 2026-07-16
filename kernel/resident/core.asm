@@ -19,9 +19,13 @@ CX_SYSFONT_BANK = 1
 ; The font before the screen, deliberately: it is the only thing here
 ; that can fail, and while it is being judged the machine is still in
 ; text mode -- so the boot stub can print what went wrong. Once the mode
-; switches there is no font to say anything with. The event system goes
-; last, because once its hook is in the machine is live and an interrupt
-; can arrive.
+; switches there is no font to say anything with.
+;
+; The event system is NOT started here. Events belong to whichever app
+; is running: the loader stops them before every handoff, and an app
+; that wants them calls cx_ev_init itself, then cx_ev_handlers. A
+; kernel that hooked the raster before any app existed would just be
+; sampling a mouse for nobody.
 ;
 ; Carry set if there is no CXF at CX_SYSFONT_BANK:$A000 -- the loader
 ; forgot it, or loaded it shifted. Leaves RAM_BANK on the kernel data
@@ -38,8 +42,6 @@ cx_init
     jsr gfx2_init
     lda #0
     jsr gfx2_clear
-
-    jsr ev_init
     clc
     rts
 @nofont
@@ -59,26 +61,42 @@ cx_do_version
     rts
 
 ; ---------------------------------------------------------------------
-; cx_do_exit -- an app is done.
+; cx_do_exit -- an app is done, so the shell comes back.
 ;
-; Phase 4 has no shell to go back to, so for now this hands the machine
-; to BASIC the way a well-behaved program does: undo what the app could
-; have left running, put the text screen back, and rts to the caller
-; that SYSed us. When the shell exists this frees the app's banks and
-; jumps there instead, and every app already built keeps working --
-; which is the point of the slot being here from the start.
+; "Back" means reloaded: the app owns all of $0801-$9EFF while it runs,
+; so the shell it replaced is gone and cx_exit fetches SHELL.CXA off
+; the disk again, through the same cxl_load every launch uses. Nothing
+; returns to the caller -- an app ends here or not at all -- which is
+; why the stack can simply be discarded.
+;
+; The text screen goes up BEFORE the load is attempted: if the disk has
+; no shell, the complaint below needs a mode it can be read in, and by
+; then there is no app left to object to losing the framebuffer. (The
+; mode set is screen_set_mode's body inlined -- four instructions
+; against the 121-byte module that was its only other content. ADDRSEL
+; must be 0 first; the KERNAL's screen code assumes it.)
 ; ---------------------------------------------------------------------
 cx_do_exit
     jsr ev_stop
     jsr mouse_hide
-
-    ; The 80x60 text screen. This is screen_set_mode's body, inlined:
-    ; four instructions against the 121 bytes of the module it lives in,
-    ; and cx_exit is the kernel's only caller of it. ADDRSEL has to be 0
-    ; first -- the KERNAL's screen code assumes it -- and the macro
-    ; clobbers A, which is why the mode is loaded after it rather than
-    ; pushed around it.
     vera_addrsel 0
     lda #$80
     clc
-    jmp SCREEN_MODE
+    jsr SCREEN_MODE
+
+    ldx #$FF                    ; whoever called this is not coming back
+    txs
+    lda #<cxl_shell
+    ldx #>cxl_shell
+    ldy #CXL_SHELL_LEN
+    jsr cxl_load                ; returns only on failure
+
+    ldx #0                      ; no shell: say so where it can be read,
+@msg                            ; and stop -- there is nothing to run
+    lda cxl_noshell,x
+    beq @halt
+    jsr CHROUT
+    inx
+    bra @msg
+@halt
+    bra @halt

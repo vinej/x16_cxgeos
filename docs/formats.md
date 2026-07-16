@@ -61,3 +61,56 @@ blank columns to make it proportional — the bitmaps are the ROM's,
 untouched, just no longer padded to a monospace cell. Widths come out
 2-8 pixels, averaging 5.7, so a line of text is about 29% shorter than
 the same text on the 8-pixel grid.
+
+## CXAP — the app format
+
+A CXAP (`.CXA`) is a 32-byte header in front of an ordinary PRG. That is
+the entire design, and the design IS the point: every one of the twelve
+toolchains already emits a working PRG at $0801, so every one of them
+can produce a CXGEOS app without touching a linker script. The header
+is prepended by `tools/mkcxap.py`, which finds the entry point by
+reading the SYS target out of the PRG's own BASIC stub.
+
+| offset | size | field |
+|---|---|---|
+| 0 | 4 | magic, `CXAP` |
+| 4 | 2 | min ABI version, little-endian — the lowest kernel this app runs on |
+| 6 | 2 | entry address |
+| 8 | 1 | flags (none defined yet; zero) |
+| 9 | 7 | reserved, zero |
+| 16 | 16 | name, ASCII, zero-padded |
+| 32 | — | a standard PRG: load address word ($0801), then the payload |
+
+### How a load happens, and when it can be refused
+
+`cx_app_load` (slot 31) reads the header into $0400 and judges it
+BEFORE the payload touches memory, because the payload lands on top of
+the caller. Refused with carry and the caller intact: wrong magic
+(A = 1), a min-ABI above the kernel's version (A = 2 — "needs a newer
+kernel", not "broken file"), an entry outside app space, a load address
+that is not $0801. The app is refused, not relocated.
+
+Past the first payload byte there is no going back: the caller is
+partially overwritten, so a mid-stream I/O error or a payload that runs
+into the kernel at $8000 ends at a text-mode message and a halt, never
+at a silent half-program.
+
+On success the loader stops the event system, hides the mouse, resets
+the hardware stack, zeroes the app ZP ($60–$7F), and jumps to the
+header's entry: every app starts in the same machine, whoever launched
+it. Nothing returns to the caller — an app ends through `cx_exit`,
+which loads SHELL.CXA through this same path.
+
+### The C side (llvm-mos)
+
+The kernel's parameter block at $22 collides with llvm-mos's own zero
+page: the compiler keeps its soft stack pointer in __rc0/__rc1 at
+$22/$23. A C program that wrote $22 directly would corrupt its own
+stack — it did, and the crash took an evening to bisect. So
+`sdk/include_llvm/cxgeos.h` mirrors the block: `cx_p[]`, `cx_a`,
+`cx_x`, `cx_y` are ordinary memory, and `cx_run()` carries them across
+the real block with $22–$25 saved around the call. The mirror also
+returns the carry as `cx_c`, which raw C calls could never see. Build
+C apps with `-mreserve-zp=90` — clang's whole-program pass otherwise
+claims zero page from $26 up, all of which belongs to the kernel or to
+the app ZP convention.

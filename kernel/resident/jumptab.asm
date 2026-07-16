@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 31                    ; slots
+    .word 33                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -67,6 +67,12 @@ cx_jumptab
     jmp dr_add           ; 28  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h
     jmp dr_count         ; 29  -> A = rects
     jmp dr_get           ; 30  A = index -> P0/P1 = x0, P2/P3 = y0, P4/P5 = x1, P6/P7 = y1
+
+; --- the loader --------------------------------------------------
+    jmp cxl_load         ; 31  A/X = filename, Y = length; returns only on failure: carry, A = 1 not an app / 2 needs a newer kernel
+
+; --- events, continued -------------------------------------------
+    jmp ev_init          ; 32  clear the queue and hook the raster; an app calls this before cx_ev_handlers
 
 .popseg
 

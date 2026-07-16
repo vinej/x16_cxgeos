@@ -20,9 +20,12 @@ that a released slot never changes meaning is a human one.
 
 The C bindings declare the parameter block, not the calls: CXGEOS
 arguments go in X16_P0..P7, which C has no way to express. A C app sets
-them through cx_p[] and calls the slot. That is honest, and it is the
-same for all five compilers -- unlike x16clib, whose per-compiler
-register conventions the C entry shims exist to absorb.
+them through cx_p[] and calls the slot. For four of the compilers that
+is a raw pointer to $22; for llvm-mos it cannot be -- the compiler keeps
+its soft stack pointer in __rc0/__rc1 at $22/$23, so its header mirrors
+the block and cx_run() carries the mirror across the real thing with
+$22-$25 saved. The same per-compiler-shim idea as x16clib, arrived at
+the hard way.
 """
 import argparse
 import re
@@ -202,12 +205,35 @@ def gen_h(compiler, version, slots):
     L.append(" * fixed block is the one convention all five C compilers can agree on.")
     L.append(" * Set cx_p[] and call the slot:")
     L.append(" *")
-    L.append(" *     cx_p[0] = 100; cx_p[1] = 0;      /* x  = 100 */")
-    L.append(" *     cx_p[2] = 50;  cx_p[3] = 0;      /* y  = 50  */")
-    L.append(" *     cx_call_a(CX_GFX_PSET, 3);       /* colour 3 */")
-    L.append(" *")
-    L.append(" * cx_call/cx_call_a are the two shapes every slot uses: a bare call,")
-    L.append(" * or one that also puts a byte in A.")
+    # no /* ... */ inside this block comment: the inner close would end
+    # it early and spill the rest of the intro into the program
+    L.append(" *     cx_p[0] = 100; cx_p[1] = 0;      -- x = 100")
+    L.append(" *     cx_p[2] = 50;  cx_p[3] = 0;      -- y = 50")
+    if compiler == "llvm":
+        L.append(" *     cx_call_a(CX_GFX_PSET, 3);       -- colour 3")
+        L.append(" *")
+        L.append(" * On THIS compiler, cx_p is not the block itself. llvm-mos keeps its")
+        L.append(" * soft stack pointer (__rc0/__rc1) and two reserved registers at")
+        L.append(" * $22-$25 -- the same bytes as the kernel's block -- so a C write to")
+        L.append(" * $22 corrupts the compiler's own stack. cx_p here is a mirror in")
+        L.append(" * ordinary memory, and cx_run() carries it across the real block,")
+        L.append(" * saving $22-$25 around the call. The mirror also carries what a")
+        L.append(" * 6502 call has that C cannot see: cx_a/cx_x/cx_y go in; cx_a, cx_x")
+        L.append(" * and cx_c -- the carry -- come back, so cx_ev_get can be judged.")
+        L.append(" *")
+        L.append(" * Build with -mreserve-zp=90: clang's whole-program pass otherwise")
+        L.append(" * claims zero page from $26 up for hot statics, and everything from")
+        L.append(" * $26 to $7F belongs to the kernel or to the app ZP convention.")
+    else:
+        L.append(" *     cx_call(CX_DIRTY_ADD);           -- args all in cx_p")
+        L.append(" *")
+        L.append(" * Only the bare cx_call is defined here so far: slots that take a")
+        L.append(" * byte in A or a pointer in A/X need this compiler's own argument")
+        L.append(" * conventions honoured, and a guessed macro that quietly puts the")
+        L.append(" * byte in the wrong place is worse than none. The llvm header shows")
+        L.append(" * the finished shape; x16_clib's ABI table is the reference for the")
+        L.append(" * conventions. The helpers land per compiler, tested, with the SDK")
+        L.append(" * packaging phase.")
     L.append(" * ===================================================================== */")
     L.append("")
     L.append("#ifndef CXGEOS_H")
@@ -216,8 +242,17 @@ def gen_h(compiler, version, slots):
     L.append("#define CX_ABI_VERSION  %d" % version)
     L.append("#define CX_ABI_SLOTS    %d" % len(slots))
     L.append("")
-    L.append("/* the parameter block: X16_P0..P7 */")
-    L.append("#define cx_p            ((volatile unsigned char *)0x0022)")
+    if compiler == "llvm":
+        L.append("/* the parameter block's mirror -- see the note above; the real block")
+        L.append(" * at $22 is touched only inside cx_run(). Weak, so every translation")
+        L.append(" * unit shares one copy under one unmangled name the asm can see. */")
+        L.append("/* `used` keeps LTO from discarding what only the asm reads */")
+        L.append("__attribute__((weak, used)) volatile unsigned char cx_p[8];")
+        L.append("__attribute__((weak, used)) volatile unsigned char cx_a, cx_x, cx_y, cx_c;")
+        L.append("__attribute__((weak, used)) volatile unsigned int  cx_slot;")
+    else:
+        L.append("/* the parameter block: X16_P0..P7 */")
+        L.append("#define cx_p            ((volatile unsigned char *)0x0022)")
     L.append("")
     section = None
     for s in slots:
@@ -228,8 +263,65 @@ def gen_h(compiler, version, slots):
         L.append("#define %-18s 0x%04X   /* %s */"
                  % (s["name"].upper(), addr(s["slot"]), s["doc"]))
     L.append("")
-    L.append("/* Call a slot. `a` lands in the accumulator. */")
-    L.append("#define cx_call(slot)      ((*(void (*)(void))(slot))())")
+    if compiler == "llvm":
+        L.append("/* The crossing itself. The slot address is parked in __rc2/3 before")
+        L.append(" * anything moves; $22-$25 ride the hardware stack; the mirror is")
+        L.append(" * copied in, A/X/Y loaded, the slot called through a trampoline, and")
+        L.append(" * registers, carry and the block all copied back out. An event IRQ")
+        L.append(" * landing mid-crossing is fine: the kernel's handler saves and")
+        L.append(" * restores the whole $02-$31 range around itself. */")
+        L.append("__attribute__((weak, noinline)) void cx_run(void) {")
+        L.append("    asm volatile(")
+        L.append('        "lda cx_slot\\n\\t"')
+        L.append('        "sta __rc2\\n\\t"')
+        L.append('        "lda cx_slot+1\\n\\t"')
+        L.append('        "sta __rc3\\n\\t"')
+        L.append('        "lda 0x22\\n\\tpha\\n\\t"')
+        L.append('        "lda 0x23\\n\\tpha\\n\\t"')
+        L.append('        "lda 0x24\\n\\tpha\\n\\t"')
+        L.append('        "lda 0x25\\n\\tpha\\n\\t"')
+        L.append('        "ldy #7\\n\\t"')
+        L.append('        "1:\\n\\t"')
+        L.append('        "lda cx_p,y\\n\\t"')
+        L.append('        "sta 0x22,y\\n\\t"')
+        L.append('        "dey\\n\\t"')
+        L.append('        "bpl 1b\\n\\t"')
+        L.append('        "ldy cx_y\\n\\t"')
+        L.append('        "ldx cx_x\\n\\t"')
+        L.append('        "lda cx_a\\n\\t"')
+        L.append('        "jsr 2f\\n\\t"')
+        L.append('        "sta cx_a\\n\\t"')
+        L.append('        "stx cx_x\\n\\t"')
+        L.append('        "php\\n\\t"')
+        L.append('        "pla\\n\\t"')
+        L.append('        "and #1\\n\\t"')
+        L.append('        "sta cx_c\\n\\t"')
+        L.append('        "ldy #7\\n\\t"')
+        L.append('        "3:\\n\\t"')
+        L.append('        "lda 0x22,y\\n\\t"')
+        L.append('        "sta cx_p,y\\n\\t"')
+        L.append('        "dey\\n\\t"')
+        L.append('        "bpl 3b\\n\\t"')
+        L.append('        "pla\\n\\tsta 0x25\\n\\t"')
+        L.append('        "pla\\n\\tsta 0x24\\n\\t"')
+        L.append('        "pla\\n\\tsta 0x23\\n\\t"')
+        L.append('        "pla\\n\\tsta 0x22\\n\\t"')
+        L.append('        "bra 4f\\n\\t"')
+        L.append('        "2:\\n\\t"')
+        L.append('        "jmp (__rc2)\\n\\t"')
+        L.append('        "4:"')
+        L.append('        ::: "a", "x", "y", "cc", "memory");')
+        L.append("}")
+        L.append("")
+        L.append("#define cx_call(slot)          (cx_slot = (slot), cx_run())")
+        L.append("#define cx_call_a(slot, a)     (cx_a = (unsigned char)(a), cx_call(slot))")
+        L.append("#define cx_call_ax(slot, a, x) (cx_a = (unsigned char)(a), cx_x = (unsigned char)(x), cx_call(slot))")
+        L.append("#define cx_call_p(slot, ptr)   cx_call_ax((slot), ((unsigned int)(ptr)) & 0xFF, ((unsigned int)(ptr)) >> 8)")
+        L.append("#define cx_ret(slot)           (cx_call(slot), cx_a)")
+        L.append("#define cx_ret16(slot)         (cx_call(slot), (unsigned int)cx_a | ((unsigned int)cx_x << 8))")
+    else:
+        L.append("/* A bare call: every argument already sits in cx_p. */")
+        L.append("#define cx_call(slot)      ((*(void (*)(void))(slot))())")
     L.append("")
     L.append("#endif /* CXGEOS_H */")
     return "\n".join(L) + "\n"
