@@ -58,3 +58,5 @@ cx_mouse_show   = mouse_show
 cx_mouse_hide   = mouse_hide
 cx_theme_set    = cx_do_theme_set
 cx_dlg_alert    = cx_do_dlg_alert
+cx_wg_set       = cx_do_wg_set
+cx_wg_draw      = cx_do_wg_draw

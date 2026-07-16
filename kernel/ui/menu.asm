@@ -64,31 +64,52 @@ mn_drop_vec
 ; =====================================================================
 .segment "B2CODE"
 
-b2_table                        ; bank-local, NOT the ABI: only the
-    jmp mn_set                  ; stubs name these slots. EIGHT entries,
-    jmp mn_off                  ; the spares parked on mn_off (a safe
-    jmp mn_bar                  ; no-op-ish landing), so the state block
-    jmp mn_drop                 ; below never moves when one is claimed
-    jmp th_set                  ; 4: kernel/ui/theme.asm
-    jmp dg_alert                ; 5: kernel/ui/dialog.asm
+; The bank-2 jump table, at $A000. Bank-local, NOT the ABI: only the
+; resident stubs name these slots ($A000 + n*3). SIXTEEN entries, with
+; room to spare, so a new module fills a reserved slot without moving
+; the state block behind it -- the table grew from 4 to 8 twice before,
+; and each time the peekable state moved and a test's address went
+; stale. Reserved slots land on mn_off, a safe near-no-op.
+;
+; SLOT MAP -- keep it in step with the stubs in each module's CODE half:
+;   0 mn_set   1 mn_off   2 mn_bar   3 mn_drop     (menu.asm)
+;   4 th_set                                        (theme.asm)
+;   5 dg_alert 6 dg_hit                             (dialog.asm)
+;   8 wg_set   9 wg_draw  10 wg_hit                 (widget.asm)
+;   7, 11..15 reserved
+b2_table
+    jmp mn_set                  ; 0
+    jmp mn_off                  ; 1
+    jmp mn_bar                  ; 2
+    jmp mn_drop                 ; 3
+    jmp th_set                  ; 4
+    jmp dg_alert                ; 5
     jmp dg_hit                  ; 6
-    jmp mn_off                  ; 7: spare
+    jmp mn_off                  ; 7  reserved
+    jmp wg_set                  ; 8
+    jmp wg_draw                 ; 9
+    jmp wg_hit                  ; 10
+    jmp mn_off                  ; 11 reserved
+    jmp mn_off                  ; 12 reserved
+    jmp mn_off                  ; 13 reserved
+    jmp mn_off                  ; 14 reserved
+    jmp mn_off                  ; 15 reserved
 
-; The state, at a FIXED spot right behind the table ($A018), so a test
-; -- or a debugger, or a desperate evening -- can peek it from outside
-; the bank without knowing where the code ends.
-mn_bar_p .word 0                ; $A018  the app's bar; high 0 = none
-mn_count .byte 0                ; $A01A
-mn_open  .byte 0                ; $A01B
-mn_cur   .byte 0                ; $A01C  the open menu
-mn_it_p  .word 0                ; $A01D  ...its items
-mn_n     .byte 0                ; $A01F
-mn_x0    .word 0                ; $A020  ...its box
-mn_w     .word 0                ; $A022
-mn_h     .byte 0                ; $A024
-mn_pick  .byte 0                ; $A025
-mn_trace .byte 0                ; $A026  breadcrumbs: mn_bar +1, open +$10
-mn_hot   .byte 0                ; $A027  the highlighted row; $FF = none
+; The state block, at a FIXED spot behind the 48-byte table ($A030), so
+; a test -- or a debugger, or a desperate evening -- can peek it from
+; outside the bank without knowing where the code ends.
+mn_bar_p .word 0                ; $A030  the app's bar; high 0 = none
+mn_count .byte 0                ; $A032
+mn_open  .byte 0                ; $A033
+mn_cur   .byte 0                ; $A034  the open menu
+mn_it_p  .word 0                ; $A035  ...its items
+mn_n     .byte 0                ; $A037
+mn_x0    .word 0                ; $A038  ...its box
+mn_w     .word 0                ; $A03A
+mn_h     .byte 0                ; $A03C
+mn_pick  .byte 0                ; $A03D
+mn_trace .byte 0                ; $A03E  breadcrumbs: mn_bar +1, open +$10
+mn_hot   .byte 0                ; $A03F  the highlighted row; $FF = none
 mn_i     .byte 0
 mn_t     .byte 0, 0
 mn_t2    .byte 0, 0

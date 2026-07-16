@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 39                    ; slots
+    .word 41                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -85,6 +85,10 @@ cx_jumptab
 ; --- themes and dialogs ------------------------------------------
     jmp cx_do_theme_set  ; 37  A/X = a 12-byte theme record (docs/formats.md): four palette RGBs plus the role indices; the palette changes instantly
     jmp cx_do_dlg_alert  ; 38  A/X = a dialog descriptor (docs/formats.md); SYNCHRONOUS -- returns A = the chosen button. RETURN picks button 0
+
+; --- widgets -----------------------------------------------------
+    jmp cx_do_wg_set     ; 39  A/X = a widget list (docs/formats.md); draws it, routes its clicks; posts EV_WIDGET(detail = index, P2 = value)
+    jmp cx_do_wg_draw    ; 40  redraw the current widget list
 
 .popseg
 

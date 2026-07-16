@@ -104,3 +104,31 @@ the handler table is swapped for the engine's own so RETURN can stand in
 for button 0. Both are restored before the call returns, and the pixels
 come back from the banked save-under. Geometry is fixed (400×96, centred;
 72×16 buttons right-aligned) so a blind test can click a known button.
+
+## Widgets (Phase 5b, `kernel/ui/widget.asm`, bank 2)
+
+The toolkit draws a widget list and turns clicks on it into `EV_WIDGET`
+events (docs/formats.md). Button, checkbox, radio and horizontal
+scrollbar so far — the click widgets, which need no keyboard focus. Each
+widget's state lives in its own record in the app's memory, which the
+toolkit writes back, so the app never tracks a checkbox's checked-ness
+itself; it just hears `EV_WIDGET(index, value)` and, if it cares, reads
+the record. Everything draws in the live theme's colours, so a theme
+switch plus `cx_wg_draw` recolours the lot.
+
+`cx_wg_set` pushes one region over the bounding box of all the widgets,
+so the routing is the same region machinery the menus use — the toolkit
+hit-tests the individual widgets inside that box. The text field (a
+caret, selection, keyboard focus) and the list view ride a later pass
+that adds the focus model the click widgets do without.
+
+## The bank-2 jump table
+
+`menu.asm` owns the bank-local jump table at `$A000` — 16 three-byte
+slots, most reserved, so a new bank-2 module (theme, dialog, widget, and
+whatever follows) claims a reserved slot without moving the peekable
+menu-state block that sits behind the table at `$A030`. The resident
+stubs each module keeps in its CODE half name these slots by number; the
+map is in `menu.asm`'s header comment. Sixteen was chosen after the
+table grew 4→8 twice and moved the state block (and a test's peek
+address) each time.

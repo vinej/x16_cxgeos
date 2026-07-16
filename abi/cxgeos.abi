@@ -101,3 +101,7 @@ version = 1
 #= themes and dialogs
 37  cx_theme_set    1   A/X = a 12-byte theme record (docs/formats.md): four palette RGBs plus the role indices; the palette changes instantly
 38  cx_dlg_alert    1   A/X = a dialog descriptor (docs/formats.md); SYNCHRONOUS -- returns A = the chosen button. RETURN picks button 0
+
+#= widgets
+39  cx_wg_set       1   A/X = a widget list (docs/formats.md); draws it, routes its clicks; posts EV_WIDGET(detail = index, P2 = value)
+40  cx_wg_draw      1   redraw the current widget list

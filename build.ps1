@@ -143,7 +143,8 @@ function Build-Apps {
     foreach ($app in @(
         @{ src = "apps\shell\shell.asm";        prg = "SHELL";    name = "Shell" },
         @{ src = "apps\hello_asm\hello.asm";    prg = "HELLO1";   name = "Hello (asm)" },
-        @{ src = "test\menutest\menutest.asm";  prg = "MENUTEST"; name = "Menu test" }
+        @{ src = "test\menutest\menutest.asm";  prg = "MENUTEST"; name = "Menu test" },
+        @{ src = "apps\gallery\gallery.asm";     prg = "GALLERY";  name = "Widget gallery" }
     )) {
         $p = Build-Prg $app.src $app.prg
         & $py $mkcxap $p (Join-Path $build "$($app.prg).CXA") --name $app.name
@@ -187,6 +188,7 @@ function Stage-SdRoot {
     Copy-Item (Join-Path $root  "fonts\pxl8.cxf") (Join-Path $sdroot "PXL8.CXF")
     Copy-Item (Join-Path $build "SHELL.CXA")     $sdroot
     Copy-Item (Join-Path $build "HELLO1.CXA")    $sdroot
+    Copy-Item (Join-Path $build "GALLERY.CXA")   $sdroot
     if (Test-Path (Join-Path $build "HELLO2.CXA")) {
         Copy-Item (Join-Path $build "HELLO2.CXA") $sdroot
     }

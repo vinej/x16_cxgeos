@@ -138,3 +138,31 @@ selection arrives as an `EV_MENU` event (type 7): `detail` (P1) is the
 item index, P2 the menu index. Clicking anywhere outside an open
 drop-down dismisses it and posts nothing; either way every pixel the
 box covered comes back from the save-under strip.
+
+## The widget list
+
+An app hands `cx_wg_set` a widget list: a count byte, then that many
+16-byte records, in the app's own memory (read and written in place —
+the toolkit stores each widget's state back into its record).
+
+```
+0   type    .byte    0 button, 1 checkbox, 2 radio, 3 h-scrollbar
+1   flags   .byte    bit0 = disabled (drawn, but not clickable)
+2   x       .word
+4   y       .word
+6   w       .word
+8   h       .byte
+9   value   .byte    checkbox/radio 0-1; scrollbar 0..max
+10  group   .byte    radio: the group id; scrollbar: the max value
+11  label   .word    a zero-terminated string
+13  --      3 bytes  reserved, zero
+```
+
+A click updates the widget under it, redraws just that widget, and posts
+`EV_WIDGET` (type 8): `detail` (P1) is the widget index, P2 its value.
+A button reports value 1 (momentary). A checkbox toggles. A radio lights
+and clears its group-mates. A scrollbar takes the value its click names.
+Every colour is the live theme's, so `cx_theme_set` then `cx_wg_draw`
+recolours the whole list. Registering a list pushes a region over the
+list's bounding box, so its clicks route to the toolkit and nowhere
+else. Only an app that called `cx_wg_set` can receive `EV_WIDGET`.

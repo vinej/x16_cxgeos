@@ -1218,9 +1218,9 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #39                     ; 31 shipped with the table; the loader,
-    bne @report                 ; events, menus, the pointer, themes and
-                                ; dialogs grew it
+    cmp #41                     ; 31 shipped with the table; the loader,
+    bne @report                 ; events, menus, the pointer, themes,
+                                ; dialogs and now the widgets grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
@@ -1765,6 +1765,7 @@ test_app_toonew
 ; shove the table off $A000 and every stub with it
 .include "kernel/ui/theme.asm"
 .include "kernel/ui/dialog.asm"
+.include "kernel/ui/widget.asm"
 .include "kernel/event/event.asm"
 .include "kernel/resident/core.asm"
 .include "kernel/resident/farcall.asm"

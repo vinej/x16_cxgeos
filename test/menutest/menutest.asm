@@ -23,6 +23,9 @@ EV_MOUSE_MOVE = 1               ; ABI event numbering
 EV_MOUSE_DOWN = 2
 EV_KEY        = 5
 EV_MENU       = 7
+EV_WIDGET     = 8
+WG_CHECK      = 1
+WG_RADIO      = 2
 
 PROBE_X = 40                    ; inside menu 0's box-to-be, and OFF
 PROBE_Y = 32                    ; its text: the items draw in ink 3,
@@ -249,6 +252,68 @@ main
     ldx #>def_theme             ; machine it expects
     jsr cx_theme_set
 
+    ; ---- the widget toolkit --------------------------------------
+    ; the menu bar's region is still on the stack under nothing, and a
+    ; fresh ev_init would be cleaner, but cx_wg_set just pushes another
+    ; region on top -- its widgets are well below the bar, so no click
+    ; here reaches both.
+    lda #<wg_list
+    ldx #>wg_list
+    jsr cx_wg_set
+
+    lda #EV_MOUSE_DOWN          ; click the checkbox at (50,100): its
+    sta X16_P0                  ; box is 12 wide, so (55,105) is inside
+    stz X16_P1
+    lda #55
+    sta X16_P2
+    stz X16_P3
+    lda #105
+    sta X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jsr cx_ev_post
+    jsr drain                   ; the widget toggles and posts EV_WIDGET
+    lda got_wg                  ; heard, with the new value: 1, marked
+    cmp #$81                    ; ($80 | value 1)
+    beq @wgtog
+    lda #'W'
+    jmp fail
+@wgtog
+    ; the checkbox record's WG_VAL (offset 9) must now read 1
+    lda wg_list + 1 + 9         ; count byte, then record 0's val
+    cmp #1
+    beq @wgval
+    lda #'X'
+    jmp fail
+@wgval
+    ; click radio 3 (index 3, at (50,180)); record 2 -- the middle one,
+    ; selected at the start -- must clear, proving the group logic
+    lda #EV_MOUSE_DOWN
+    sta X16_P0
+    stz X16_P1
+    lda #55
+    sta X16_P2
+    stz X16_P3
+    lda #185
+    sta X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jsr cx_ev_post
+    jsr drain
+    lda wg_list + 1 + 3*16 + 9  ; record 3's val = 1 (now selected)
+    cmp #1
+    beq @wgr3
+    lda #'Y'
+    jmp fail
+@wgr3
+    lda wg_list + 1 + 2*16 + 9  ; record 2's val = 0 (was selected)
+    beq @wgr2
+    lda #'Z'
+    jmp fail
+@wgr2
+
 menu_ok
     lda #<s_ok
     ldx #>s_ok
@@ -290,7 +355,8 @@ hot_is
     pha
     lda #2
     sta RAM_BANK
-    lda $A027
+    lda $A03F                   ; mn_hot (state block behind the
+                                ; 48-byte, 16-slot bank-2 table)
     tay                         ; hold it across the bank restore, which
     pla                         ; the compare's flags would not survive
     sta RAM_BANK
@@ -338,12 +404,49 @@ pmsg
 @done
     rts
 
-handlers
+on_widget
+    lda X16_P2                  ; the value, marked heard
+    ora #$80
+    sta got_wg
+    rts
+
+handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER
     .addr 0, 0, 0, 0, 0, 0, 0
-    .addr on_menu               ; EV_MENU
+    .addr on_menu               ; MENU
+    .addr on_widget             ; WIDGET
 
 got_item .byte $FF
 got_menu .byte 0
+got_wg   .byte 0
+
+; a checkbox at (50,100) and a three-radio group (group 1), the middle
+; one selected -- enough for toggle and the group's clear-the-others.
+wg_list
+    .byte 4
+    .byte WG_CHECK, 0
+    .word 50, 100, 140
+    .byte 12, 0, 0
+    .addr wl_c
+    .byte 0, 0, 0
+    .byte WG_RADIO, 0
+    .word 50, 140, 100
+    .byte 12, 0, 1
+    .addr wl_a
+    .byte 0, 0, 0
+    .byte WG_RADIO, 0
+    .word 50, 160, 100
+    .byte 12, 1, 1
+    .addr wl_b
+    .byte 0, 0, 0
+    .byte WG_RADIO, 0
+    .word 50, 180, 100
+    .byte 12, 0, 1
+    .addr wl_c2
+    .byte 0, 0, 0
+wl_c  .byte "check", 0
+wl_a  .byte "a", 0
+wl_b  .byte "b", 0
+wl_c2 .byte "c", 0
 
 ; the menu tree (docs/formats.md)
 bar

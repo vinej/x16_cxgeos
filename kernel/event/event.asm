@@ -61,7 +61,11 @@ EV_MENU       = 7               ; posted by the menu engine: detail =
                                 ; one, so a table built before this
                                 ; type existed is never read past its
                                 ; end.
-EV_COUNT      = 8               ; how many types, for the handler table
+EV_WIDGET     = 8               ; posted by the widget toolkit: detail =
+                                ; the widget index, P2 = its value. Same
+                                ; contract as EV_MENU -- only an app that
+                                ; called cx_wg_set is handed one.
+EV_COUNT      = 9               ; how many types, for the handler table
 
 EV_MAX        = 16              ; records in the queue
 EV_SIZE       = 8
@@ -309,7 +313,7 @@ ev_mainloop
     bra ev_mainloop
 
 ev_null_table
-    .word 0, 0, 0, 0, 0, 0, 0, 0 ; EV_COUNT vectors, all ignored
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0 ; EV_COUNT vectors, all ignored
 
 ; =====================================================================
 ; the interrupt
