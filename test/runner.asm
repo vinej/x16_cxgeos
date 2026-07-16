@@ -50,6 +50,9 @@ main
     jsr test_font_measure
     jsr test_font_draw
     jsr test_font_pen
+    jsr test_font_bold
+    jsr test_font_under
+    jsr test_font_pen_bold
 
     jsr t_summary
     rts
@@ -597,6 +600,163 @@ test_font_pen
     ldy #>@name
     jmp t_result
 @name .byte "FONT_PEN", 0
+@str  .byte "Hamburgefonstiv 123", 0
+@want .word 0
+
+
+; FONT_BOLD: bold strikes the glyph again one pixel right, so 'i' -- two
+; pixels at $F0 -- becomes three at $FC. The advance grows with it, and
+; that has to come from f_advance or measure and draw would part ways.
+test_font_bold
+    vera_addr 0, ROW100, VERA_INC_1
+    lda #$00
+    ldx #8
+    ldy #0
+    jsr vera_fill
+
+    lda #FONT_BOLD
+    jsr font_style
+    stz X16_P0
+    stz X16_P1
+    lda #<100
+    sta X16_P2
+    stz X16_P3
+    lda #<@i
+    ldx #>@i
+    jsr font_draw
+
+    vera_addr 1, ROW100, VERA_INC_1
+    ldy #1
+    lda VERA_DATA1
+    cmp #$FC                    ; three pixels wide now
+    bne @report
+    lda VERA_DATA1
+    bne @report                 ; and still nowhere near byte 1
+
+    lda #<@i                    ; the advance carries the extra pixel
+    ldx #>@i
+    jsr font_measure
+    lda X16_P0
+    cmp #4                      ; i is 2 + 1 spacing + 1 bold
+    bne @report
+    ldy #0
+@report
+    lda #0                      ; plain again, whatever happened
+    jsr font_style
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONT_BOLD", 0
+@i    .byte "i", 0
+
+; FONT_UNDER: one hline under the whole string, at y + height, running
+; the full measured width -- through the space, not broken by it.
+test_font_under
+    vera_addr 0, ROW100, VERA_INC_1
+    lda #$00
+    ldx #<(9 * FB_STRIDE)
+    ldy #>(9 * FB_STRIDE)
+    jsr vera_fill               ; rows 100-108
+
+    lda #FONT_UNDER
+    jsr font_style
+    stz X16_P0
+    stz X16_P1
+    lda #<100
+    sta X16_P2
+    stz X16_P3
+    lda #<@str
+    ldx #>@str
+    jsr font_draw
+    lda X16_P0
+    sta @pen
+
+    ; the rule sits on row 108 = 100 + height
+    vera_addr 1, ROW100 + 8 * FB_STRIDE, VERA_INC_1
+    ldy #1
+    lda VERA_DATA1
+    cmp #$FF                    ; solid from the very first pixel
+    bne @report
+    lda VERA_DATA1
+    cmp #$FF                    ; ...and still solid across the space
+    bne @report
+
+    ; and nothing on the row above it that the glyphs did not put there
+    lda @pen                    ; the rule stops where the pen did:
+    lsr                         ; byte (pen-1)>>2 is the last one lit
+    lsr
+    tax
+    vera_addr 1, ROW100 + 8 * FB_STRIDE, VERA_INC_1
+@walk
+    lda VERA_DATA1
+    cmp #$FF
+    bne @report
+    dex
+    bne @walk
+    ldy #0
+@report
+    lda #0
+    jsr font_style
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONT_UNDER", 0
+@str  .byte "in it", 0
+@pen  .byte 0
+
+; FONT_PEN_BOLD: the measure/draw invariant, with bold set. This is the
+; one that would have caught putting bold's extra pixel in font_draw
+; instead of f_advance -- the text would draw wider than anything that
+; laid it out believed.
+test_font_pen_bold
+    vera_addr 0, ROW200B1 - 1, VERA_INC_1
+    lda #$00
+    ldx #<200
+    ldy #>200
+    jsr vera_fill
+
+    lda #FONT_BOLD
+    jsr font_style
+
+    lda #<@str
+    ldx #>@str
+    jsr font_measure
+    lda X16_P0
+    sta @want
+    lda X16_P1
+    sta @want+1
+
+    lda #<40
+    sta X16_P0
+    stz X16_P1
+    lda #<200
+    sta X16_P2
+    stz X16_P3
+    lda #<@str
+    ldx #>@str
+    jsr font_draw
+
+    ldy #1
+    sec
+    lda X16_P0
+    sbc #40
+    cmp @want
+    bne @report
+    lda X16_P1
+    sbc #0
+    cmp @want+1
+    bne @report
+    ldy #0
+@report
+    lda #0
+    jsr font_style
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONT_PEN_BOLD", 0
 @str  .byte "Hamburgefonstiv 123", 0
 @want .word 0
 

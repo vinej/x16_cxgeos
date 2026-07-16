@@ -28,6 +28,8 @@
 ;   font_set     in:  A/X = CXF image (low RAM)
 ;                out: carry set if the magic is wrong
 ;                Reads the header and builds the cache.
+;   font_style   in:  A = FONT_BOLD | FONT_UNDER (0 = plain)
+;                Sticky until changed.
 ;   font_measure in:  A/X = NUL-terminated string
 ;                out: X16_P0/P1 = width in pixels
 ;   font_draw    in:  X16_P0/P1 = x, X16_P2/P3 = y, A/X = string
@@ -35,7 +37,28 @@
 ;                No clipping: the caller keeps the string on screen.
 ;
 ; Both walk the string with an 8-bit index, so a string is 255 chars.
+;
+; Text is drawn transparently: only the ink lands, and whatever was
+; under the glyph shows through. To erase what was there, fill the box
+; first -- font_measure gives the width, f_height the height, and
+; gfx2_rect does it in one call. The engine does not do that for you
+; because a per-glyph opaque fill costs more than one rect for the line.
+;
+; STYLES. Bold is a double strike: the glyph is blitted again one pixel
+; right, which the masked blit ORs into the first. That widens every
+; glyph by one, so the advance grows too -- and it grows inside
+; f_advance, which is the single place both font_measure and font_draw
+; ask. Anywhere else and the two would disagree the moment bold was set,
+; which is exactly the bug FONT_PEN exists to catch.
+;
+; Underline is one hline under the whole string, drawn once at the end
+; rather than per glyph, so it runs unbroken through the spaces. It sits
+; at y + height -- one row below the cell, inside the line's leading, so
+; it clears the descenders. A line box needs height + 1 rows for it.
 ; =====================================================================
+
+FONT_BOLD   = $01
+FONT_UNDER  = $02
 
 CX_F_BANK0    = 6               ; the cache's first RAM bank
 CX_F_PERBANK  = 42              ; glyphs per bank
@@ -273,8 +296,18 @@ f_store_row
     rts
 
 ; ---------------------------------------------------------------------
+; font_style -- A = FONT_BOLD | FONT_UNDER, or 0 for plain.
+; ---------------------------------------------------------------------
+font_style
+    sta f_style
+    rts
+
+; ---------------------------------------------------------------------
 ; f_advance -- A = character; out: A = its advance, or 0 if the font has
 ; no such glyph. Preserves nothing.
+;
+; The ONLY place an advance is decided. font_measure and font_draw both
+; come here, so bold's extra pixel cannot make them disagree.
 ; ---------------------------------------------------------------------
 f_advance
     sec
@@ -288,6 +321,15 @@ f_advance
     lda (CX_F_CXF),y
     clc
     adc f_spacing
+    pha
+    lda f_style                 ; bold strikes one pixel right, so every
+    and #FONT_BOLD              ; glyph is a pixel wider
+    beq @plain
+    pla
+    inc
+    rts
+@plain
+    pla
     rts
 @none
     lda #0
@@ -333,6 +375,11 @@ font_draw
     lda X16_P3
     sta CX_F_Y+1
 
+    lda CX_F_PEN                ; where the underline will start
+    sta f_ux
+    lda CX_F_PEN+1
+    sta f_ux+1
+
     lda RAM_BANK
     pha
     stz f_idx
@@ -350,36 +397,20 @@ font_draw
     bcs @advance
     sta f_gi
 
-    jsr f_slot_addr             ; RAM_BANK + CX_F_SRC = the slot
-    lda CX_F_PEN                ; + the phase this pen lands on
-    and #3
-    sta f_phase
-    tax
-    lda f_poff,x
-    clc
-    adc CX_F_SRC
-    sta CX_F_SRC
-    bcc @nc
-    inc CX_F_SRC+1
-@nc
-
-    lda CX_F_PEN                ; blitm consumes P0..P7, so they are
-    sta X16_P0                  ; rebuilt for every glyph
+    lda CX_F_PEN
+    sta f_bx
     lda CX_F_PEN+1
-    sta X16_P1
-    lda CX_F_Y
-    sta X16_P2
-    lda CX_F_Y+1
-    sta X16_P3
-    lda f_height
-    sta X16_P4
-    jsr f_columns               ; only the columns this glyph reaches
-    sta X16_P5
-    lda CX_F_SRC
-    sta X16_P6
-    lda CX_F_SRC+1
-    sta X16_P7
-    jsr gfx2_blitm
+    sta f_bx+1
+    jsr f_blit_at
+
+    lda f_style                 ; bold: the same glyph again, one right.
+    and #FONT_BOLD              ; The masked blit keeps what is already
+    beq @advance                ; there, so the two strikes OR together.
+    inc f_bx
+    bne @bold
+    inc f_bx+1
+@bold
+    jsr f_blit_at
 
 @advance
     lda f_ch
@@ -396,11 +427,74 @@ font_draw
 @done
     pla
     sta RAM_BANK
+
+    lda f_style
+    and #FONT_UNDER
+    beq @nounder
+
+    lda f_ux                    ; one hline under the whole string, so it
+    sta X16_P0                  ; runs unbroken through the spaces
+    lda f_ux+1
+    sta X16_P1
+    clc                         ; y + height: below the cell, inside the
+    lda CX_F_Y                  ; line's leading, clear of descenders
+    adc f_height
+    sta X16_P2
+    lda CX_F_Y+1
+    adc #0
+    sta X16_P3
+    sec                         ; length = pen - start
+    lda CX_F_PEN
+    sbc f_ux
+    sta X16_P4
+    lda CX_F_PEN+1
+    sbc f_ux+1
+    sta X16_P5
+    lda #3
+    jsr gfx2_hline
+@nounder
+
     lda CX_F_PEN                ; hand the pen back
     sta X16_P0
     lda CX_F_PEN+1
     sta X16_P1
     rts
+
+; ---------------------------------------------------------------------
+; f_blit_at -- glyph f_gi at (f_bx, CX_F_Y). Picks the pre-shifted phase
+; f_bx lands on and hands blitm the slot; RAM_BANK is left on the
+; glyph's bank, which the caller restores once for the whole string.
+; ---------------------------------------------------------------------
+f_blit_at
+    jsr f_slot_addr             ; RAM_BANK + CX_F_SRC = the slot
+    lda f_bx                    ; + the phase this x lands on
+    and #3
+    sta f_phase
+    tax
+    lda f_poff,x
+    clc
+    adc CX_F_SRC
+    sta CX_F_SRC
+    bcc @nc
+    inc CX_F_SRC+1
+@nc
+    lda f_bx                    ; blitm consumes P0..P7, so they are
+    sta X16_P0                  ; rebuilt for every strike
+    lda f_bx+1
+    sta X16_P1
+    lda CX_F_Y
+    sta X16_P2
+    lda CX_F_Y+1
+    sta X16_P3
+    lda f_height
+    sta X16_P4
+    jsr f_columns               ; only the columns this glyph reaches
+    sta X16_P5
+    lda CX_F_SRC
+    sta X16_P6
+    lda CX_F_SRC+1
+    sta X16_P7
+    jmp gfx2_blitm
 
 ; ---------------------------------------------------------------------
 ; f_columns -- how many byte columns glyph f_gi covers at f_phase:
@@ -434,6 +528,8 @@ f_count   .byte 0
 f_spacing .byte 0
 f_bmp     .word 0               ; the glyph bitmaps
 
+f_style   .byte 0               ; FONT_BOLD | FONT_UNDER
+
 f_gi      .byte 0               ; the glyph being cached / drawn
 f_phase   .byte 0
 f_row     .byte 0
@@ -442,6 +538,8 @@ f_bits    .byte 0
 f_cov     .res 3, 0
 f_idx     .byte 0               ; the string index
 f_ch      .byte 0
+f_bx      .word 0               ; where a strike lands (bold moves it)
+f_ux      .word 0               ; where the underline starts
 
 ; k = phase + c, 0..10. The two bits pixel k occupies, and which of the
 ; three cache bytes they live in.

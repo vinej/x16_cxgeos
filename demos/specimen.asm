@@ -136,6 +136,30 @@ draw_specimen
     ldx #>sp_rule
     jsr line
 
+    ; the styles: bold is a double strike, underline one rule under the
+    ; whole run. Both are measured, so a layout can mix them.
+    lda #FONT_BOLD
+    jsr font_style
+    lda #<sp_bold
+    ldx #>sp_bold
+    jsr line
+    lda #FONT_UNDER
+    jsr font_style
+    lda #<sp_under
+    ldx #>sp_under
+    jsr line
+    lda #(FONT_BOLD | FONT_UNDER)
+    jsr font_style
+    lda #<sp_both
+    ldx #>sp_both
+    jsr line
+    lda #0
+    jsr font_style
+
+    lda #<sp_rule
+    ldx #>sp_rule
+    jsr line
+
     ; the same paragraph twice, reflowed to two different measures --
     ; the proof that font_measure is load-bearing and not decorative
     lda #<sp_wide
@@ -316,6 +340,9 @@ sp_rule   .byte "----------------------------------------------------------", 0
 sp_upper  .byte "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0
 sp_lower  .byte "abcdefghijklmnopqrstuvwxyz", 0
 sp_digits .byte "0123456789", 0
+sp_bold   .byte "Bold is a double strike, one pixel right.", 0
+sp_under  .byte "Underline runs under the whole line, spaces and all.", 0
+sp_both   .byte "Both together.", 0
 ; ca65 has no escapes inside a string: the quote, the backslash and the
 ; backtick go in as bytes.
 sp_punct  .byte "!", $22, "#$%&'()*+,-./:;<=>?@[", $5C, "]^_", $60, "{|}~", 0
