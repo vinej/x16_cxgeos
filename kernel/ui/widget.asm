@@ -20,9 +20,14 @@
 ; the click position names. All colours come from the live theme, so the
 ; toolkit is themable for free.
 ;
-; Deliberately not here yet: keyboard focus, the text field's caret, the
-; list view. Those need a focus model the click widgets do not, and ride
-; a later pass.
+; Keyboard: cx_wg_key drives the same list without a mouse -- TAB/UP move
+; a focus frame between widgets, SPACE/RETURN activate the focused one
+; (the click path exactly), LEFT/RIGHT step a focused scrollbar. Same
+; EV_WIDGET either way.
+;
+; Deliberately not here yet: the text field's caret and the list view.
+; Those want the focus model this pass just built, plus keyboard text
+; entry, and ride the next one.
 ; =====================================================================
 
 WG_BUTTON = 0
@@ -59,6 +64,10 @@ wg_vec
     jsr cxb_call
     .byte 2
     .addr $A000 + 10*3
+cx_do_wg_key
+    jsr cxb_call
+    .byte 2
+    .addr $A000 + 12*3
 
 .segment "B2CODE"
 
@@ -75,6 +84,8 @@ wg_set
     ldy #0
     lda (CX_M_PTR),y            ; the count
     sta wg_n
+    lda #$FF                    ; a fresh list starts unfocused
+    sta wg_focus
 
     jsr wg_draw_all
 
@@ -690,6 +701,11 @@ wg_act
     bra @post
 
 @post
+    jmp wg_post_val
+
+; wg_post_val -- A = value; posts EV_WIDGET(detail = wg_i, P2 = value).
+; Shared by the click path and the keyboard.
+wg_post_val
     sta X16_P2                  ; value in P2
     lda wg_i
     sta X16_P1                  ; index in detail
@@ -701,6 +717,227 @@ wg_act
     stz X16_P6
     stz X16_P7
     jmp ev_post
+
+; =====================================================================
+; keyboard -- wg_key. TAB / DOWN move focus forward, UP back; SPACE or
+; RETURN activates the focused widget exactly as a click would; on a
+; focused scrollbar LEFT / RIGHT step its value. A focus frame follows.
+; Carry set if the key was ours.
+; =====================================================================
+WK_TAB   = $09
+WK_SPACE = $20
+WK_ENTER = $0D
+WK_DOWN  = $11
+WK_UP    = $91
+WK_LEFT  = $9D
+WK_RIGHT = $1D
+WK_STEP  = 5                    ; scrollbar keys move this much
+
+wg_key
+    ldx wg_n
+    beq @no                     ; no list: not ours
+    cmp #WK_TAB                 ; TAB forward, UP back. NOT DOWN: that
+    beq @fwd                    ; opens the menu bar, and the menu wins
+    cmp #WK_UP
+    beq @back
+    cmp #WK_SPACE
+    beq @act
+    cmp #WK_ENTER
+    beq @act
+    cmp #WK_LEFT
+    beq @left
+    cmp #WK_RIGHT
+    beq @right
+    bra @no
+
+@fwd
+    lda #1
+    jsr wg_focus_move
+    bra @yes
+@back
+    lda #$FF
+    jsr wg_focus_move
+    bra @yes
+
+@act
+    lda wg_focus
+    bmi @no                     ; nothing focused
+    sta wg_i
+    jsr wg_rec
+    ldy #WG_TYPE
+    lda (CX_M_PTR),y
+    cmp #WG_SCROLL
+    beq @no                     ; a bar takes LEFT/RIGHT, not activation
+    jsr wg_act                  ; the click path: updates + posts
+    jsr wg_refocus_frame        ; wg_act repainted the widget plain
+    bra @yes
+
+@left
+    lda #<($100 - WK_STEP)      ; -WK_STEP as a byte
+    jsr wg_scroll_key
+    bra @cont
+@right
+    lda #WK_STEP
+    jsr wg_scroll_key
+@cont
+    bcc @no                     ; not on a scrollbar: pass the key
+@yes
+    sec
+    rts
+@no
+    clc
+    rts
+
+; wg_scroll_key -- A = signed step. If the focused widget is a
+; scrollbar, move its value by the step (clamped 0..max), repaint, and
+; post. Carry set if it acted.
+wg_scroll_key
+    sta wg_step
+    lda wg_focus
+    bmi @miss
+    sta wg_i
+    jsr wg_rec
+    ldy #WG_TYPE
+    lda (CX_M_PTR),y
+    cmp #WG_SCROLL
+    bne @miss
+    ldy #WG_VAL                 ; value + step, signed on a byte
+    lda (CX_M_PTR),y
+    clc
+    adc wg_step
+    ldx wg_step
+    bmi @dn                     ; stepping down: floor at 0
+    ldy #WG_GRP                 ; up: ceil at max
+    cmp (CX_M_PTR),y
+    bcc @put
+    lda (CX_M_PTR),y
+    bra @put
+@dn
+    bcs @put                    ; no borrow: still >= 0
+    lda #0
+@put
+    ldy #WG_VAL
+    sta (CX_M_PTR),y
+    jsr wg_paint
+    jsr wg_refocus_frame
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    jsr wg_post_val
+    sec
+    rts
+@miss
+    clc
+    rts
+
+; wg_focus_move -- A = +1 forward or $FF back. Advances wg_focus to the
+; next enabled widget (wrapping), erasing the old focus frame and
+; drawing the new. Skips disabled widgets; a lap with no landing leaves
+; focus put.
+wg_focus_move
+    sta wg_step
+    lda wg_focus                ; erase the old frame first
+    bmi @search
+    sta wg_i
+    jsr wg_rec
+    jsr wg_clr_frame
+
+@search
+    lda wg_focus
+    bpl @from
+    lda #$FF                    ; none yet: forward starts before 0
+@from
+    ldx wg_n                    ; try at most n candidates
+@try
+    clc
+    adc wg_step
+    cmp wg_n
+    bcc @inrange
+    lda wg_step                 ; wrapped: back is $FF -> n-1, fwd -> 0
+    bmi @wraphi
+    lda #0
+    bra @inrange
+@wraphi
+    lda wg_n
+    sec
+    sbc #1
+@inrange
+    sta wg_focus
+    tay                         ; is this one enabled?
+    sty wg_i
+    jsr wg_rec
+    ldy #WG_FLAGS
+    lda (CX_M_PTR),y
+    and #WG_DISABLED
+    beq @landed
+    lda wg_focus                ; skip it, keep looking
+    dex
+    bne @try
+    ; nowhere to land: leave focus as it was ($FF or old)
+    rts
+@landed
+    jsr wg_draw_frame
+    rts
+
+; wg_refocus_frame -- redraw the focus frame on the current wg_i (its
+; widget was just repainted plain by an action).
+wg_refocus_frame
+    lda wg_focus
+    bmi @none
+    cmp wg_i
+    bne @none
+    jsr wg_draw_frame
+@none
+    rts
+
+; wg_draw_frame / wg_clr_frame -- the focus outline, a frame 2px outside
+; the widget's box in the highlight colour; clearing repaints the box
+; over a paper margin. wg_i / CX_M_PTR must be the widget.
+wg_draw_frame
+    jsr wg_frame_box
+    lda th_hi
+    jmp gfx2_frame
+wg_clr_frame
+    jsr wg_frame_box            ; a paper margin, then the widget back
+    lda th_paper
+    jsr gfx2_rect
+    jmp wg_paint
+
+; wg_frame_box -- P0..P7 = the widget's box grown 2px each way.
+wg_frame_box
+    sec
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    sbc #2
+    sta X16_P0
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    sbc #0
+    sta X16_P1
+    sec
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    sbc #2
+    sta X16_P2
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    sbc #0
+    sta X16_P3
+    clc
+    ldy #WG_W
+    lda (CX_M_PTR),y
+    adc #4
+    sta X16_P4
+    ldy #WG_W+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P5
+    ldy #WG_H
+    lda (CX_M_PTR),y
+    clc
+    adc #4
+    sta X16_P6
+    stz X16_P7
+    rts
 
 ; wg_radio_set -- the radio at wg_i wins its group: it goes to 1, every
 ; other radio sharing its WG_GRP goes to 0, and each changed one is
@@ -848,5 +1085,7 @@ wg_div   .byte 0
 wg_rem   .byte 0
 wg_res   .word 0
 wg_acc   .word 0
+wg_focus .byte $FF               ; the keyboard-focused widget; $FF none
+wg_step  .byte 0
 
 .segment "CODE"

@@ -81,7 +81,8 @@ cx_do_menu_key
 ;   5 dg_alert 6 dg_hit                             (dialog.asm)
 ;   8 wg_set   9 wg_draw  10 wg_hit                 (widget.asm)
 ;   11 mn_key                                       (menu.asm, keyboard)
-;   7, 12..15 reserved
+;   12 wg_key                                       (widget.asm, keyboard)
+;   7, 13..15 reserved
 b2_table
     jmp mn_set                  ; 0
     jmp mn_off                  ; 1
@@ -95,7 +96,7 @@ b2_table
     jmp wg_draw                 ; 9
     jmp wg_hit                  ; 10
     jmp mn_key                  ; 11 kernel/ui/menu.asm (keyboard)
-    jmp mn_off                  ; 12 reserved
+    jmp wg_key                  ; 12 kernel/ui/widget.asm (keyboard)
     jmp mn_off                  ; 13 reserved
     jmp mn_off                  ; 14 reserved
     jmp mn_off                  ; 15 reserved

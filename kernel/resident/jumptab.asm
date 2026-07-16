@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 42                    ; slots
+    .word 43                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -92,6 +92,9 @@ cx_jumptab
 
 ; --- keyboard menu nav -------------------------------------------
     jmp cx_do_menu_key   ; 41  A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key. Call it from your EV_KEY handler
+
+; --- keyboard widget focus ---------------------------------------
+    jmp cx_do_wg_key     ; 42  A = a key; TAB/DOWN and UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar. Carry set if it was a widget key. Call from EV_KEY
 
 .popseg
 

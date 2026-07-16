@@ -108,3 +108,6 @@ version = 1
 
 #= keyboard menu nav
 41  cx_menu_key     1   A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key. Call it from your EV_KEY handler
+
+#= keyboard widget focus
+42  cx_wg_key       1   A = a key; TAB/DOWN and UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar. Carry set if it was a widget key. Call from EV_KEY

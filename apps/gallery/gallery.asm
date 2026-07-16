@@ -104,6 +104,9 @@ on_key
     lda X16_P1                  ; the menu bar first: DOWN opens it,
     jsr cx_menu_key             ; arrows walk it, RETURN picks
     bcs @done
+    lda X16_P1                  ; then the widgets: TAB moves the focus
+    jsr cx_wg_key               ; frame, SPACE toggles, LEFT/RIGHT scroll
+    bcs @done
     lda X16_P1
     cmp #$1B                    ; ESC exits
     bne @done

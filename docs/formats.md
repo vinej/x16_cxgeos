@@ -162,6 +162,9 @@ A click updates the widget under it, redraws just that widget, and posts
 `EV_WIDGET` (type 8): `detail` (P1) is the widget index, P2 its value.
 A button reports value 1 (momentary). A checkbox toggles. A radio lights
 and clears its group-mates. A scrollbar takes the value its click names.
+The keyboard drives the same list through `cx_wg_key`: TAB/UP move a
+focus frame, SPACE/RETURN activate the focused widget, LEFT/RIGHT step a
+focused scrollbar -- and post the identical `EV_WIDGET`.
 Every colour is the live theme's, so `cx_theme_set` then `cx_wg_draw`
 recolours the whole list. Registering a list pushes a region over the
 list's bounding box, so its clicks route to the toolkit and nowhere

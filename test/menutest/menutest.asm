@@ -345,6 +345,36 @@ main
     jmp fail
 @wgr2
 
+    ; ---- keyboard widget focus ------------------------------------
+    ; the checkbox (record 0) is checked from the click test. TAB moves
+    ; focus onto it (the first widget); SPACE activates it exactly as a
+    ; click would -- toggling it off and posting EV_WIDGET value 0.
+    stz got_wg
+    lda #$09                    ; TAB: focus widget 0
+    jsr cx_wg_key
+    bcs @wtab
+    lda #'T'
+    jmp fail
+@wtab
+    lda #$20                    ; SPACE: activate the focused checkbox
+    jsr cx_wg_key
+    bcs @wsp
+    lda #'U'
+    jmp fail
+@wsp
+    jsr drain                   ; the EV_WIDGET it posted
+    lda wg_list + 1 + 9         ; record 0's val toggled 1 -> 0
+    beq @wval
+    lda #'V'
+    jmp fail
+@wval
+    lda got_wg                  ; heard, value 0 -> $80
+    cmp #$80
+    beq @wheard
+    lda #'0'
+    jmp fail
+@wheard
+
 menu_ok
     lda #<s_ok
     ldx #>s_ok
