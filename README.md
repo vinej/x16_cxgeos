@@ -63,13 +63,21 @@ Update it by re-copying the tree and noting the new commit here.
 - Phase 0 done — bootstrap and risk spikes all green with measured
   numbers (`docs/perf.md`): fx_fill 1.25 frames/screen, 160 masked
   glyphs/frame, 22–31 scanline event dispatch.
-- Phase 1 in progress — the 2bpp primitives now live upstream as
+- **Phase 1 done** — the 2bpp primitives live upstream now, as
   x16_library's `gfx2` module (`X16_USE_BITMAP2`: init, clear, pset,
-  read, hline/vline, rect/frame, line, patterns, blits), verified
-  byte-identical across all 7 assembler dialects, 146/146 tests.
+  read, hline/vline, rect/frame, line, patterns, blits). Byte-identical
+  across all 7 assembler dialects, and ported to all 5 of x16_clib's C
+  toolchains — shipped as **x16lib 0.4.0** and **x16clib 0.3.0**.
   CXGEOS consumes it through `x16lib/`. The kernel-side dirty-rectangle
   list is in (`kernel/gfx2/dirty.asm`: merge + cascade, coverage never
-  drops, 5 tests) and the torture-demo milestone runs
-  (`demos/torture.asm`: every primitive in one scene, 40 JF — the
-  perf regression gate, pinned in `docs/perf.md`). Still to come in
-  Phase 1: the x16_clib C port of gfx2.
+  drops) and the torture demo runs (`demos/torture.asm`: every primitive
+  in one scene, 40 JF — the perf regression gate in `docs/perf.md`).
+- **Phase 2 in progress** — the font engine. CXF (`docs/formats.md`),
+  `tools/fontconv.py` (BDF→CXF, 14 host tests), and `pxl8`: the X16's
+  own public-domain ISO charset made proportional by trimming each
+  cell's blank columns — 95 glyphs, 871 bytes, widths 2–8px averaging
+  5.7, so text is ~29% shorter than the 8-pixel grid.
+  `kernel/font/font.asm` caches every glyph pre-shifted to all four
+  pixel phases in banked RAM and draws through `gfx2_blitm`: **98.7
+  glyphs/frame**, a 40-character menu bar in 0.41 frames. See
+  `demos/specimen.asm`. Still to come: bold/underline, a second face.
