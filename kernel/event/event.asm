@@ -328,6 +328,13 @@ ev_irq
 
 ; --- the pointer -----------------------------------------------------
 ev_do_mouse
+    jsr MOUSE_SCAN              ; advance the pointer from the SMC before
+                               ; reading it. The KERNAL's own VSYNC scan
+                               ; does not reach us: our raster hook fires
+                               ; at line 0, and the chained handler only
+                               ; scans on the VSYNC flag, which is clear
+                               ; then -- so without this the pointer is
+                               ; configured but frozen.
     jsr mouse_get               ; P0/P1 = x, P2/P3 = y, A = buttons
     sta ev_btn_now
 
