@@ -103,7 +103,7 @@
 
 // --- the pointer
 .label cx_mouse_show = $8079
-//     A = $FF the arrow, or n a cursor sprite; the loader hides it between apps, so an app that wants it asks
+//     A = the pointer number (1 = the arrow), or $FF to show without setting one; the loader hides it between apps, so an app that wants it asks
 .label cx_mouse_hide = $807C
 //     -
 

@@ -95,7 +95,7 @@ version = 1
 34  cx_menu_off     1   forget the menu; only with no menu open
 
 #= the pointer
-35  cx_mouse_show   1   A = $FF the arrow, or n a cursor sprite; the loader hides it between apps, so an app that wants it asks
+35  cx_mouse_show   1   A = the pointer number (1 = the arrow), or $FF to show without setting one; the loader hides it between apps, so an app that wants it asks
 36  cx_mouse_hide   1   -
 
 #= themes and dialogs

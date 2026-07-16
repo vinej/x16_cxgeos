@@ -95,7 +95,7 @@ __attribute__((weak, used)) volatile unsigned int  cx_slot;
 #define CX_MENU_OFF        0x8076   /* forget the menu; only with no menu open */
 
 /* --- the pointer --- */
-#define CX_MOUSE_SHOW      0x8079   /* A = $FF the arrow, or n a cursor sprite; the loader hides it between apps, so an app that wants it asks */
+#define CX_MOUSE_SHOW      0x8079   /* A = the pointer number (1 = the arrow), or $FF to show without setting one; the loader hides it between apps, so an app that wants it asks */
 #define CX_MOUSE_HIDE      0x807C   /* - */
 
 /* --- themes and dialogs --- */

@@ -74,6 +74,7 @@ main
     jsr test_ev_region
     jsr test_farcall
     jsr test_vrows
+    jsr test_mouse
 
     jsr test_app_missing
     jsr test_app_badmagic
@@ -1678,6 +1679,48 @@ test_vrows
     ldy #>@name
     jmp t_result
 @name .byte "VROWS", 0
+
+; MOUSE: cx_mouse_show(1) must configure VERA sprite 0 as the KERNAL
+; pointer -- image at $13000, 16x16, in front of the layers -- and turn
+; sprite output on in DC_VIDEO. This is what an invisible pointer looks
+; like when it regresses: A=$FF leaves the sprite at address 0, size
+; 8x8 (found the hard way). Sprite 0's attributes are 8 bytes at VRAM
+; $1FC00; the image address is byte0 bits 12:5 plus byte1 bits 3:0 as
+; bits 16:13, so $13000 reads back as byte0=$80, byte1 low nibble=9.
+test_mouse
+    lda #1
+    jsr cx_do_mouse_show
+    ldy #1
+
+    lda VERA_DC_VIDEO           ; sprite output on
+    and #VERA_VIDEO_SPRITES_EN
+    beq @report
+
+    vera_addr 1, $1FC00, VERA_INC_1
+    lda VERA_DATA1              ; byte 0: address bits 12:5 = $13000>>5
+    cmp #$80                    ; ...low part = $80
+    bne @report
+    lda VERA_DATA1              ; byte 1: bits 3:0 = address bits 16:13
+    and #$0F                    ; = 9
+    cmp #$09
+    bne @report
+    lda VERA_DATA1              ; bytes 2-5: X, Y position -- skip
+    lda VERA_DATA1
+    lda VERA_DATA1
+    lda VERA_DATA1
+    lda VERA_DATA1              ; byte 6: Z-depth (bits 3:2) must be set
+    and #$0C
+    beq @report                ; Z 0 = disabled, behind everything
+    lda VERA_DATA1              ; byte 7: height/width bits = 16x16 = $50
+    cmp #$50
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "MOUSE", 0
 
 ; =====================================================================
 ; the app loader (kernel/fs/loader.asm), against real DOS -- the suite

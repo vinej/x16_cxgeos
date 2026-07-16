@@ -55,7 +55,7 @@ main
     lda #<bar                   ; the region stack ev_init resets
     ldx #>bar
     jsr cx_menu_set
-    lda #$FF                    ; the arrow; the loader hid it
+    lda #1                      ; the arrow (sprite 1); the loader hid it
     jsr cx_mouse_show
 
     lda #<handlers

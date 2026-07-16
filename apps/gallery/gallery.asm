@@ -54,7 +54,7 @@ main
     lda #<widgets
     ldx #>widgets
     jsr cx_wg_set
-    lda #$FF
+    lda #1                      ; the arrow (sprite 1)
     jsr cx_mouse_show
 
     lda #<handlers

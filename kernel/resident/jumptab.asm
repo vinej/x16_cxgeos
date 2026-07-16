@@ -79,7 +79,7 @@ cx_jumptab
     jmp cx_do_menu_off   ; 34  forget the menu; only with no menu open
 
 ; --- the pointer -------------------------------------------------
-    jmp cx_do_mouse_show ; 35  A = $FF the arrow, or n a cursor sprite; the loader hides it between apps, so an app that wants it asks
+    jmp cx_do_mouse_show ; 35  A = the pointer number (1 = the arrow), or $FF to show without setting one; the loader hides it between apps, so an app that wants it asks
     jmp mouse_hide       ; 36  -
 
 ; --- themes and dialogs ------------------------------------------
