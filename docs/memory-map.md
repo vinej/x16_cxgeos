@@ -77,30 +77,46 @@ The placement itself is proven: `JUMPHDR` lands at `$8000`, `JUMPTAB` at
 
 **Two thirds of the image is the library, and most of that is unused.**
 x16lib is one translation unit, so a gated module links whole — there is
-nothing for ld65 to strip. `X16_USE_BITMAP2` needs `fx_fill` and gets
-`fx_mult`, `fx_line`, `fx_triangle`, `fx_copy`, `fx_affine` with it.
-Measured: `BITMAP2` alone is 4,795; `+IRQ +INPUT` is 5,234;
-`+SCREEN +LOAD +BANK` is 6,055.
+nothing for ld65 to strip. Measured, one gate at a time:
 
-Four ways out, and the choice is an architecture decision, not a tidy-up:
+| gate | bytes | what CXGEOS calls from it |
+|---|---|---|
+| VERA | 143 | `vera_fill`, via gfx2 |
+| **VERAFX** | **2,502** | **`fx_fill`, via gfx2 — and nothing else** |
+| BITMAP2 (gfx2 itself) | 2,149 | all of it |
+| IRQ | 400 | all five routines |
+| INPUT | 39 | `mouse_get`/`show`/`hide` |
+| SCREEN | 121 | `screen_set_mode`, in `cx_exit` alone |
+| LOAD | 76 | nothing yet |
+| BANK | 624 | nothing — `font.asm` writes `RAM_BANK` itself |
 
-1. **Bank the cold code**, which is what the plan always said the
-   resident was: gfx2's hot paths, the glyph blitter, the event core and
-   the bank trampoline — *not* the whole font engine (`font_cache` runs
-   once at boot), *not* the dirty-rect list, *not* gfx2's line and
-   pattern code. Needs the trampoline, which Phase 4 owes anyway.
-2. **Finer gates upstream.** `X16_USE_VERAFX_FILL` beside
-   `X16_USE_VERAFX` would give the whole ecosystem the saving, not just
-   CXGEOS. It is the honest fix for the cause rather than the symptom.
-3. **Drop what is not called yet** (`SCREEN`, `LOAD`, `BANK`: 821 bytes)
-   and **move the font blob to a bank** (871). That reaches 7,330 — it
-   fits, with 94 bytes spare, which is not a budget so much as a dare.
-4. **Move the boundary.** The app's `$0801`–`$7FFF` is 30 KB; the kernel
-   could take more of it. The table's address is a promise, the code's
-   is not.
+The 320×240 8bpp module is *not* linked: the gates do work. The problem
+is granularity, not selection. `X16_USE_VERAFX` exists to give gfx2
+`fx_fill` and hands over `fx_mult`, `fx_copy`, `fx_transp`, `fx_affine`,
+`fx_line` and `fx_triangle` with it — the last two are 400 lines
+between them.
 
-(1) and (2) are the real answers and they compose. (3) buys a week and
-costs the next person a day. Nothing is decided here.
+**Measured, not estimated:** a `verafx.asm` trimmed to
+`fx_off`/`fx_mult`/`fx_fill`/`fx_clear` builds the same kernel **2,162
+bytes** smaller. That alone takes the image to 6,860 and it fits, with
+564 to spare. Dropping the three gates nothing calls (SCREEN, LOAD,
+BANK: 821) and banking the font blob (871) would leave 2,256 spare.
+
+So the fix is upstream and it is small: **split VERAFX into sub-gates**
+in x16_library — fill, copy, mult, the line/triangle drawers, the affine
+sampler — with `X16_USE_VERAFX` still meaning all of them, so nothing
+that exists today breaks. Every X16 program that wanted a fast fill and
+paid 2.5 KB for a rotozoom sampler gets the saving, not just CXGEOS.
+x16_clib has the same shape and would benefit the same way: its archive
+strips at `.o` granularity, and `verafx.o` is one object.
+
+A CXGEOS-local trimmed copy of the library would work and is the wrong
+answer: the vendored tree is a clean snapshot on purpose, and the next
+re-vendor would silently undo it.
+
+Banking the cold code is still worth doing — `font_cache` runs once at
+boot and has no business resident — but it is no longer urgent, and it
+should not be done to pay for somebody else's `fx_triangle`.
 
 ## The glyph cache lives in banked RAM, not VRAM
 
