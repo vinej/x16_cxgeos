@@ -263,8 +263,8 @@ theme_night
     .byte $01, $00,  $23, $01,  $56, $03,  $BC, $0A
     .byte 0, 1, 3, 0
 
-s_marker  .byte "FILER UP", $0D, 0
-s_title   .byte "files -- UP/DOWN to choose, RETURN to open, ESC to leave", 0
+s_marker  .byte "CXGEOS SHELL", $0D, 0
+s_title   .byte "CXGEOS desktop -- UP/DOWN a file, RETURN to open it", 0
 s_m0      .byte "CXGEOS", 0
 s_m1      .byte "Themes", 0
 s_about_i .byte "about", 0
