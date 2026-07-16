@@ -38,8 +38,231 @@ main
     jsr test_fb_roundtrip
     jsr test_gfx2_draws
 
+    jsr test_dr_add
+    jsr test_dr_merge
+    jsr test_dr_separate
+    jsr test_dr_cascade
+    jsr test_dr_full
+
     jsr t_summary
     rts
+
+; ---------------------------------------------------------------------
+; dirty-rectangle list (kernel/gfx2/dirty.asm) -- pure data structure,
+; nothing on screen. dr_put is a helper: A/X/Y = x, w, h with y fixed
+; per test via P2/P3 beforehand? No -- each test loads the block.
+; ---------------------------------------------------------------------
+
+; add rect from an 8-byte table at A/X (x,y,w,h as words, little-endian)
+dr_put
+    sta X16_T6
+    stx X16_T7
+    ldy #7
+@copy
+    lda (X16_TPTR3),y
+    sta X16_P0,y
+    dey
+    bpl @copy
+    jmp dr_add
+
+; DR_ADD: one rect stored with inclusive corners
+test_dr_add
+    jsr dr_reset
+    lda #<@r1
+    ldx #>@r1
+    jsr dr_put
+    ldy #1
+    jsr dr_count
+    cmp #1
+    bne @report
+    lda #0
+    jsr dr_get
+    ldy #1
+    lda X16_P0                  ; x0 = 10
+    cmp #10
+    bne @report
+    lda X16_P4                  ; x1 = 29
+    cmp #29
+    bne @report
+    lda X16_P2                  ; y0 = 10
+    cmp #10
+    bne @report
+    lda X16_P6                  ; y1 = 29
+    cmp #29
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "DR_ADD", 0
+@r1 .word 10, 10, 20, 20
+
+; DR_MERGE: an overlapping rect unions; a touching rect unions too
+test_dr_merge
+    jsr dr_reset
+    lda #<@m1
+    ldx #>@m1
+    jsr dr_put
+    lda #<@m2                   ; overlaps m1
+    ldx #>@m2
+    jsr dr_put
+    ldy #1
+    jsr dr_count
+    cmp #1
+    bne @report
+    lda #0
+    jsr dr_get
+    ldy #1
+    lda X16_P4                  ; x1 = max(29, 44) = 44
+    cmp #44
+    bne @report
+    lda #<@m3                   ; x0 = 45 touches x1 = 44
+    ldx #>@m3
+    jsr dr_put
+    ldy #1
+    jsr dr_count
+    cmp #1
+    bne @report
+    lda #0
+    jsr dr_get
+    ldy #1
+    lda X16_P4                  ; x1 = 49 now
+    cmp #49
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "DR_MERGE", 0
+@m1 .word 10, 10, 20, 20
+@m2 .word 25, 15, 20, 10
+@m3 .word 45, 10,  5,  5
+
+; DR_SEPARATE: disjoint rects stay in their own slots
+test_dr_separate
+    jsr dr_reset
+    lda #<@s1
+    ldx #>@s1
+    jsr dr_put
+    lda #<@s2
+    ldx #>@s2
+    jsr dr_put
+    ldy #1
+    jsr dr_count
+    cmp #2
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "DR_SEPARATE", 0
+@s1 .word 0,   0,   10, 10
+@s2 .word 100, 100, 10, 10
+
+; DR_CASCADE: a bridge rect swallows two islands into one
+test_dr_cascade
+    jsr dr_reset
+    lda #<@c1
+    ldx #>@c1
+    jsr dr_put
+    lda #<@c2
+    ldx #>@c2
+    jsr dr_put
+    lda #<@c3                   ; spans the gap: touches both
+    ldx #>@c3
+    jsr dr_put
+    ldy #1
+    jsr dr_count
+    cmp #1
+    bne @report
+    lda #0
+    jsr dr_get
+    ldy #1
+    lda X16_P0                  ; bbox (0,0)-(39,9)
+    bne @report
+    lda X16_P4
+    cmp #39
+    bne @report
+    lda X16_P6
+    cmp #9
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "DR_CASCADE", 0
+@c1 .word 0,  0, 10, 10
+@c2 .word 30, 0, 10, 10
+@c3 .word 8,  0, 25, 10
+
+; DR_FULL: a ninth disjoint rect folds instead of overflowing
+test_dr_full
+    jsr dr_reset
+    ldx #0
+@fill                           ; 8 disjoint rects at x = 0,40,80,...
+    phx
+    txa
+    sta X16_P0                  ; x = i*40 (fits a byte: 0..280? no --
+    stz X16_P1                  ; i*40 <= 280 needs 9 bits; use *32)
+    stz X16_P2
+    stz X16_P3
+    lda #10
+    sta X16_P4
+    stz X16_P5
+    lda #10
+    sta X16_P6
+    stz X16_P7
+    jsr dr_add
+    pla
+    clc
+    adc #32
+    tax
+    cpx #0                      ; 8 * 32 = 256 wraps to 0: done
+    bne @fill
+    jsr dr_count
+    cmp #8
+    bne @bad
+    lda #<@f9                   ; a ninth, far away: the fold makes a
+    ldx #>@f9                   ; bbox that cascades over every slot
+    jsr dr_put
+    jsr dr_count
+    cmp #1                      ; collapsed, coverage intact
+    bne @bad
+    lda #0
+    jsr dr_get
+    lda X16_P0                  ; bbox (0,0)-(409,409) covers all nine
+    ora X16_P1
+    ora X16_P2
+    ora X16_P3
+    bne @bad
+    lda X16_P4
+    cmp #<409
+    bne @bad
+    lda X16_P5
+    cmp #>409
+    bne @bad
+    lda X16_P6
+    cmp #<409
+    bne @bad
+    ldy #0
+    bra @report
+@bad
+    ldy #1
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "DR_FULL", 0
+@f9 .word 400, 400, 10, 10
 
 ; ---------------------------------------------------------------------
 ; GFX2_INIT -- the vendored module programs the CXGEOS screen mode
@@ -156,5 +379,6 @@ test_gfx2_draws
 @name .byte "GFX2_DRAWS", 0
 
 ; ---------------------------------------------------------------------
+.include "kernel/gfx2/dirty.asm"
 .include "testlib.asm"
 .include "x16_code.asm"

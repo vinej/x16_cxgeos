@@ -67,6 +67,9 @@ Update it by re-copying the tree and noting the new commit here.
   x16_library's `gfx2` module (`X16_USE_BITMAP2`: init, clear, pset,
   read, hline/vline, rect/frame, line, patterns, blits), verified
   byte-identical across all 7 assembler dialects, 146/146 tests.
-  CXGEOS consumes it through `x16lib/`. Still to come in Phase 1:
-  the x16_clib C port, the kernel-side dirty-rect/clip layer, and the
-  primitive torture-demo with a live redraw-ms counter.
+  CXGEOS consumes it through `x16lib/`. The kernel-side dirty-rectangle
+  list is in (`kernel/gfx2/dirty.asm`: merge + cascade, coverage never
+  drops, 5 tests) and the torture-demo milestone runs
+  (`demos/torture.asm`: every primitive in one scene, 40 JF — the
+  perf regression gate, pinned in `docs/perf.md`). Still to come in
+  Phase 1: the x16_clib C port of gfx2.

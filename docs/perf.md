@@ -66,6 +66,27 @@ frame's vblank-adjacent window → **click→pixel ≤ 2 frames by
 construction.** (Interactive check: `spike_c.asm -Run`, hold left
 button to paint at the pointer.)
 
+## Phase 1 — torture demo (the regression gate)
+
+`demos/torture.asm` draws every gfx2 primitive in one composite scene:
+full-screen 640×480 checker `gfx2_pattern_rect`, 8 `gfx2_rect` +
+`gfx2_frame`, a 16-line `gfx2_line` starburst, 32 `gfx2_blit` raster
+ops, 200 `gfx2_blitm` masked glyphs.
+
+| Measure | Raw | Per scene |
+|---|---|---|
+| SCENE4 (4 full composites) | **160 JF** | 40 JF ≈ 0.67 s |
+
+This is the deliberate worst case — everything repainted through the
+slowest paths (CPU pattern flood is ~7 JF/screen alone; pset-driven
+lines ~6 JF). Real UI frames repaint only dirty rectangles (the
+`kernel/gfx2/dirty.asm` list, DR_MAX=8, merge+cascade, coverage never
+drops) and flood via `fx_fill` at 1.25 JF/screen. Re-run with:
+
+```powershell
+.\build.ps1 -Source demos\torture.asm -Capture
+```
+
 ## Phase 0 verdicts on the three headline risks
 
 1. **2bpp blit performance at 640×480** — retired. Masked text at 160
