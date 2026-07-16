@@ -114,3 +114,27 @@ returns the carry as `cx_c`, which raw C calls could never see. Build
 C apps with `-mreserve-zp=90` — clang's whole-program pass otherwise
 claims zero page from $26 up, all of which belongs to the kernel or to
 the app ZP convention.
+
+## The menu tree
+
+An app hands `cx_menu_set` a tree in its own memory; the engine reads
+it in place ($0801–$7FFF is always mapped) and never copies it, so it
+must stay put while the menu is set. Strings are zero-terminated ASCII
+in the font's range.
+
+```
+bar:        .byte n                     ; menus in the bar (up to 8)
+            ; then n entries of:
+            .addr title, items
+
+items:      .byte n                     ; up to 10 -- the save-under
+            ; then n words:             ; strip holds 102 rows
+            .addr label
+```
+
+Call order matters: `cx_ev_init` first, then `cx_menu_set` — the bar
+lives on the region stack, and `cx_ev_init` resets that stack. A
+selection arrives as an `EV_MENU` event (type 7): `detail` (P1) is the
+item index, P2 the menu index. Clicking anywhere outside an open
+drop-down dismisses it and posts nothing; either way every pixel the
+box covered comes back from the save-under strip.

@@ -55,7 +55,13 @@ EV_MOUSE_UP   = 3
 EV_DBLCLICK   = 4
 EV_KEY        = 5
 EV_TIMER      = 6
-EV_COUNT      = 7               ; how many types, for the handler table
+EV_MENU       = 7               ; posted by the menu engine: detail =
+                                ; the item, P2 = the menu. Only an app
+                                ; that called cx_menu_set can receive
+                                ; one, so a table built before this
+                                ; type existed is never read past its
+                                ; end.
+EV_COUNT      = 8               ; how many types, for the handler table
 
 EV_MAX        = 16              ; records in the queue
 EV_SIZE       = 8
@@ -303,7 +309,7 @@ ev_mainloop
     bra ev_mainloop
 
 ev_null_table
-    .word 0, 0, 0, 0, 0, 0, 0   ; EV_COUNT vectors, all ignored
+    .word 0, 0, 0, 0, 0, 0, 0, 0 ; EV_COUNT vectors, all ignored
 
 ; =====================================================================
 ; the interrupt

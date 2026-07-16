@@ -52,3 +52,5 @@ cx_dirty_get    = dr_get
 
 cx_app_load     = cxl_load
 cx_ev_init      = ev_init
+cx_menu_set     = cx_do_menu_set
+cx_menu_off     = cx_do_menu_off

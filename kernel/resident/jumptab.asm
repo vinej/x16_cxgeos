@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 33                    ; slots
+    .word 35                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -73,6 +73,10 @@ cx_jumptab
 
 ; --- events, continued -------------------------------------------
     jmp ev_init          ; 32  clear the queue and hook the raster; an app calls this before cx_ev_handlers
+
+; --- menus -------------------------------------------------------
+    jmp cx_do_menu_set   ; 33  A/X = the menu bar (docs/formats.md); draws it, owns the top strip; carry = region stack full
+    jmp cx_do_menu_off   ; 34  forget the menu; only with no menu open
 
 .popseg
 

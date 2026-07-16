@@ -47,12 +47,17 @@ CX_B_PTR   = CX_ZP + 16         ; $42/$43  the stub's inline data, read
 
 CX_B_ZP_TOP = CX_ZP + 18        ; = $44
 
-; --- free: $44-$5F ---------------------------------------------------
+; --- menu engine (kernel/ui/menu.asm, bank 2) -------------------------
+CX_M_PTR   = CX_ZP + 18         ; $44/$45  walking the app's menu tree
+
+CX_M_ZP_TOP = CX_ZP + 20        ; = $46
+
+; --- free: $46-$5F ---------------------------------------------------
 
 .if CX_ZP < $32
     .error "CX_ZP must be >= $32: below that is x16lib's block"
 .endif
-.if CX_B_ZP_TOP > CX_ZP_END
+.if CX_M_ZP_TOP > CX_ZP_END
     .error "kernel zero page overflows into the application's $60-$7F"
 .endif
 

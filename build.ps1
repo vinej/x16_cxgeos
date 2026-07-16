@@ -58,9 +58,14 @@ function Build-KernelImage {
     Write-Host "ca65  kernel\kernel.asm -> $p"
     & $ca65 --cpu 65C02 -I $lib -I $root -o $o (Join-Path $root "kernel\kernel.asm")
     if ($LASTEXITCODE -ne 0) { Fail "ca65 failed on the kernel" }
+    # from the root: kernel.cfg's second output file, build\CXBANKS.BIN,
+    # is a path relative to wherever ld65 stands
+    Push-Location $root
     & $ld65 -C (Join-Path $root "kernel\kernel.cfg") -m (Join-Path $build "CXKERNEL.map") -o $p $o
-    if ($LASTEXITCODE -ne 0) { Fail "ld65 failed on the kernel (over budget?)" }
-    Write-Host "      $((Get-Item $p).Length) bytes"
+    $ldExit = $LASTEXITCODE
+    Pop-Location
+    if ($ldExit -ne 0) { Fail "ld65 failed on the kernel (over budget?)" }
+    Write-Host "      $((Get-Item $p).Length) bytes + $((Get-Item (Join-Path $build 'CXBANKS.BIN')).Length) banked"
 }
 
 # -Apps / -Image / -Boot orchestrate several builds; the single-PRG path
@@ -136,8 +141,9 @@ function Build-Apps {
     Copy-Item $boot (Join-Path $build "AUTOBOOT.X16") -Force
 
     foreach ($app in @(
-        @{ src = "apps\shell\shell.asm";     prg = "SHELL";  name = "Shell" },
-        @{ src = "apps\hello_asm\hello.asm"; prg = "HELLO1"; name = "Hello (asm)" }
+        @{ src = "apps\shell\shell.asm";        prg = "SHELL";    name = "Shell" },
+        @{ src = "apps\hello_asm\hello.asm";    prg = "HELLO1";   name = "Hello (asm)" },
+        @{ src = "test\menutest\menutest.asm";  prg = "MENUTEST"; name = "Menu test" }
     )) {
         $p = Build-Prg $app.src $app.prg
         & $py $mkcxap $p (Join-Path $build "$($app.prg).CXA") --name $app.name
@@ -177,6 +183,7 @@ function Stage-SdRoot {
     New-Item -ItemType Directory -Path $sdroot | Out-Null
     Copy-Item (Join-Path $build "AUTOBOOT.X16")  $sdroot
     Copy-Item (Join-Path $build "CXKERNEL.PRG")  $sdroot
+    Copy-Item (Join-Path $build "CXBANKS.BIN")   $sdroot
     Copy-Item (Join-Path $root  "fonts\pxl8.cxf") (Join-Path $sdroot "PXL8.CXF")
     Copy-Item (Join-Path $build "SHELL.CXA")     $sdroot
     Copy-Item (Join-Path $build "HELLO1.CXA")    $sdroot
@@ -272,7 +279,10 @@ if ($Test) {
     # The hellos close their own loop -- three seconds with no key and
     # they leave through cx_exit -- so each can play AUTORUN and be
     # proven headless: boot, run, exit, and the shell comes back.
-    $hellos = @(@{ cxa = "HELLO1.CXA"; up = "HELLO ASM UP" })
+    $hellos = @(
+        @{ cxa = "HELLO1.CXA";   up = "HELLO ASM UP" },
+        @{ cxa = "MENUTEST.CXA"; up = "MENUTEST OK" }
+    )
     if (Test-Path (Join-Path $build "HELLO2.CXA")) {
         $hellos += @{ cxa = "HELLO2.CXA"; up = "HELLO C UP" }
     }

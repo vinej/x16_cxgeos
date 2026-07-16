@@ -31,6 +31,7 @@
 ; RAM_BANK itself rather than going through BANK. Add them back when
 ; something calls them, not before.
 X16_USE_BITMAP2 = 1             ; the screen; asks VERAFX for _FILL alone
+X16_USE_VERAFX_COPY = 1         ; menu save-under: fx_copy moves the rows
 X16_USE_IRQ     = 1             ; the event system's raster hook
 X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 
@@ -49,6 +50,7 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/ui/region.asm"
+.include "kernel/ui/menu.asm"
 .include "kernel/event/event.asm"
 
 ; The system font is NOT here. It ships as PXL8.CXF on the SD card, and

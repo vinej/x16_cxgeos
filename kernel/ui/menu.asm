@@ -1,0 +1,616 @@
+; ca65
+; =====================================================================
+; CXGEOS :: kernel/ui/menu.asm -- the menu engine
+; =====================================================================
+; Resident: four five-byte stubs. Everything else is B2CODE, runs in
+; bank 2 through cxb_call, and costs the resident budget nothing
+; (docs/ui.md). The menu tree lives in the APP's memory and is read in
+; place -- $0801-$7FFF is always mapped. Format: docs/formats.md.
+;
+; The interaction model, deliberately minimal for 5a:
+;
+;   cx_menu_set   draws the bar, pushes the bar region. Once per app.
+;   click in bar  opens that menu: full rows under the box are saved to
+;                 the VRAM strip at $12C00 (full rows, because a linear
+;                 fx_copy beats a rectangle walk and the strip can hold
+;                 102 of them), the box is drawn, and a full-screen
+;                 MODAL region is pushed -- menus own the machine while
+;                 open, which is what makes closing them simple.
+;   click again   on an item: restore, pop, post EV_MENU with the item
+;                 in `detail` (P1) and the menu index in P2. Anywhere
+;                 else: restore, pop, no event. Either way the machine
+;                 is back the pixel it was.
+;   cx_menu_off   removes the bar region. Only meaningful with no menu
+;                 open; call it from handlers, not from inside a menu.
+;
+; Only an app that called cx_menu_set can ever receive EV_MENU, so apps
+; built before the type existed cannot be handed one.
+; =====================================================================
+
+CX_MENU_H    = 12               ; the bar strip's height
+CX_MENU_ROWH = 10               ; a drop-down row
+CX_MENU_MAXI = 10               ; items per menu; 10 rows of save fit
+CX_MENU_SAVE = $12C00           ; the VRAM save-under strip (memory-map)
+
+; --- the resident stubs ------------------------------------------------
+; The first two are what the ABI slots jump to; the second two are what
+; the region stack calls. Five bytes each; the addresses are bank 2's
+; local table, which ships in the same build as these stubs.
+
+cx_do_menu_set
+    jsr cxb_call
+    .byte 2
+    .addr $A000 + 0*3
+cx_do_menu_off
+    jsr cxb_call
+    .byte 2
+    .addr $A000 + 1*3
+mn_bar_vec
+    jsr cxb_call
+    .byte 2
+    .addr $A000 + 2*3
+mn_drop_vec
+    jsr cxb_call
+    .byte 2
+    .addr $A000 + 3*3
+
+; =====================================================================
+; bank 2 from here on
+; =====================================================================
+.segment "B2CODE"
+
+b2_table                        ; bank-local, NOT the ABI: only the
+    jmp mn_set                  ; stubs above name these slots
+    jmp mn_off
+    jmp mn_bar
+    jmp mn_drop
+
+; The state, at a FIXED spot right behind the table ($A00C), so a test
+; -- or a debugger, or a desperate evening -- can peek it from outside
+; the bank without knowing where the code ends.
+mn_bar_p .word 0                ; $A00C  the app's bar; high 0 = none
+mn_count .byte 0                ; $A00E
+mn_open  .byte 0                ; $A00F
+mn_cur   .byte 0                ; $A010  the open menu
+mn_it_p  .word 0                ; $A011  ...its items
+mn_n     .byte 0                ; $A013
+mn_x0    .word 0                ; $A014  ...its box
+mn_w     .word 0                ; $A016
+mn_h     .byte 0                ; $A018
+mn_pick  .byte 0                ; $A019
+mn_trace .byte 0                ; $A01A  breadcrumbs: mn_bar +1, open +$10
+mn_i     .byte 0
+mn_t     .byte 0, 0
+mn_t2    .byte 0, 0
+mn_mx0l  .res 8, 0              ; the bar spans, for the hit search
+mn_mx0h  .res 8, 0
+mn_mx1l  .res 8, 0
+mn_mx1h  .res 8, 0
+
+; ---------------------------------------------------------------------
+; mn_set -- A/X = the menu bar (docs/formats.md). Draws the bar, pushes
+; the bar region. Carry set if the region stack is full.
+; ---------------------------------------------------------------------
+mn_set
+    sta mn_bar_p
+    stx mn_bar_p+1
+    stz mn_open
+
+    lda mn_bar_p                ; the count, BEFORE anything loops over
+    sta CX_M_PTR                ; it -- mn_entry also parks it, but
+    lda mn_bar_p+1              ; mn_entry only runs inside loops that
+    sta CX_M_PTR+1              ; compare against it first
+    ldy #0
+    lda (CX_M_PTR),y
+    sta mn_count
+
+    jsr mn_draw_bar
+
+    stz X16_P0                  ; the bar region: 0,0 to 639,H-1
+    stz X16_P1
+    stz X16_P2
+    stz X16_P3
+    lda #<639
+    sta X16_P4
+    lda #>639
+    sta X16_P5
+    lda #CX_MENU_H-1
+    sta X16_P6
+    stz X16_P7
+    lda #<mn_bar_vec
+    ldx #>mn_bar_vec
+    jmp rg_push
+
+; ---------------------------------------------------------------------
+; mn_off -- forget the menu. Pops the bar region, which is only correct
+; when it is on top: call this from an event handler, never mid-menu.
+; ---------------------------------------------------------------------
+mn_off
+    stz mn_bar_p+1              ; a null bar pointer = no menu
+    jmp rg_pop
+
+; ---------------------------------------------------------------------
+; mn_draw_bar -- the strip and the titles, and the hit spans the bar
+; click will search. Title m starts 8px in, then measured width plus
+; 16px of air between neighbours.
+; ---------------------------------------------------------------------
+mn_draw_bar
+    stz X16_P0                  ; the strip: paper 0
+    stz X16_P1
+    stz X16_P2
+    stz X16_P3
+    lda #<640
+    sta X16_P4
+    lda #>640
+    sta X16_P5
+    lda #CX_MENU_H
+    sta X16_P6
+    stz X16_P7
+    lda #0
+    jsr gfx2_rect
+    stz X16_P0                  ; ...ruled off along its bottom
+    stz X16_P1
+    lda #CX_MENU_H-1
+    sta X16_P2
+    stz X16_P3
+    lda #<640
+    sta X16_P4
+    lda #>640
+    sta X16_P5
+    lda #3
+    jsr gfx2_hline
+
+    lda #8                      ; the pen
+    sta mn_t
+    stz mn_t+1
+
+    stz mn_i
+@title
+    lda mn_i
+    cmp mn_count
+    bcs @done
+    jsr mn_entry                ; CX_M_PTR = entry mn_i
+
+    ldy mn_i                    ; the span opens where the pen stands
+    lda mn_t
+    sta mn_mx0l,y
+    lda mn_t+1
+    sta mn_mx0h,y
+
+    ldy #0                      ; the title, measured then drawn
+    lda (CX_M_PTR),y
+    sta mn_t2
+    iny
+    lda (CX_M_PTR),y
+    sta mn_t2+1
+    lda mn_t2
+    ldx mn_t2+1
+    jsr font_measure            ; P0/P1 = width
+    clc                         ; span close = pen + width
+    lda mn_t
+    adc X16_P0
+    ldy mn_i
+    sta mn_mx1l,y
+    lda mn_t+1
+    adc X16_P1
+    sta mn_mx1h,y
+
+    lda mn_t                    ; draw at the pen, 2 down
+    sta X16_P0
+    lda mn_t+1
+    sta X16_P1
+    lda #2
+    sta X16_P2
+    stz X16_P3
+    lda mn_t2
+    ldx mn_t2+1
+    jsr font_draw               ; hands back the pen in P0/P1
+
+    clc                         ; 16px of air to the next title
+    lda X16_P0
+    adc #16
+    sta mn_t
+    lda X16_P1
+    adc #0
+    sta mn_t+1
+
+    inc mn_i
+    bra @title
+@done
+    rts
+
+; ---------------------------------------------------------------------
+; mn_entry -- CX_M_PTR = bar entry mn_i (4 bytes each, after the count),
+; and mn_count loaded while passing. Uses the app's tree in place.
+; ---------------------------------------------------------------------
+mn_entry
+    lda mn_bar_p
+    sta CX_M_PTR
+    lda mn_bar_p+1
+    sta CX_M_PTR+1
+    ldy #0
+    lda (CX_M_PTR),y
+    sta mn_count
+    lda mn_i                    ; 1 + i*4
+    asl
+    asl
+    sec                         ; +1 via carry
+    adc CX_M_PTR
+    sta CX_M_PTR
+    bcc @nc
+    inc CX_M_PTR+1
+@nc
+    rts
+
+; ---------------------------------------------------------------------
+; mn_bar -- the bar region's handler: a mouse record in X16_P0..P7.
+; Only a press does anything; finding which span the x falls in picks
+; the menu to open.
+; ---------------------------------------------------------------------
+mn_bar
+    inc mn_trace
+    lda X16_P0
+    cmp #EV_MOUSE_DOWN
+    bne @out
+    lda mn_bar_p+1
+    beq @out                    ; no bar set: a stale region, ignore
+
+    stz mn_i
+@span
+    lda mn_i
+    cmp mn_count
+    bcs @out                    ; the gap between titles: nothing
+    ldy mn_i
+    lda X16_P2                  ; x >= span open
+    cmp mn_mx0l,y
+    lda X16_P3
+    sbc mn_mx0h,y
+    bcc @next
+    lda mn_mx1l,y               ; x <= span close
+    cmp X16_P2
+    lda mn_mx1h,y
+    sbc X16_P3
+    bcc @next
+    lda mn_i
+    jmp mn_drop_open
+@next
+    inc mn_i
+    bra @span
+@out
+    rts
+
+; ---------------------------------------------------------------------
+; mn_drop_open -- A = the menu to open. Geometry, save-under, paint,
+; and the modal region.
+; ---------------------------------------------------------------------
+mn_drop_open
+    pha
+    lda mn_trace
+    clc
+    adc #$10
+    sta mn_trace
+    pla
+    sta mn_cur
+    sta mn_i
+    jsr mn_entry
+    ldy #2                      ; the items list
+    lda (CX_M_PTR),y
+    sta mn_it_p
+    iny
+    lda (CX_M_PTR),y
+    sta mn_it_p+1
+
+    lda mn_it_p                 ; item count, capped to what the strip
+    sta CX_M_PTR                ; can save under
+    lda mn_it_p+1
+    sta CX_M_PTR+1
+    ldy #0
+    lda (CX_M_PTR),y
+    cmp #CX_MENU_MAXI+1
+    bcc @nok
+    lda #CX_MENU_MAXI
+@nok
+    sta mn_n
+
+    ; the box: x0 = the title's span, w = widest item + 8, h = n rows +2
+    ldy mn_cur
+    lda mn_mx0l,y
+    sta mn_x0
+    lda mn_mx0h,y
+    sta mn_x0+1
+
+    stz mn_w
+    stz mn_w+1
+    stz mn_i
+@wide
+    lda mn_i
+    cmp mn_n
+    bcs @wdone
+    jsr mn_item                 ; CX_M_PTR = label mn_i
+    lda CX_M_PTR
+    ldx CX_M_PTR+1
+    jsr font_measure
+    lda X16_P0                  ; keep the widest
+    cmp mn_w
+    lda X16_P1
+    sbc mn_w+1
+    bcc @thin
+    lda X16_P0
+    sta mn_w
+    lda X16_P1
+    sta mn_w+1
+@thin
+    inc mn_i
+    bra @wide
+@wdone
+    clc
+    lda mn_w
+    adc #8
+    sta mn_w
+    bcc @wnc
+    inc mn_w+1
+@wnc
+
+    lda mn_n                    ; h = n * CX_MENU_ROWH + 2
+    asl
+    asl
+    adc mn_n                    ; n*5 (n <= 10: no carry out of asl)
+    asl                         ; n*10
+    adc #2
+    sta mn_h
+
+    lda #1                      ; save the rows the box will cover
+    jsr mn_strip
+
+    lda mn_x0                   ; paper...
+    sta X16_P0
+    lda mn_x0+1
+    sta X16_P1
+    lda #CX_MENU_H
+    sta X16_P2
+    stz X16_P3
+    lda mn_w
+    sta X16_P4
+    lda mn_w+1
+    sta X16_P5
+    lda mn_h
+    sta X16_P6
+    stz X16_P7
+    lda #0
+    jsr gfx2_rect
+    lda mn_x0                   ; ...framed...
+    sta X16_P0
+    lda mn_x0+1
+    sta X16_P1
+    lda #CX_MENU_H
+    sta X16_P2
+    stz X16_P3
+    lda mn_w
+    sta X16_P4
+    lda mn_w+1
+    sta X16_P5
+    lda mn_h
+    sta X16_P6
+    stz X16_P7
+    lda #3
+    jsr gfx2_frame
+
+    stz mn_i                    ; ...and the items
+@item
+    lda mn_i
+    cmp mn_n
+    bcs @idone
+    jsr mn_item
+    clc                         ; x0 + 4
+    lda mn_x0
+    adc #4
+    sta X16_P0
+    lda mn_x0+1
+    adc #0
+    sta X16_P1
+    lda mn_i                    ; y = H + 2 + i*ROWH
+    asl
+    asl
+    adc mn_i
+    asl
+    adc #CX_MENU_H+2
+    sta X16_P2
+    stz X16_P3
+    lda CX_M_PTR
+    ldx CX_M_PTR+1
+    jsr font_draw
+    inc mn_i
+    bra @item
+@idone
+
+    stz X16_P0                  ; the modal region: menus own the
+    stz X16_P1                  ; machine while open
+    stz X16_P2
+    stz X16_P3
+    lda #<639
+    sta X16_P4
+    lda #>639
+    sta X16_P5
+    lda #<479
+    sta X16_P6
+    lda #>479
+    sta X16_P7
+    lda #<mn_drop_vec
+    ldx #>mn_drop_vec
+    jsr rg_push
+    lda #1
+    sta mn_open
+    rts
+
+; ---------------------------------------------------------------------
+; mn_item -- CX_M_PTR = item label mn_i: the list is a count, then a
+; word per item.
+; ---------------------------------------------------------------------
+mn_item
+    lda mn_it_p
+    sta CX_M_PTR
+    lda mn_it_p+1
+    sta CX_M_PTR+1
+    lda mn_i                    ; 1 + i*2
+    asl
+    sec
+    adc CX_M_PTR
+    sta CX_M_PTR
+    bcc @nc
+    inc CX_M_PTR+1
+@nc
+    ldy #0                      ; resolve to the label itself
+    lda (CX_M_PTR),y
+    tax
+    iny
+    lda (CX_M_PTR),y
+    sta CX_M_PTR+1
+    stx CX_M_PTR
+    rts
+
+; ---------------------------------------------------------------------
+; mn_drop -- the modal region's handler. A press picks or dismisses;
+; either way the pixels come back and the modal region goes.
+; ---------------------------------------------------------------------
+mn_drop
+    lda X16_P0
+    cmp #EV_MOUSE_DOWN
+    beq @press                  ; @out is a branch too far: moves and
+    rts                         ; releases leave through this rts
+@press
+    lda #$FF
+    sta mn_pick
+
+    ; inside the box horizontally?
+    lda X16_P2
+    cmp mn_x0
+    lda X16_P3
+    sbc mn_x0+1
+    bcc @close
+    clc                         ; x1 = x0 + w - 1
+    lda mn_x0
+    adc mn_w
+    sta mn_t
+    lda mn_x0+1
+    adc mn_w+1
+    sta mn_t+1
+    sec
+    lda mn_t
+    sbc #1
+    sta mn_t
+    bcs @x1ok
+    dec mn_t+1
+@x1ok
+    lda mn_t
+    cmp X16_P2
+    lda mn_t+1
+    sbc X16_P3
+    bcc @close
+
+    ; ...and on an item row? rows start at H+1, ROWH each
+    lda X16_P5
+    bne @close                  ; y >= 256: nowhere near
+    lda X16_P4
+    sec
+    sbc #CX_MENU_H+1
+    bcc @close
+    ldx #0
+@row
+    cmp #CX_MENU_ROWH
+    bcc @picked
+    sbc #CX_MENU_ROWH           ; carry known set
+    inx
+    bra @row
+@picked
+    cpx mn_n
+    bcs @close
+    stx mn_pick
+
+@close
+    lda #0                      ; the pixels back, the region gone
+    jsr mn_strip
+    jsr rg_pop
+    stz mn_open
+
+    lda mn_pick
+    bmi @out                    ; dismissed: no one hears anything
+    sta X16_P1                  ; EV_MENU: detail = item, P2 = menu
+    lda #EV_MENU
+    sta X16_P0
+    lda mn_cur
+    sta X16_P2
+    stz X16_P3
+    stz X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jmp ev_post
+@out
+    rts
+
+; ---------------------------------------------------------------------
+; mn_strip -- A = 1 saves, 0 restores: the full rows from CX_MENU_H for
+; mn_h rows, between the framebuffer and the VRAM strip. Full rows make
+; it one linear fx_copy; both directions are 4-aligned because 160*row
+; always is.
+; ---------------------------------------------------------------------
+mn_strip
+    tax                         ; the direction, for later
+
+    lda mn_h                    ; count = mn_h * 160 = h*128 + h*32
+    stz mn_t
+    lsr                         ; h/2 * 256 + (h%2)*128 = h*128
+    sta mn_t+1
+    bcc @even
+    lda #128
+    sta mn_t
+@even
+    lda mn_h                    ; + h*32
+    stz mn_t2
+    .repeat 3
+    lsr
+    ror mn_t2
+    .endrepeat                  ; A:mn_t2 = h*32 in hi:lo
+    tay
+    clc
+    lda mn_t2
+    adc mn_t
+    sta mn_t
+    tya
+    adc mn_t+1
+    sta mn_t+1
+
+    lda mn_t
+    sta X16_P6
+    lda mn_t+1
+    sta X16_P7
+
+    cpx #0
+    beq @restore
+    lda #<(CX_MENU_H*160)       ; framebuffer -> strip
+    sta X16_P0
+    lda #>(CX_MENU_H*160)
+    sta X16_P1
+    stz X16_P2
+    lda #<CX_MENU_SAVE
+    sta X16_P3
+    lda #>CX_MENU_SAVE
+    sta X16_P4
+    lda #^CX_MENU_SAVE
+    sta X16_P5
+    jmp fx_copy
+@restore
+    lda #<CX_MENU_SAVE          ; strip -> framebuffer
+    sta X16_P0
+    lda #>CX_MENU_SAVE
+    sta X16_P1
+    lda #^CX_MENU_SAVE
+    sta X16_P2
+    lda #<(CX_MENU_H*160)
+    sta X16_P3
+    lda #>(CX_MENU_H*160)
+    sta X16_P4
+    stz X16_P5
+    jmp fx_copy
+
+.segment "CODE"

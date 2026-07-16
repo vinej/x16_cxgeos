@@ -17,7 +17,8 @@
 .include "x16.asm"
 .include "kernel/resident/zp.inc"
 
-X16_USE_BITMAP2 = 1             ; pulls in VERA and VERAFX
+X16_USE_BITMAP2 = 1             ; pulls in VERA and VERAFX_FILL
+X16_USE_VERAFX_COPY = 1         ; the menu engine's save-under
 X16_USE_IRQ     = 1             ; the event system's raster hook
 X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 
@@ -1216,8 +1217,8 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #33                     ; 31 shipped with the table, 32 and 33
-    bne @report                 ; -- the loader, cx_ev_init -- with 4c
+    cmp #35                     ; 31 shipped with the table; the loader,
+    bne @report                 ; cx_ev_init and the menus grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
@@ -1487,7 +1488,7 @@ test_ev_region
 @tab
     .addr 0, 0, @down_hand, 0, 0
     .addr @key_hand
-    .addr 0
+    .addr 0, 0
 @got_rg  .byte 0
 @got_tab .byte 0
 @got_key .byte 0
@@ -1665,6 +1666,7 @@ test_app_toonew
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/ui/region.asm"
+.include "kernel/ui/menu.asm"
 .include "kernel/event/event.asm"
 .include "kernel/resident/core.asm"
 .include "kernel/resident/farcall.asm"

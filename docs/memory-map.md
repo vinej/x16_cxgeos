@@ -66,18 +66,19 @@ build it judged, it failed — and the failure was worth having.
 | | at first | after 0.4.1 | now |
 |---|---|---|---|
 | x16lib | 6,055 | 3,893 | **3,072** |
-| CXGEOS kernel code | 2,096 | 2,096 | 2,775 |
+| CXGEOS kernel code | 2,096 | 2,096 | 3,163 (+1,020 in bank 2) |
 | `fonts/pxl8.cxf` | 871 | 871 | **0 — on the SD card** |
-| **resident total** | **9,022** | **6,728** | **5,847** |
+| **resident total** | **9,022** | **6,728** | **6,063** |
 | budget, `$8200`–`$9EFF` | 7,424 | 7,424 | 7,424 |
-| | **over by 1,598** | 696 spare | **1,577 spare** |
+| | **over by 1,598** | 696 spare | **1,361 spare** |
 
-(The kernel-code figure grew 418 bytes when Phase 4c landed the app
-loader and the shell-returning cx_exit, and 343 more when Phase 5a
-landed the region stack and the far-call trampoline — the machinery
-that lets everything bigger live in kernel banks instead of here. The
-low-water mark was 5,086, with 2,338 spare; the current figure is
-5,847, with 1,577 spare, and the ledger above tracks it.)
+(The kernel-code figure grew 418 bytes with Phase 4c's loader and
+shell-returning cx_exit; 343 more with Phase 5a's region stack and
+far-call trampoline; then 216 with fx_copy and the menu stubs — while
+the menu ENGINE's 1,020 bytes went to bank 2, exactly what the
+trampoline exists for. `CXBANKS.BIN` is the second file the kernel
+build emits, and stage-0 loads it to bank 2 at boot; when bank 3
+exists it appends there and the one LOAD keeps working.)
 
 Placement is proven: `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$806C`
 (93 bytes = 31 slots × 3), `CODE` at `$8200`.

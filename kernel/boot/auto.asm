@@ -56,6 +56,22 @@ boot
     dey
     bpl @magic
 
+    lda #2                      ; the kernel's banked code, raw, into
+    sta RAM_BANK                ; bank 2 -- the KERNAL wraps into bank 3
+    lda #s_banks_len            ; and onward by itself when it grows
+    ldx #<s_banks
+    ldy #>s_banks
+    jsr SETNAM
+    lda #1
+    ldx #8
+    ldy #2
+    jsr SETLFS
+    lda #0
+    ldx #<$A000
+    ldy #>$A000
+    jsr LOAD
+    bcs @nobanks
+
     lda #CX_SYSFONT_BANK        ; the font, raw, into the banked window
     sta RAM_BANK
     lda #s_font_len
@@ -91,6 +107,11 @@ boot
     ldx #>s_nof
     jmp pmsg
 
+@nobanks
+    lda #<s_nob
+    ldx #>s_nob
+    jmp pmsg
+
 init
     jmp ($8008)
 
@@ -114,7 +135,10 @@ s_kernel  .byte "CXKERNEL.PRG"
 s_kernel_len = * - s_kernel
 s_font    .byte "PXL8.CXF"
 s_font_len = * - s_font
+s_banks   .byte "CXBANKS.BIN"
+s_banks_len = * - s_banks
 s_autorun .byte "AUTORUN.CXA"
 s_autorun_len = * - s_autorun
 s_nok     .byte "CXGEOS: NO CXKERNEL.PRG ON THIS DISK.", $0D, 0
 s_nof     .byte "CXGEOS: PXL8.CXF IS MISSING OR NOT A FONT.", $0D, 0
+s_nob     .byte "CXGEOS: NO CXBANKS.BIN ON THIS DISK.", $0D, 0

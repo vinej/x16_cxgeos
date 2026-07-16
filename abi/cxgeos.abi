@@ -89,3 +89,7 @@ version = 1
 # event system (the loader stops it between apps), and the slot that
 # does it arrived after the section was numbered.
 32  cx_ev_init      1   clear the queue and hook the raster; an app calls this before cx_ev_handlers
+
+#= menus
+33  cx_menu_set     1   A/X = the menu bar (docs/formats.md); draws it, owns the top strip; carry = region stack full
+34  cx_menu_off     1   forget the menu; only with no menu open
