@@ -89,6 +89,8 @@ on_menu
     beq @h2
     cmp #2
     beq @h3
+    cmp #3
+    beq @h4
     rts
 @sys
     lda X16_P1                  ; About is its only item
@@ -124,6 +126,12 @@ on_menu
     ldy #s_f3_len
     jsr cx_app_load
     bra sorry
+@h4
+    lda #<s_f4
+    ldx #>s_f4
+    ldy #s_f4_len
+    jsr cx_app_load
+    bra sorry
 @none
     rts
 
@@ -140,6 +148,8 @@ on_key
     beq @two
     cmp #'3'
     beq @three
+    cmp #'4'
+    beq @four
     rts
 @one
     lda #<s_f1
@@ -157,6 +167,12 @@ on_key
     lda #<s_f3
     ldx #>s_f3
     ldy #s_f3_len
+    jsr cx_app_load
+    bra sorry
+@four
+    lda #<s_f4
+    ldx #>s_f4
+    ldy #s_f4_len
     jsr cx_app_load
 
 sorry                           ; a load that came back is a load that
@@ -184,10 +200,11 @@ m0_items
     .byte 1
     .addr s_i_about
 m1_items
-    .byte 3
+    .byte 4
     .addr s_i_h1
     .addr s_i_h2
     .addr s_i_h3
+    .addr s_i_h4
 m2_items
     .byte 2
     .addr s_i_day
@@ -213,6 +230,7 @@ s_i_about .byte "about this machine", 0
 s_i_h1    .byte "hello, from assembly", 0
 s_i_h2    .byte "hello, from C", 0
 s_i_h3    .byte "the widget gallery", 0
+s_i_h4    .byte "the file browser", 0
 s_i_day   .byte "daylight", 0
 s_i_night .byte "midnight", 0
 s_i_ok    .byte "ok", 0
@@ -229,3 +247,5 @@ s_f2      .byte "HELLO2.CXA"
 s_f2_len = * - s_f2
 s_f3      .byte "GALLERY.CXA"
 s_f3_len = * - s_f3
+s_f4      .byte "FILER.CXA"
+s_f4_len = * - s_f4
