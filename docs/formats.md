@@ -146,7 +146,8 @@ An app hands `cx_wg_set` a widget list: a count byte, then that many
 the toolkit stores each widget's state back into its record).
 
 ```
-0   type    .byte    0 button, 1 checkbox, 2 radio, 3 h-scrollbar
+0   type    .byte    0 button, 1 checkbox, 2 radio, 3 h-scrollbar,
+                     4 text field, 5 list
 1   flags   .byte    bit0 = disabled (drawn, but not clickable)
 2   x       .word
 4   y       .word
@@ -175,3 +176,11 @@ Every colour is the live theme's, so `cx_theme_set` then `cx_wg_draw`
 recolours the whole list. Registering a list pushes a region over the
 list's bounding box, so its clicks route to the toolkit and nowhere
 else. Only an app that called `cx_wg_set` can receive `EV_WIDGET`.
+
+### The list widget (type 5)
+
+`WG_LBL` is an array of string pointers, `WG_GRP` the count, `WG_VAL`
+the selected row, and byte 13 (`WG_TOP`) the scroll offset the toolkit
+maintains. With the list focused, UP/DOWN move the selection (the view
+scrolls to keep it visible), RETURN posts `EV_WIDGET` with the selected
+index. It is the file browser's list.

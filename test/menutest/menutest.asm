@@ -27,6 +27,7 @@ EV_WIDGET     = 8
 WG_CHECK      = 1
 WG_RADIO      = 2
 WG_FIELD      = 4
+WG_LIST       = 5
 
 PROBE_X = 40                    ; inside menu 0's box-to-be, and OFF
 PROBE_Y = 32                    ; its text: the items draw in ink 3,
@@ -419,6 +420,34 @@ main
     jmp fail
 @wf4
 
+    ; ---- list view selection --------------------------------------
+    ; focus is on the field (record 4); TAB once to the list (record 5),
+    ; DOWN twice, and its selected row (WG_VAL) must read 2.
+    lda #$09                    ; TAB: field -> list
+    jsr cx_wg_key
+    lda #$11                    ; DOWN: 0 -> 1
+    jsr cx_wg_key
+    bcs @l1
+    lda #'5'
+    jmp fail
+@l1
+    lda #$11                    ; DOWN: 1 -> 2
+    jsr cx_wg_key
+    lda wg_list + 1 + 5*16 + 9  ; the list's selected row = 2
+    cmp #2
+    beq @l2
+    lda #'6'
+    jmp fail
+@l2
+    lda #$11                    ; DOWN at the end: stays 2 (clamped)
+    jsr cx_wg_key
+    lda wg_list + 1 + 5*16 + 9
+    cmp #2
+    beq @l3
+    lda #'7'
+    jmp fail
+@l3
+
 menu_ok
     lda #<s_ok
     ldx #>s_ok
@@ -527,7 +556,7 @@ got_wg   .byte 0
 ; a checkbox at (50,100) and a three-radio group (group 1), the middle
 ; one selected -- enough for toggle and the group's clear-the-others.
 wg_list
-    .byte 5
+    .byte 6
     .byte WG_CHECK, 0
     .word 50, 100, 140
     .byte 12, 0, 0
@@ -553,6 +582,15 @@ wg_list
     .byte 16, 0, 8              ; length 0, capacity 8
     .addr wl_buf
     .byte 0, 0, 0
+    .byte WG_LIST, 0            ; record 5: a three-item list
+    .word 50, 240, 200
+    .byte 40, 0, 3             ; h=40, selected 0, count 3
+    .addr wl_ptrs
+    .byte 0, 0, 0             ; byte 13 = WG_TOP = 0
+wl_ptrs .addr wl_i0, wl_i1, wl_i2
+wl_i0 .byte "alpha", 0
+wl_i1 .byte "bravo", 0
+wl_i2 .byte "charlie", 0
 wl_c  .byte "check", 0
 wl_a  .byte "a", 0
 wl_b  .byte "b", 0

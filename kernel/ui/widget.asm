@@ -37,6 +37,13 @@ WG_SCROLL = 3                   ; horizontal, click-to-position
 WG_FIELD  = 4                   ; a text field: WG_LBL is a mutable
                                 ; buffer, WG_VAL its length, WG_GRP its
                                 ; capacity. Typed into when focused.
+WG_LIST   = 5                   ; a list: WG_LBL is an array of string
+                                ; pointers, WG_GRP the count, WG_VAL the
+                                ; selected row, WG_TOP the scroll top.
+                                ; UP/DOWN move the selection.
+
+WG_TOP    = 13                  ; list scroll offset (a pad byte)
+WL_ROWH   = 10                  ; a list row's height
 
 WG_DISABLED = $01               ; flags bit 0
 
@@ -279,8 +286,12 @@ wg_paint
     jmp wg_p_scroll
 @ns
     cmp #WG_FIELD
-    bne @nt
+    bne @nf
     jmp wg_p_field
+@nf
+    cmp #WG_LIST
+    bne @nt
+    jmp wg_p_list
 @nt
     jmp wg_p_toggle             ; check and radio share a box and a label
 
@@ -591,6 +602,229 @@ wg_bufptr
     rts
 
 ; ---------------------------------------------------------------------
+; wg_p_list -- a scrolling list. Adjusts WG_TOP to keep the selected
+; row (WG_VAL) inside the box, then draws each visible row's string,
+; the selected one on the highlight. WG_LBL is an array of string
+; pointers; WG_GRP the count.
+; ---------------------------------------------------------------------
+wg_p_list
+    jsr wg_load_box
+    lda th_paper
+    jsr gfx2_rect
+    jsr wg_load_box
+    lda th_frame
+    jsr gfx2_frame
+
+    jsr wg_list_maxrows         ; wg_maxrows = (h-2)/ROWH
+
+    ldy #WG_VAL                 ; keep the selection visible: if it sits
+    lda (CX_M_PTR),y            ; above the top, the top becomes it
+    ldy #WG_TOP
+    cmp (CX_M_PTR),y
+    bcs @below
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    ldy #WG_TOP
+    sta (CX_M_PTR),y
+    bra @topok
+@below                          ; ...below the last visible row: scroll
+    ldy #WG_TOP                 ; so it is the last row
+    lda (CX_M_PTR),y
+    clc
+    adc wg_maxrows
+    sta wg_t                    ; top + maxrows
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    cmp wg_t
+    bcc @topok
+    sec                         ; top = sel - maxrows + 1
+    sbc wg_maxrows
+    clc
+    adc #1
+    ldy #WG_TOP
+    sta (CX_M_PTR),y
+@topok
+
+    ; X16_T2 = the pointer array (WG_LBL)
+    ldy #WG_LBL
+    lda (CX_M_PTR),y
+    sta X16_T2
+    ldy #WG_LBL+1
+    lda (CX_M_PTR),y
+    sta X16_T2+1
+
+    stz wg_row
+@rows
+    lda wg_row
+    cmp wg_maxrows
+    bcc @rowok                  ; the body is long: branch in, jmp out
+    jmp @done
+@rowok
+    ldy #WG_TOP                 ; item = top + row
+    lda (CX_M_PTR),y
+    clc
+    adc wg_row
+    sta wg_idx
+    ldy #WG_GRP
+    cmp (CX_M_PTR),y
+    bcc @itemok
+    jmp @done                   ; past the last item
+@itemok
+
+    ; row band, x0+1 wide by ROWH; highlighted if item == selected
+    clc
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    adc #1
+    sta X16_P0
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P1
+    jsr wg_row_y                ; X16_P2/P3 = box_y + 1 + row*ROWH
+    sec
+    ldy #WG_W
+    lda (CX_M_PTR),y
+    sbc #2
+    sta X16_P4
+    ldy #WG_W+1
+    lda (CX_M_PTR),y
+    sbc #0
+    sta X16_P5
+    lda #WL_ROWH
+    sta X16_P6
+    stz X16_P7
+    ldy #WG_VAL
+    lda wg_idx
+    cmp (CX_M_PTR),y
+    bne @plain
+    lda th_hi
+    bra @band
+@plain
+    lda th_paper
+@band
+    jsr gfx2_rect
+
+    ; the item's string at x0+4, row_y+1
+    lda wg_idx                  ; X16_T0 = array[item]
+    asl
+    tay
+    lda (X16_T2),y
+    sta X16_T0
+    iny
+    lda (X16_T2),y
+    sta X16_T0+1
+    clc
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    adc #4
+    sta X16_P0
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P1
+    jsr wg_row_y
+    inc X16_P2                  ; +1 into the band
+    bne @yok
+    inc X16_P3
+@yok
+    lda X16_T0
+    ldx X16_T0+1
+    jsr font_draw
+
+    inc wg_row
+    jmp @rows                   ; the body is over a page
+@done
+    rts
+
+; wg_row_y -- X16_P2/P3 = box_y + 1 + wg_row * WL_ROWH (16-bit).
+wg_row_y
+    lda wg_row                  ; row * 10 = row*8 + row*2
+    asl
+    sta wg_t                    ; row*2
+    lda wg_row
+    asl
+    asl
+    asl                         ; row*8
+    clc
+    adc wg_t                    ; row*10
+    ldy #WG_Y
+    adc (CX_M_PTR),y
+    sta X16_P2
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P3
+    inc X16_P2                  ; +1 inside the frame
+    bne @ok
+    inc X16_P3
+@ok
+    rts
+
+; wg_list_maxrows -- wg_maxrows = (WG_H - 2) / WL_ROWH.
+wg_list_maxrows
+    ldy #WG_H
+    lda (CX_M_PTR),y
+    sec
+    sbc #2
+    ldx #0
+@d
+    cmp #WL_ROWH
+    bcc @done
+    sbc #WL_ROWH
+    inx
+    bra @d
+@done
+    stx wg_maxrows
+    rts
+
+; ---------------------------------------------------------------------
+; wg_list_key -- A = key, CX_M_PTR = the focused list. UP/DOWN move the
+; selection (clamped), RETURN/SPACE post EV_WIDGET with it. Carry set
+; if it was the list's key.
+; ---------------------------------------------------------------------
+wg_list_key
+    cmp #WK_UP
+    beq @up
+    cmp #WK_DOWN
+    beq @down
+    cmp #WK_ENTER
+    beq @enter
+    cmp #WK_SPACE
+    beq @enter
+    clc
+    rts
+@up
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    beq @redraw                 ; already the top item
+    sec
+    sbc #1
+    sta (CX_M_PTR),y
+    bra @redraw
+@down
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    clc
+    adc #1
+    ldy #WG_GRP
+    cmp (CX_M_PTR),y
+    bcs @redraw                 ; sel+1 past the end: stay
+    ldy #WG_VAL
+    sta (CX_M_PTR),y
+@redraw
+    jsr wg_paint                ; wg_p_list re-scrolls to keep it visible
+    jsr wg_refocus_frame
+    sec
+    rts
+@enter
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    jsr wg_post_val
+    sec
+    rts
+
+; ---------------------------------------------------------------------
 ; wg_thumb_x -- X16_P0/P1 = the scrollbar thumb's left x:
 ;   x + 2 + (val * (innerw - thumb)) / max
 ; innerw = w - 4. Kept 8-bit where it can be: val and max are bytes.
@@ -860,10 +1094,11 @@ wg_post_val
     jmp ev_post
 
 ; =====================================================================
-; keyboard -- wg_key. TAB / DOWN move focus forward, UP back; SPACE or
-; RETURN activates the focused widget exactly as a click would; on a
-; focused scrollbar LEFT / RIGHT step its value. A focus frame follows.
-; Carry set if the key was ours.
+; keyboard -- wg_key. TAB moves focus (forward, wrapping). Every other
+; key acts on the focused widget by its type: a field types, a list
+; moves its selection with UP/DOWN, a scrollbar steps with LEFT/RIGHT,
+; a button/check/radio activates on SPACE/RETURN. A focus frame
+; follows. Carry set if the key was ours.
 ; =====================================================================
 WK_TAB   = $09
 WK_SPACE = $20
@@ -877,14 +1112,10 @@ WK_STEP  = 5                    ; scrollbar keys move this much
 wg_key
     ldx wg_n
     beq @no                     ; no list: not ours
-    cmp #WK_TAB                 ; focus movement is type-independent.
-    beq @fwd                    ; TAB forward, UP back; NOT DOWN, which
-    cmp #WK_UP                  ; opens the menu bar (the menu wins it)
-    beq @back
+    cmp #WK_TAB                 ; TAB is focus, whatever has it. NOT
+    beq @fwd                    ; DOWN -- that opens the menu bar, which
+                                ; a list only sees once focused
 
-    ; every other key acts on the focused widget, and what it does
-    ; depends on the type: a field is typed into, a scrollbar stepped,
-    ; a button/check/radio activated.
     ldx wg_focus
     bmi @no                     ; nothing focused: pass the key
     stx wg_i
@@ -894,6 +1125,8 @@ wg_key
     lda (CX_M_PTR),y
     tax                         ; X = the focused widget's type
     pla                         ; the key back in A
+    cpx #WG_LIST
+    beq @list
     cpx #WG_FIELD
     beq @field
     cpx #WG_SCROLL
@@ -904,6 +1137,10 @@ wg_key
     beq @act
     bra @no
 
+@list
+    jsr wg_list_key             ; UP/DOWN select, RETURN posts
+    bcc @no
+    bra @yes
 @field
     jsr wg_field_key            ; type / trim / submit; carry if taken
     bcc @no
@@ -929,10 +1166,6 @@ wg_key
 
 @fwd
     lda #1
-    jsr wg_focus_move
-    bra @yes
-@back
-    lda #$FF
     jsr wg_focus_move
 @yes
     sec
@@ -1241,5 +1474,8 @@ wg_acc   .word 0
 wg_focus .byte $FF               ; the keyboard-focused widget; $FF none
 wg_step  .byte 0
 wg_ch    .byte 0                  ; the character being typed into a field
+wg_row   .byte 0                  ; a list's visible row being drawn
+wg_idx   .byte 0                  ; ...the item it shows
+wg_maxrows .byte 0                ; ...how many rows fit
 
 .segment "CODE"
