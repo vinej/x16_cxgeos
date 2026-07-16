@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 35                    ; slots
+    .word 37                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -77,6 +77,10 @@ cx_jumptab
 ; --- menus -------------------------------------------------------
     jmp cx_do_menu_set   ; 33  A/X = the menu bar (docs/formats.md); draws it, owns the top strip; carry = region stack full
     jmp cx_do_menu_off   ; 34  forget the menu; only with no menu open
+
+; --- the pointer -------------------------------------------------
+    jmp mouse_show       ; 35  A = $FF the arrow, or n a cursor sprite; the loader hides it between apps, so an app that wants it asks
+    jmp mouse_hide       ; 36  -
 
 .popseg
 

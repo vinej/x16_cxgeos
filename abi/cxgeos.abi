@@ -93,3 +93,7 @@ version = 1
 #= menus
 33  cx_menu_set     1   A/X = the menu bar (docs/formats.md); draws it, owns the top strip; carry = region stack full
 34  cx_menu_off     1   forget the menu; only with no menu open
+
+#= the pointer
+35  cx_mouse_show   1   A = $FF the arrow, or n a cursor sprite; the loader hides it between apps, so an app that wants it asks
+36  cx_mouse_hide   1   -

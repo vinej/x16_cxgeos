@@ -30,7 +30,12 @@
 CX_MENU_H    = 12               ; the bar strip's height
 CX_MENU_ROWH = 10               ; a drop-down row
 CX_MENU_MAXI = 10               ; items per menu; 10 rows of save fit
-CX_MENU_SAVE = $12C00           ; the VRAM save-under strip (memory-map)
+CX_MENU_SAVE = $13100           ; the VRAM save-under strips. NOT $12C00:
+                                ; the KERNAL mouse pointer image sits at
+                                ; $13000, and a first draft that saved
+                                ; from $12C00 would have written through
+                                ; it with any box over six rows. The
+                                ; ledger had it right all along.
 
 ; --- the resident stubs ------------------------------------------------
 ; The first two are what the ABI slots jump to; the second two are what
@@ -79,6 +84,7 @@ mn_w     .word 0                ; $A016
 mn_h     .byte 0                ; $A018
 mn_pick  .byte 0                ; $A019
 mn_trace .byte 0                ; $A01A  breadcrumbs: mn_bar +1, open +$10
+mn_hot   .byte 0                ; $A01B  the highlighted row; $FF = none
 mn_i     .byte 0
 mn_t     .byte 0, 0
 mn_t2    .byte 0, 0
@@ -438,6 +444,8 @@ mn_drop_open
     lda #<mn_drop_vec
     ldx #>mn_drop_vec
     jsr rg_push
+    lda #$FF                    ; nothing highlighted until the pointer
+    sta mn_hot                  ; says so
     lda #1
     sta mn_open
     rts
@@ -475,56 +483,22 @@ mn_item
 mn_drop
     lda X16_P0
     cmp #EV_MOUSE_DOWN
-    beq @press                  ; @out is a branch too far: moves and
-    rts                         ; releases leave through this rts
+    beq @press
+    cmp #EV_MOUSE_MOVE
+    beq @hover
+    rts
+
+@hover                          ; the row under the pointer follows it
+    jsr mn_rowat
+    cmp mn_hot
+    beq @still                  ; the same row: nothing to repaint
+    jmp mn_hotswap
+@still
+    rts
+
 @press
-    lda #$FF
+    jsr mn_rowat                ; $FF misses double as "dismiss"
     sta mn_pick
-
-    ; inside the box horizontally?
-    lda X16_P2
-    cmp mn_x0
-    lda X16_P3
-    sbc mn_x0+1
-    bcc @close
-    clc                         ; x1 = x0 + w - 1
-    lda mn_x0
-    adc mn_w
-    sta mn_t
-    lda mn_x0+1
-    adc mn_w+1
-    sta mn_t+1
-    sec
-    lda mn_t
-    sbc #1
-    sta mn_t
-    bcs @x1ok
-    dec mn_t+1
-@x1ok
-    lda mn_t
-    cmp X16_P2
-    lda mn_t+1
-    sbc X16_P3
-    bcc @close
-
-    ; ...and on an item row? rows start at H+1, ROWH each
-    lda X16_P5
-    bne @close                  ; y >= 256: nowhere near
-    lda X16_P4
-    sec
-    sbc #CX_MENU_H+1
-    bcc @close
-    ldx #0
-@row
-    cmp #CX_MENU_ROWH
-    bcc @picked
-    sbc #CX_MENU_ROWH           ; carry known set
-    inx
-    bra @row
-@picked
-    cpx mn_n
-    bcs @close
-    stx mn_pick
 
 @close
     lda #0                      ; the pixels back, the region gone
@@ -547,6 +521,127 @@ mn_drop
     jmp ev_post
 @out
     rts
+
+; ---------------------------------------------------------------------
+; mn_rowat -- the record's point (X16_P2..P5) against the open box:
+; A = the item row it lands on, or $FF -- outside, on the frame, or
+; past the last item. The press and the hover share this verdict.
+; ---------------------------------------------------------------------
+mn_rowat
+    lda X16_P2                  ; x >= x0
+    cmp mn_x0
+    lda X16_P3
+    sbc mn_x0+1
+    bcc @no
+    clc                         ; x < x0 + w
+    lda mn_x0
+    adc mn_w
+    sta mn_t
+    lda mn_x0+1
+    adc mn_w+1
+    sta mn_t+1
+    lda X16_P2
+    cmp mn_t
+    lda X16_P3
+    sbc mn_t+1
+    bcs @no
+    lda X16_P5                  ; rows start at H+1, ROWH each
+    bne @no
+    lda X16_P4
+    sec
+    sbc #CX_MENU_H+1
+    bcc @no
+    ldx #0
+@row
+    cmp #CX_MENU_ROWH
+    bcc @got
+    sbc #CX_MENU_ROWH           ; carry known set
+    inx
+    bra @row
+@got
+    cpx mn_n
+    bcs @no
+    txa
+    rts
+@no
+    lda #$FF
+    rts
+
+; ---------------------------------------------------------------------
+; mn_hotswap -- A = the row the highlight moves to ($FF = none). The
+; old row is repainted plain, the new one on paper 1; the label rides
+; on top both times, because the masked blit keeps whatever paper it
+; lands on.
+; ---------------------------------------------------------------------
+mn_hotswap
+    pha
+    lda mn_hot
+    bmi @nold
+    ldy #0
+    jsr mn_row_paint
+@nold
+    pla
+    sta mn_hot
+    bmi @done
+    ldy #1
+    jsr mn_row_paint
+@done
+    rts
+
+; ---------------------------------------------------------------------
+; mn_row_paint -- A = row, Y = its paper. The band inside the frame,
+; then the label again.
+; ---------------------------------------------------------------------
+mn_row_paint
+    sta mn_i
+    sty mn_t2
+    clc                         ; the band: x0+1, w-2 -- off the frame
+    lda mn_x0
+    adc #1
+    sta X16_P0
+    lda mn_x0+1
+    adc #0
+    sta X16_P1
+    lda mn_i                    ; y = H + 1 + row*ROWH
+    asl
+    asl
+    adc mn_i
+    asl
+    adc #CX_MENU_H+1
+    sta X16_P2
+    stz X16_P3
+    sec
+    lda mn_w
+    sbc #2
+    sta X16_P4
+    lda mn_w+1
+    sbc #0
+    sta X16_P5
+    lda #CX_MENU_ROWH
+    sta X16_P6
+    stz X16_P7
+    lda mn_t2
+    jsr gfx2_rect
+
+    jsr mn_item                 ; the label, back on top
+    clc
+    lda mn_x0
+    adc #4
+    sta X16_P0
+    lda mn_x0+1
+    adc #0
+    sta X16_P1
+    lda mn_i
+    asl
+    asl
+    adc mn_i
+    asl
+    adc #CX_MENU_H+2
+    sta X16_P2
+    stz X16_P3
+    lda CX_M_PTR
+    ldx CX_M_PTR+1
+    jmp font_draw
 
 ; ---------------------------------------------------------------------
 ; mn_strip -- A = 1 saves, 0 restores: the full rows from CX_MENU_H for

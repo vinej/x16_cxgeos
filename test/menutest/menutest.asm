@@ -19,7 +19,8 @@
 .include "x16.asm"
 .include "sdk/include_ca65/cxgeos.inc"
 
-EV_MOUSE_DOWN = 2               ; ABI event numbering
+EV_MOUSE_MOVE = 1               ; ABI event numbering
+EV_MOUSE_DOWN = 2
 EV_MENU       = 7
 
 PROBE_X = 40                    ; inside menu 0's box-to-be, and OFF
@@ -129,6 +130,41 @@ main
     lda #'B'
     jmp fail
 @covered
+
+    lda #EV_MOUSE_MOVE          ; hover item 0: its band repaints on
+    ldx #40                     ; paper 1
+    ldy #16
+    jsr click
+    jsr drain
+    lda #40
+    sta X16_P0
+    stz X16_P1
+    lda #18
+    sta X16_P2
+    stz X16_P3
+    jsr cx_gfx_read
+    cmp #1
+    beq @hot
+    lda #'H'
+    jmp fail
+@hot
+    lda #EV_MOUSE_MOVE          ; hover item 1: item 0's band goes
+    ldx #40                     ; plain again
+    ldy #26
+    jsr click
+    jsr drain
+    lda #40
+    sta X16_P0
+    stz X16_P1
+    lda #18
+    sta X16_P2
+    stz X16_P3
+    jsr cx_gfx_read
+    cmp #0
+    beq @cool
+    lda #'I'
+    jmp fail
+@cool
 
     lda #EV_MOUSE_DOWN          ; a click on item 1, "Quit": row 1 spans
     ldx #14                     ; y 23-32

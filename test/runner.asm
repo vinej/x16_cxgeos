@@ -1217,8 +1217,8 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #35                     ; 31 shipped with the table; the loader,
-    bne @report                 ; cx_ev_init and the menus grew it
+    cmp #37                     ; 31 shipped with the table; the loader,
+    bne @report                 ; events, menus and the pointer grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
