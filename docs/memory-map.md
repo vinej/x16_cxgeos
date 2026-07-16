@@ -35,8 +35,8 @@ file in the same commit as the code that claims or releases a region.
 | 3 | widget toolkit |
 | 4 | desktop / file manager |
 | 5 | loader + control panel |
-| 6–7 | system font glyph sources + icon sheets (ZX0-unpacked at boot) |
-| 8–9 | reserved kernel growth |
+| 6–8 | **pre-shifted glyph cache** (see below) + CXF font sources |
+| 9 | reserved kernel growth |
 | 10–13 | clipboard (typed: text / bitmap-rect, up to 32KB) |
 | 14–15 | desk-accessory slots (code + saved state) |
 | 16+ | dynamic pool (`bank_alloc`): window backing store, app allocations, file buffers. Sized from MEMTOP at boot (512KB → 48 free banks; 2MB → 240) |
@@ -49,13 +49,36 @@ file in the same commit as the code that claims or releases a region.
 | $12C00–$12FFF | 1,024 | scratch strip (small save-unders, blit staging) |
 | $13000–$130FF | 256 | **KERNAL mouse pointer image** (r49 `io.inc: sprite_addr = $13000`; we use the KERNAL mouse driver, so this is spoken for) |
 | $13100–$170FF | 16,384 | menu/drop-down save-under strips (`fx_copy` restore) |
-| $17100–$1DFFF | 28,416 | glyph caches (pre-shifted ×4 phases) + icon/pattern sheets |
+| $17100–$1DFFF | 28,416 | icon/pattern sheets, extra save-under (was budgeted for glyph caches — see below) |
 | $1E000–$1EFFF | 4,096 | CXGEOS sprite images (extra cursors, drag outlines) |
 | $1F000–$1F7FF | 2,048 | KERNAL charset — kept for the panic/debug console |
 | $1F800–$1F9BF | 448 | unused by VERA; x16lib `VRAM_FX_SCRATCH` = $1F800 (4 bytes) |
 | $1F9C0–$1F9FF | 64 | PSG registers (hardware) |
 | $1FA00–$1FBFF | 512 | palette (hardware) |
 | $1FC00–$1FFFF | 1,024 | sprite attributes (hardware) |
+
+## The glyph cache lives in banked RAM, not VRAM
+
+Phase 0 budgeted the pre-shifted glyph caches into VRAM at `$17100`.
+That was wrong, and Phase 2 caught it: `gfx2_blitm` reads its source
+through `(X16_PTR3),y` — **CPU RAM**. A VRAM cache would need a second
+blitm that streams the source through a data port, which costs the read
+port the masked write already uses.
+
+So the cache sits in banked RAM, and the 28 KB of VRAM goes back to
+icon sheets and save-unders.
+
+| | |
+|---|---|
+| One glyph | 4 phases × 3 columns × 8 rows × 2 bytes (mask, data) = **192 bytes** |
+| Full ASCII (95 glyphs) | 18,240 bytes = **banks 6, 7, 8** |
+| Per bank | 42 glyphs (8,064 bytes), so no glyph straddles a boundary |
+| Glyph `i` | bank `6 + i/42`, offset `$A000 + (i%42)*192` |
+
+Every phase is cached because text lands at arbitrary x; caching all 95
+up front costs three banks and removes eviction from the draw path
+entirely. A second face, or a larger one, is what makes LRU worth
+building — not the system font.
 
 Rules of thumb proven in Phase 0:
 
