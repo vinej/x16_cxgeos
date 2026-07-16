@@ -296,6 +296,20 @@ if ($Test) {
         if ($text -notmatch [regex]::Escape($h.up)) { Fail "boot smoke: $($h.cxa) never came up" }
         Write-Host "      boot: $($h.cxa) up, timed exit, shell up" -ForegroundColor Green
     }
+
+    # The SD-image path: fold the staged root into one FAT32 image and
+    # boot it through -sdcard, the way a real card boots (the ROM's
+    # CMDR-DOS reads AUTOBOOT.X16 off the FAT). No AUTORUN, so it lands
+    # straight in the desktop and "CXGEOS SHELL" alone proves the image.
+    Remove-Item (Join-Path $sdroot "AUTORUN.CXA") -Force -ErrorAction SilentlyContinue
+    $img = Join-Path $build "cxgeos_smoke.img"
+    $files = Get-ChildItem $sdroot -File | ForEach-Object { $_.FullName }
+    & python (Join-Path $root "tools\mksd.py") $img @files | Out-Null
+    if ($LASTEXITCODE) { Fail "boot smoke: mksd.py failed to build the image" }
+    $text = Invoke-Emulator @('-sdcard', $img) $TimeoutSec '(?m)^CXGEOS SHELL' "boot-sdcard"
+    if ($text -notmatch '(?m)^CXGEOS SHELL') { Fail "boot smoke: the SD image never reached the desktop" }
+    Remove-Item $img -Force -ErrorAction SilentlyContinue
+    Write-Host "      boot: FAT32 image via -sdcard, desktop up" -ForegroundColor Green
     exit 0
 }
 
@@ -306,6 +320,15 @@ if ($Apps -or $Image -or $Boot) {
         $sdroot = Stage-SdRoot
         Write-Host "sdroot: $sdroot"
         Get-ChildItem $sdroot | ForEach-Object { Write-Host ("      {0,-14} {1,6} bytes" -f $_.Name, $_.Length) }
+    }
+    if ($Image) {
+        # ...and fold the same files into one bootable FAT32 image, so a
+        # real SD card (or -sdcard) boots identically to -fsroot.
+        $img = Join-Path $build "cxgeos_sd.img"
+        $files = Get-ChildItem $sdroot -File | ForEach-Object { $_.FullName }
+        & python (Join-Path $root "tools\mksd.py") $img @files
+        if ($LASTEXITCODE) { throw "mksd.py failed" }
+        Write-Host "image: $img"
     }
     if ($Boot) {
         # -capture: x16emu does not feed the host mouse to the guest
