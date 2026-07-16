@@ -8,9 +8,10 @@
 ; to cx_app_load -- so choosing a file IS launching it, and cx_exit
 ; brings the browser back.
 ;
-; Keyboard-driven, because this emulator does not wire the host mouse
-; through: the list is focused at start, UP/DOWN walk it, RETURN opens
-; the selection. The menu bar's Themes recolours the browser live.
+; Mouse or keyboard: click a row to select it, double-click to open;
+; or UP/DOWN walk the focused list and RETURN opens. TAB raises the
+; menu bar for the keyboard; the mouse just clicks it. The menu bar's
+; Themes recolours the browser live.
 ; =====================================================================
 
 .include "x16.asm"
@@ -59,7 +60,7 @@ main
     lda #<widgets
     ldx #>widgets
     jsr cx_wg_set
-    lda #1                      ; the arrow (harmless with no mouse feed)
+    lda #1                      ; the arrow
     jsr cx_mouse_show
 
     lda #$09                    ; focus the list so UP/DOWN work at once
@@ -210,18 +211,41 @@ on_menu
 @repaint
     jmp cx_wg_draw
 
+; on_key -- modal, because the list and the menu bar both want the arrow
+; keys. Browsing: UP/DOWN/RETURN drive the list, TAB opens the menu, ESC
+; quits. In the menu: the arrows/RETURN/ESC drive it, and RETURN (pick) or
+; ESC (dismiss) drops us back to browsing. Without this the kernel grabs
+; DOWN to open the bar and the list can never scroll.
 on_key
+    lda inmenu
+    bne @menu
+    lda X16_P1                  ; --- browsing ---
+    cmp #$09                    ; TAB: raise the menu bar
+    beq @open
+    cmp #$1B                    ; ESC: leave the desktop
+    beq @quit
     lda X16_P1
+    jsr cx_wg_key               ; UP/DOWN select, RETURN launches
+    rts
+@open
+    lda #$11                    ; feed DOWN to drop the first menu
     jsr cx_menu_key
-    bcs @done
-    lda X16_P1
-    jsr cx_wg_key
-    bcs @done
-    lda X16_P1
-    cmp #$1B                    ; ESC quits
-    bne @done
+    lda #1
+    sta inmenu
+    rts
+@quit
     jmp cx_exit
-@done
+@menu
+    lda X16_P1                  ; --- a menu is open ---
+    jsr cx_menu_key
+    lda X16_P1
+    cmp #$0D                    ; RETURN picks, ESC dismisses: either way
+    beq @close                  ; the bar closes, so back to browsing
+    cmp #$1B
+    beq @close
+    rts
+@close
+    stz inmenu
     rts
 
 handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
@@ -259,12 +283,12 @@ wl_rec
 theme_day
     .byte $FF, $0F,  $AA, $0A,  $55, $05,  $00, $00
     .byte 0, 1, 3, 0
-theme_night
-    .byte $01, $00,  $23, $01,  $56, $03,  $BC, $0A
-    .byte 0, 1, 3, 0
+theme_night                     ; 0 near-black paper, 1 medium-blue
+    .byte $01, $00,  $48, $02,  $56, $03,  $BC, $0A   ; highlight (was too
+    .byte 0, 1, 3, 0                                  ; close to the paper)
 
 s_marker  .byte "CXGEOS SHELL", $0D, 0
-s_title   .byte "CXGEOS desktop -- UP/DOWN a file, RETURN to open it", 0
+s_title   .byte "CXGEOS -- dbl-click opens a file (or UP/DOWN+RETURN), ESC quits", 0
 s_m0      .byte "CXGEOS", 0
 s_m1      .byte "Themes", 0
 s_about_i .byte "about", 0
@@ -276,5 +300,6 @@ s_bad     .byte "that is not a CXGEOS app.                                    ",
 pat       .byte "$"
 
 fcount    .byte 0
+inmenu    .byte 0                 ; 0 = browsing the list, 1 = a menu is open
 fptrs     .res MAXFILES * 2, 0
 pool      .res MAXFILES * NAMEMAX, 0

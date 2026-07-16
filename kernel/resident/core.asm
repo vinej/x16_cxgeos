@@ -84,13 +84,21 @@ cx_do_version
 ; programs the bitmap layer but never enables the sprite plane -- so
 ; without this the KERNAL configures a pointer that cannot be seen.
 ; `tsb` is idempotent, so calling show twice costs nothing.
+;
+; MOUSE_CONFIG is given the field size EVERY time: X=0 does not mean
+; "keep the current size" -- r49 ps2mouse.s branches around the whole
+; max-coordinate setup when X is zero, and on a fresh boot the maxes
+; are zero, so the pointer draws but clamps to 0,0 forever. (This was
+; the frozen mouse.) 80x60 eight-pixel cells = our fixed 640x480.
 ; ---------------------------------------------------------------------
 cx_do_mouse_show
     pha
     lda #VERA_VIDEO_SPRITES_EN
     tsb VERA_DC_VIDEO
     pla
-    jmp mouse_show
+    ldx #80
+    ldy #60
+    jmp MOUSE_CONFIG
 
 cx_do_exit
     jsr ev_stop

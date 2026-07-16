@@ -645,14 +645,6 @@ wg_p_list
     sta (CX_M_PTR),y
 @topok
 
-    ; X16_T2 = the pointer array (WG_LBL)
-    ldy #WG_LBL
-    lda (CX_M_PTR),y
-    sta X16_T2
-    ldy #WG_LBL+1
-    lda (CX_M_PTR),y
-    sta X16_T2+1
-
     stz wg_row
 @rows
     lda wg_row
@@ -706,6 +698,12 @@ wg_p_list
     jsr gfx2_rect
 
     ; the item's string at x0+4, row_y+1
+    ldy #WG_LBL                 ; reload the array pointer: gfx2_rect above
+    lda (CX_M_PTR),y            ; is a library call and T-registers do not
+    sta X16_T2                  ; survive one (this is what drew garbage)
+    ldy #WG_LBL+1
+    lda (CX_M_PTR),y
+    sta X16_T2+1
     lda wg_idx                  ; X16_T0 = array[item]
     asl
     tay
@@ -979,8 +977,11 @@ wg_hit
     lda X16_P0
     cmp #EV_MOUSE_DOWN
     beq @press
+    cmp #EV_DBLCLICK            ; a double-click hits too: a list row
+    beq @press                  ; selects on DOWN but acts on DBL
     rts
 @press
+    sta wg_evt                  ; which press this was, for wg_act
     ; which widget? walk the list, first whose box contains the point.
     stz wg_i
 @find
@@ -1047,6 +1048,10 @@ wg_act
     beq @radio
     cmp #WG_SCROLL
     beq @scroll
+    cmp #WG_LIST
+    beq @list
+    cmp #WG_FIELD               ; a field takes typing, not presses
+    beq @none
     ; button: value 1, momentary; redraw pressed then released
     lda #1
     ldy #WG_VAL
@@ -1074,6 +1079,46 @@ wg_act
 @scroll
     jsr wg_scroll_to            ; A = the new value
     bra @post
+
+@list
+    ; the row under the pointer: (y - box_y - 1) / ROWH + top. The
+    ; high byte needs no math -- wg_inside proved y is in the box, so
+    ; the difference fits the row byte.
+    ldy #WG_Y
+    lda X16_P4
+    sec
+    sbc (CX_M_PTR),y
+    beq @row0                   ; on the frame line: row 0
+    sec
+    sbc #1
+@row0
+    ldx #0
+@div
+    cmp #WL_ROWH
+    bcc @rowed
+    sbc #WL_ROWH
+    inx
+    bra @div
+@rowed
+    txa
+    ldy #WG_TOP
+    clc
+    adc (CX_M_PTR),y
+    ldy #WG_GRP                 ; past the last item: not a row at all
+    cmp (CX_M_PTR),y
+    bcs @none
+    ldy #WG_VAL                 ; a click selects...
+    sta (CX_M_PTR),y
+    jsr wg_paint
+    lda wg_evt                  ; ...and only a double-click acts
+    cmp #EV_DBLCLICK
+    bne @none
+    jsr wg_rec                  ; the record pointer back, defensively
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    bra @post
+@none
+    rts
 
 @post
     jmp wg_post_val
@@ -1477,5 +1522,6 @@ wg_ch    .byte 0                  ; the character being typed into a field
 wg_row   .byte 0                  ; a list's visible row being drawn
 wg_idx   .byte 0                  ; ...the item it shows
 wg_maxrows .byte 0                ; ...how many rows fit
+wg_evt   .byte 0                  ; the press wg_hit saw: DOWN or DBLCLICK
 
 .segment "CODE"

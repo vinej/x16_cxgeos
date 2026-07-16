@@ -51,6 +51,11 @@ C64 deskTop needed low RAM that collides with the X16 IRQ handler at $038B).
   text output with port work (spike B lesson: buffer reads, then print).
 - KERNAL mouse pointer image lives at VRAM $13000 (r49 io.inc sprite_addr);
   the ledger in docs/memory-map.md carves it out.
+- MOUSE_CONFIG must get the REAL field size (X=80, Y=60 for 640×480): X=0
+  "keeps the current resolution", which on a fresh boot is 0×0 — the pointer
+  draws but clamps to 0,0 forever. cx_mouse_show passes 80/60 itself.
+- Official X16 docs (Programmer's Reference PDF, VERA + FX references):
+  C:\quartus\projects\X16_Mister2\doc
 - Emulator ROM: use ONLY the official r49 release rom.bin (sha256 b81654cc…).
   The rom.bin in X16_Geos and x16_library is GEOS-modified (298e3e2a…).
 - Tests: x16lib runner pattern — write via port 0, verify via port 1, print
