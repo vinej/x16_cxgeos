@@ -57,27 +57,26 @@ file in the same commit as the code that claims or releases a region.
 | $1FA00–$1FBFF | 512 | palette (hardware) |
 | $1FC00–$1FFFF | 1,024 | sprite attributes (hardware) |
 
-## The resident budget does not fit yet (Phase 4)
+## The resident budget, and what it cost to fit
 
 `kernel/kernel.cfg` pins the image and lets ld65 enforce the budget
 rather than leaving it a comment someone has to remember. The first
-build it enforced, it failed:
+build it judged, it failed — and the failure was worth having.
 
-| | bytes |
-|---|---|
-| x16lib (VERA + VERAFX + IRQ + INPUT + SCREEN + LOAD + BANK) | **6,055** |
-| CXGEOS kernel code (gfx2 wrappers, font, event, dirty, core) | 2,096 |
-| `fonts/pxl8.cxf`, linked into the image | 871 |
-| **resident total** | **9,022** |
-| budget, `$8200`–`$9EFF` | 7,424 |
-| **over by** | **1,598** |
+| | at first | now |
+|---|---|---|
+| x16lib | 6,055 | 3,893 |
+| CXGEOS kernel code | 2,096 | 2,096 |
+| `fonts/pxl8.cxf`, linked in | 871 | 871 |
+| **resident total** | **9,022** | **6,728** |
+| budget, `$8200`–`$9EFF` | 7,424 | 7,424 |
+| | **over by 1,598** | **696 spare** |
 
-The placement itself is proven: `JUMPHDR` lands at `$8000`, `JUMPTAB` at
-`$8010`–`$806C` (93 bytes = 31 slots × 3), `CODE` at `$8200`.
+Placement is proven: `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$806C`
+(93 bytes = 31 slots × 3), `CODE` at `$8200`.
 
-**Two thirds of the image is the library, and most of that is unused.**
-x16lib is one translation unit, so a gated module links whole — there is
-nothing for ld65 to strip. Measured, one gate at a time:
+**Two thirds of the image was the library, and most of it was unused.**
+Measured, one gate at a time:
 
 | gate | bytes | what CXGEOS calls from it |
 |---|---|---|
@@ -90,33 +89,31 @@ nothing for ld65 to strip. Measured, one gate at a time:
 | LOAD | 76 | nothing yet |
 | BANK | 624 | nothing — `font.asm` writes `RAM_BANK` itself |
 
-The 320×240 8bpp module is *not* linked: the gates do work. The problem
-is granularity, not selection. `X16_USE_VERAFX` exists to give gfx2
-`fx_fill` and hands over `fx_mult`, `fx_copy`, `fx_transp`, `fx_affine`,
-`fx_line` and `fx_triangle` with it — the last two are 400 lines
-between them.
+The 320×240 8bpp module was never linked: the gates select correctly.
+The problem was granularity. x16lib is one translation unit, so a gated
+module links whole — `X16_USE_VERAFX` existed to give gfx2 `fx_fill` and
+handed over `fx_mult`, `fx_copy`, `fx_transp`, `fx_affine`, `fx_line`
+and `fx_triangle` with it.
 
-**Measured, not estimated:** a `verafx.asm` trimmed to
-`fx_off`/`fx_mult`/`fx_fill`/`fx_clear` builds the same kernel **2,162
-bytes** smaller. That alone takes the image to 6,860 and it fits, with
-564 to spare. Dropping the three gates nothing calls (SCREEN, LOAD,
-BANK: 821) and banking the font blob (871) would leave 2,256 spare.
-
-So the fix is upstream and it is small: **split VERAFX into sub-gates**
-in x16_library — fill, copy, mult, the line/triangle drawers, the affine
-sampler — with `X16_USE_VERAFX` still meaning all of them, so nothing
-that exists today breaks. Every X16 program that wanted a fast fill and
-paid 2.5 KB for a rotozoom sampler gets the saving, not just CXGEOS.
-x16_clib has the same shape and would benefit the same way: its archive
-strips at `.o` granularity, and `verafx.o` is one object.
-
-A CXGEOS-local trimmed copy of the library would work and is the wrong
+**Fixed upstream, in x16lib 0.4.1:** VERAFX now has parts, and BITMAP2
+asks for `_FILL` alone. Worth 2,162 bytes here, and worth it to every X16
+program that wanted a fast fill and paid for a rotozoom sampler to get
+one. `X16_USE_VERAFX` still means all of it, so nothing that existed
+broke. A CXGEOS-local trimmed copy would have worked and been the wrong
 answer: the vendored tree is a clean snapshot on purpose, and the next
-re-vendor would silently undo it.
+re-vendor would have silently undone it.
 
-Banking the cold code is still worth doing — `font_cache` runs once at
-boot and has no business resident — but it is no longer urgent, and it
-should not be done to pay for somebody else's `fx_triangle`.
+Still on the table, and no longer urgent:
+
+- **SCREEN, LOAD and BANK are 821 bytes nothing calls.** `cx_exit` is
+  SCREEN's only user; LOAD and BANK are for a loader that does not exist
+  yet and will.
+- **The font blob is 871 resident bytes.** It stays for now: a kernel
+  that had to read its own font off the SD card could not put a message
+  on the screen when the read failed.
+- **Banking the cold code** is still right — `font_cache` runs once at
+  boot and has no business resident — but it should not be done to pay
+  for somebody else's `fx_triangle`.
 
 ## The glyph cache lives in banked RAM, not VRAM
 

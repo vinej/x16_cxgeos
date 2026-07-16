@@ -20,6 +20,10 @@
 
 ; (zone: file scope in ca65)
 
+
+; --- fx_off: every part of this module leaves FX through it, so it
+; --- is here whenever any of them is.
+.ifdef X16_USE_VERAFX_ANY
 ; ---------------------------------------------------------------------
 ; fx_off -- disable FX; leave DCSEL = 0 and ADDRSEL = 0.
 ; Safe to call whether or not FX was ever enabled.
@@ -37,6 +41,9 @@ fx_off
     vera_addrsel 0
     rts
 
+.endif
+
+.ifdef X16_USE_VERAFX_MULT
 ; ---------------------------------------------------------------------
 ; fx_mult -- signed 16 x 16 -> 32 in hardware
 ;   in:  X16_P0/P1 = a, X16_P2/P3 = b
@@ -89,6 +96,9 @@ fx_mult
 
     jmp fx_off
 
+.endif
+
+.ifdef X16_USE_VERAFX_FILL
 ; ---------------------------------------------------------------------
 ; fx_fill -- fill VRAM through the 32-bit write cache (~4x a byte loop)
 ;   in:  A = byte value
@@ -190,6 +200,9 @@ fx_clear
     lda #0
     jmp fx_fill
 
+.endif
+
+.ifdef X16_USE_VERAFX_COPY
 ; ---------------------------------------------------------------------
 ; fx_copy -- VRAM to VRAM through the 32-bit cache (~4x a byte loop)
 ;   in:  X16_P0/P1/P2 = source address (17-bit)
@@ -284,6 +297,9 @@ fx_copy
     vera_addrsel 0
     rts
 
+.endif
+
+.ifdef X16_USE_VERAFX_TRANSP
 ; ---------------------------------------------------------------------
 ; fx_transp_on / fx_transp_off -- transparent VRAM writes
 ;
@@ -328,6 +344,9 @@ fx_transp_off
 ; zoom factor. Tiles are 8 bpp here (64 bytes each, up to 256 tiles).
 ; =====================================================================
 
+.endif
+
+.ifdef X16_USE_VERAFX_AFFINE
 ; ---------------------------------------------------------------------
 ; fx_affine_on -- enter affine mode and describe the texture
 ;   in:  X16_P0/P1/P2 = tile data VRAM address (2 KB aligned)
@@ -472,6 +491,9 @@ fx_affine_span
 ; Assumes the 320x240@8bpp framebuffer at VRAM $00000 (gfx_init's
 ; mode). Does NOT clip; keep both endpoints on screen. Probe
 ; vera_has_fx before relying on any fx_* routine.
+.endif
+
+.ifdef X16_USE_VERAFX_LINE
 ; ---------------------------------------------------------------------
 fx_line
     ; |dx| and the x direction
@@ -688,6 +710,9 @@ fxl_h0    .byte 0
 ; fills that many pixels and a DATA0 read advances to the next row.
 ; =====================================================================
 
+.endif
+
+.ifdef X16_USE_VERAFX_TRI
 ; ---------------------------------------------------------------------
 ; fx_triangle -- filled triangle via the polygon helper
 ;   in:  tri_x0/tri_y0, tri_x1/tri_y1, tri_x2/tri_y2 = vertices
@@ -1276,5 +1301,6 @@ verafx_swap12
     stx tri_y1
     sta tri_y2
     rts
+.endif
 
 ; (end zone)

@@ -54,9 +54,13 @@ Repo-local tools, never committed:
 
 ## Vendored x16lib
 
-`x16lib/` is a snapshot of `x16_library/src_ca65/` at commit `5303131`
-("Add gfx2: a 640x480@2bpp bitmap module, across all 7 dialects").
-Update it by re-copying the tree and noting the new commit here.
+`x16lib/` is a snapshot of `x16_library/src_ca65/` at **v0.4.1**
+("VERAFX: split into parts, so a fast fill need not carry a rotozoom").
+Update it by re-copying the tree and noting the new version here.
+
+The kernel gates `X16_USE_BITMAP2`, which since 0.4.1 asks VERAFX for
+`_FILL` alone rather than all 2.5 KB of it. That is worth 2,162 bytes of
+the resident budget and is why the image fits.
 
 ## Status
 
