@@ -79,5 +79,7 @@ Update it by re-copying the tree and noting the new commit here.
   5.7, so text is ~29% shorter than the 8-pixel grid.
   `kernel/font/font.asm` caches every glyph pre-shifted to all four
   pixel phases in banked RAM and draws through `gfx2_blitm`: **98.7
-  glyphs/frame**, a 40-character menu bar in 0.41 frames. See
-  `demos/specimen.asm`. Still to come: bold/underline, a second face.
+  glyphs/frame**, a 40-character menu bar in 0.41 frames; bold (a
+  double strike) and underline cost nothing when off. See
+  `demos/specimen.asm`. Still to come: a second face, which is when
+  the cache needs eviction rather than three fixed banks.
