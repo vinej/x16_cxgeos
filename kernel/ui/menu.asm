@@ -119,6 +119,7 @@ mn_hot   .byte 0                ; $A03F  the highlighted row; $FF = none
 mn_i     .byte 0
 mn_t     .byte 0, 0
 mn_t2    .byte 0, 0
+mn_band  .byte 0                ; the title band's colour, mid-paint
 mn_mx0l  .res 8, 0              ; the bar spans, for the hit search
 mn_mx0h  .res 8, 0
 mn_mx1l  .res 8, 0
@@ -255,6 +256,68 @@ mn_draw_bar
     bra @title
 @done
     rts
+
+; ---------------------------------------------------------------------
+; mn_title_band -- A = a colour index. Paints the OPEN menu's title
+; span in the bar with it and redraws the title on top, so the bar
+; itself says which menu is open: th_hi when a drop-down opens,
+; th_paper when it closes. The band stops a pixel short of the bar's
+; rule. The bar is not under any save-under strip, so the close path
+; must paint it back by hand -- that is the th_paper call.
+; ---------------------------------------------------------------------
+mn_title_band
+    sta mn_band
+    ldy mn_cur                  ; x0 = span open - 4 (the air), w = span
+    sec                         ; width + 8
+    lda mn_mx0l,y
+    sbc #4
+    sta X16_P0
+    lda mn_mx0h,y
+    sbc #0
+    sta X16_P1
+    sec
+    lda mn_mx1l,y
+    sbc mn_mx0l,y
+    sta X16_P4
+    lda mn_mx1h,y
+    sbc mn_mx0h,y
+    sta X16_P5
+    clc
+    lda X16_P4
+    adc #8
+    sta X16_P4
+    bcc @wnc
+    inc X16_P5
+@wnc
+    stz X16_P2
+    stz X16_P3
+    lda #CX_MENU_H-1
+    sta X16_P6
+    stz X16_P7
+    lda mn_band
+    jsr gfx2_rect
+
+    lda mn_cur                  ; the title back on top, where the bar
+    sta mn_i                    ; drew it: its span's start, 2 down
+    jsr mn_entry
+    ldy mn_cur
+    lda mn_mx0l,y
+    sta X16_P0
+    lda mn_mx0h,y
+    sta X16_P1
+    lda #2
+    sta X16_P2
+    stz X16_P3
+    ldy #0
+    lda (CX_M_PTR),y
+    tax
+    iny
+    lda (CX_M_PTR),y
+    stx CX_M_PTR
+    sta CX_M_PTR+1
+    lda CX_M_PTR
+    ldx CX_M_PTR+1
+    jmp font_draw
 
 ; ---------------------------------------------------------------------
 ; mn_entry -- CX_M_PTR = bar entry mn_i (4 bytes each, after the count),
@@ -479,7 +542,8 @@ mn_drop_open
     sta mn_hot                  ; says so
     lda #1
     sta mn_open
-    rts
+    lda th_hi                   ; the bar shows which menu is open
+    jmp mn_title_band
 
 ; ---------------------------------------------------------------------
 ; mn_item -- CX_M_PTR = item label mn_i: the list is a count, then a
@@ -538,6 +602,8 @@ mn_drop
 ; ---------------------------------------------------------------------
 mn_finish
     sta mn_pick
+    lda th_paper                ; the open title's band off the bar (the
+    jsr mn_title_band           ; bar is above the save-under strip)
     lda #0                      ; the pixels back, the region gone
     jsr mn_strip
     jsr rg_pop
