@@ -7,6 +7,38 @@
 ; =====================================================================
 
 ; ---------------------------------------------------------------------
+; cx_init -- bring the machine up. The header at $8008 points here, so
+; a loader starts the kernel without knowing anything but the header.
+;
+; The screen and the font first, because everything visible needs them,
+; and the event system last, because once its hook is in the machine is
+; live and an interrupt can arrive.
+;
+; The image supplies `cx_sysfont`: the kernel does not read its font off
+; the SD card, because a kernel whose font failed to load could not put
+; a message on the screen to say so.
+;
+; Carry set if the font would not parse, which is the only thing here
+; that can fail.
+; ---------------------------------------------------------------------
+cx_init
+    jsr gfx2_init
+    lda #0
+    jsr gfx2_clear
+
+    lda #<cx_sysfont
+    ldx #>cx_sysfont
+    jsr font_set
+    bcs @nofont
+
+    jsr ev_init
+    clc
+    rts
+@nofont
+    sec
+    rts
+
+; ---------------------------------------------------------------------
 ; cx_do_version -- A/X = the ABI version the kernel implements.
 ;
 ; Read from the header rather than assembled in: the header is what the

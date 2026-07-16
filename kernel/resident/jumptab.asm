@@ -8,6 +8,11 @@
 ; Edit abi/cxgeos.abi and regenerate.
 ; =====================================================================
 
+; pushseg/popseg so including this cannot change the caller's
+; segment. Without them everything after the include lands in
+; JUMPTAB, and ld65 reports it as the table overflowing --
+; which is a long way from what actually went wrong.
+.pushseg
 .segment "JUMPHDR"
 cx_hdr_magic
     .byte "CXOS"                  ; the loader looks for this
@@ -15,7 +20,9 @@ cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
     .word 31                    ; slots
-    .res 8, 0                   ; reserved
+cx_hdr_init
+    .word cx_init               ; the loader starts here
+    .res 6, 0                   ; reserved
 
 .segment "JUMPTAB"
 cx_jumptab
@@ -60,4 +67,6 @@ cx_jumptab
     jmp dr_add           ; 28  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h
     jmp dr_count         ; 29  -> A = rects
     jmp dr_get           ; 30  A = index -> P0/P1 = x0, P2/P3 = y0, P4/P5 = x1, P6/P7 = y1
+
+.popseg
 

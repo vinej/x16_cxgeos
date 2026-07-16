@@ -57,6 +57,51 @@ file in the same commit as the code that claims or releases a region.
 | $1FA00–$1FBFF | 512 | palette (hardware) |
 | $1FC00–$1FFFF | 1,024 | sprite attributes (hardware) |
 
+## The resident budget does not fit yet (Phase 4)
+
+`kernel/kernel.cfg` pins the image and lets ld65 enforce the budget
+rather than leaving it a comment someone has to remember. The first
+build it enforced, it failed:
+
+| | bytes |
+|---|---|
+| x16lib (VERA + VERAFX + IRQ + INPUT + SCREEN + LOAD + BANK) | **6,055** |
+| CXGEOS kernel code (gfx2 wrappers, font, event, dirty, core) | 2,096 |
+| `fonts/pxl8.cxf`, linked into the image | 871 |
+| **resident total** | **9,022** |
+| budget, `$8200`–`$9EFF` | 7,424 |
+| **over by** | **1,598** |
+
+The placement itself is proven: `JUMPHDR` lands at `$8000`, `JUMPTAB` at
+`$8010`–`$806C` (93 bytes = 31 slots × 3), `CODE` at `$8200`.
+
+**Two thirds of the image is the library, and most of that is unused.**
+x16lib is one translation unit, so a gated module links whole — there is
+nothing for ld65 to strip. `X16_USE_BITMAP2` needs `fx_fill` and gets
+`fx_mult`, `fx_line`, `fx_triangle`, `fx_copy`, `fx_affine` with it.
+Measured: `BITMAP2` alone is 4,795; `+IRQ +INPUT` is 5,234;
+`+SCREEN +LOAD +BANK` is 6,055.
+
+Four ways out, and the choice is an architecture decision, not a tidy-up:
+
+1. **Bank the cold code**, which is what the plan always said the
+   resident was: gfx2's hot paths, the glyph blitter, the event core and
+   the bank trampoline — *not* the whole font engine (`font_cache` runs
+   once at boot), *not* the dirty-rect list, *not* gfx2's line and
+   pattern code. Needs the trampoline, which Phase 4 owes anyway.
+2. **Finer gates upstream.** `X16_USE_VERAFX_FILL` beside
+   `X16_USE_VERAFX` would give the whole ecosystem the saving, not just
+   CXGEOS. It is the honest fix for the cause rather than the symptom.
+3. **Drop what is not called yet** (`SCREEN`, `LOAD`, `BANK`: 821 bytes)
+   and **move the font blob to a bank** (871). That reaches 7,330 — it
+   fits, with 94 bytes spare, which is not a budget so much as a dare.
+4. **Move the boundary.** The app's `$0801`–`$7FFF` is 30 KB; the kernel
+   could take more of it. The table's address is a promise, the code's
+   is not.
+
+(1) and (2) are the real answers and they compose. (3) buys a week and
+costs the next person a day. Nothing is decided here.
+
 ## The glyph cache lives in banked RAM, not VRAM
 
 Phase 0 budgeted the pre-shifted glyph caches into VRAM at `$17100`.

@@ -30,7 +30,10 @@
 #   $8000  4  "CXOS"
 #   $8004  2  ABI version (little-endian)
 #   $8006  2  slot count
-#   $8008  8  reserved
+#   $8008  2  cx_init -- where a loader starts the kernel. Not a slot:
+#             an app never calls it, and by the time an app runs it has
+#             already happened.
+#   $800A  6  reserved
 #
 # =====================================================================
 

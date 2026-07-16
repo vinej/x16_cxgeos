@@ -1204,6 +1204,8 @@ test_abi_call
 .include "kernel/resident/jumptab.asm"
 
 ; the system font, linked in so the suite needs no SD card
+; The kernel image supplies cx_sysfont; here the suite is the image.
+cx_sysfont
 pxl8
     .incbin "fonts/pxl8.cxf"
 .include "testlib.asm"

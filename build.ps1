@@ -15,6 +15,7 @@ param(
     [switch]$Test,
     [switch]$Run,
     [switch]$Capture,      # run windowed with -warp, capture -echo output until DONE
+    [switch]$Kernel,       # build the resident image against kernel/kernel.cfg
     [int]$Scale = 1,
     [int]$TimeoutSec = 90
 )
@@ -39,7 +40,17 @@ foreach ($tool in @($ca65, $ld65, $emu, $rom)) {
 }
 if (-not (Test-Path $build)) { New-Item -ItemType Directory -Path $build | Out-Null }
 
+# -Kernel builds the resident image: the header at $8000, the jump table
+# at $8010 and the code at $8200, which are the addresses every app is
+# built against. ld65 fails the link if the code overruns $9EFF, so the
+# budget enforces itself. See docs/memory-map.md -- it does not fit yet.
+if ($Kernel) {
+    $Source = "kernel\kernel.asm"
+    $Config = "kernel\kernel.cfg"
+}
+
 $name = [IO.Path]::GetFileNameWithoutExtension($Source).ToUpper()
+if ($Kernel) { $name = "CXKERNEL" }
 $obj  = Join-Path $build "$name.o"
 $out  = Join-Path $build "$name.PRG"
 $map  = Join-Path $build "$name.map"
