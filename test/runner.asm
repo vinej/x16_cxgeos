@@ -20,6 +20,7 @@
 X16_USE_BITMAP2 = 1             ; pulls in VERA and VERAFX
 X16_USE_IRQ     = 1             ; the event system's raster hook
 X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
+X16_USE_SCREEN  = 1             ; cx_exit hands the text screen back
 
 FB_STRIDE   = 160
 
@@ -62,6 +63,10 @@ main
     jsr test_ev_wrap
     jsr test_ev_dispatch
     jsr test_ev_null
+
+    jsr test_abi_header
+    jsr test_abi_table
+    jsr test_abi_call
 
     jsr t_summary
     rts
@@ -1074,10 +1079,129 @@ test_ev_null
 @hits    .byte 0
 @zeroes  .byte 0
 
+
+; =====================================================================
+; the ABI (abi/cxgeos.abi -> kernel/resident/jumptab.asm).
+;
+; Here the table is linked into the test PRG rather than pinned at
+; $8000, so these check what that placement does not: that the header
+; says what the manifest says, that every slot is a JMP to a real
+; routine, and that a call through the table reaches the kernel. The
+; addresses themselves are kernel.cfg's business.
+;
+; abi/gen_bindings.py --selftest covers the generator; --check fails a
+; build whose sdk/ has drifted from the manifest.
+; =====================================================================
+
+; ABI_HEADER: the loader reads this to decide whether an app can run.
+test_abi_header
+    ldy #1
+    lda cx_hdr_magic            ; "CXOS"
+    cmp #'C'
+    bne @report
+    lda cx_hdr_magic+1
+    cmp #'X'
+    bne @report
+    lda cx_hdr_magic+2
+    cmp #'O'
+    bne @report
+    lda cx_hdr_magic+3
+    cmp #'S'
+    bne @report
+
+    lda cx_hdr_version          ; version 1, and the kernel agrees
+    cmp #1
+    bne @report
+    lda cx_hdr_version+1
+    bne @report
+    lda cx_hdr_slots
+    cmp #31
+    bne @report
+    lda cx_hdr_slots+1
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "ABI_HEADER", 0
+
+; ABI_TABLE: every slot is a JMP ($4C), three bytes apart, to somewhere
+; that is not zero. A slot whose impl went missing would be caught by
+; gen_bindings.py -- this catches the table being built wrong.
+test_abi_table
+    lda #31
+    sta @n
+    lda #<cx_jumptab            ; the library's scratch pointer: (zp),y
+    sta X16_TPTR3               ; needs zero page, and it is free here
+    lda #>cx_jumptab
+    sta X16_TPTR3+1
+@slot
+    ldy #0
+    lda (X16_TPTR3),y           ; the opcode
+    cmp #$4C                    ; JMP abs
+    bne @bad
+    iny                         ; ...to a real address
+    lda (X16_TPTR3),y
+    iny
+    ora (X16_TPTR3),y
+    beq @bad
+
+    clc                         ; three bytes on
+    lda X16_TPTR3
+    adc #3
+    sta X16_TPTR3
+    bcc @nc
+    inc X16_TPTR3+1
+@nc
+    dec @n
+    bne @slot
+    lda #0
+    bra @report
+@bad
+    lda #1
+@report
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "ABI_TABLE", 0
+@n    .byte 0
+
+; ABI_CALL: a call through the table reaches the kernel and comes back
+; with the right answer. cx_version is slot 0, so this also proves the
+; table's base is where the bindings say.
+test_abi_call
+    ldy #1
+    jsr cx_jumptab              ; slot 0 = cx_version
+    cmp #1                      ; A/X = the header's version
+    bne @report
+    cpx #0
+    bne @report
+
+    ; slot 24 = cx_ev_count. Post one event, ask through the ABI.
+    jsr ev_init
+    lda #EV_KEY
+    ldx #1
+    ldy #0
+    jsr ev_fill
+    jsr cx_jumptab + 24 * 3
+    cmp #1
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "ABI_CALL", 0
+
 ; ---------------------------------------------------------------------
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/event/event.asm"
+.include "kernel/resident/core.asm"
+.include "kernel/resident/jumptab.asm"
 
 ; the system font, linked in so the suite needs no SD card
 pxl8
