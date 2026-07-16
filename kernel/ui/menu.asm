@@ -58,6 +58,10 @@ mn_drop_vec
     jsr cxb_call
     .byte 2
     .addr $A000 + 3*3
+cx_do_menu_key
+    jsr cxb_call
+    .byte 2
+    .addr $A000 + 11*3
 
 ; =====================================================================
 ; bank 2 from here on
@@ -76,7 +80,8 @@ mn_drop_vec
 ;   4 th_set                                        (theme.asm)
 ;   5 dg_alert 6 dg_hit                             (dialog.asm)
 ;   8 wg_set   9 wg_draw  10 wg_hit                 (widget.asm)
-;   7, 11..15 reserved
+;   11 mn_key                                       (menu.asm, keyboard)
+;   7, 12..15 reserved
 b2_table
     jmp mn_set                  ; 0
     jmp mn_off                  ; 1
@@ -89,7 +94,7 @@ b2_table
     jmp wg_set                  ; 8
     jmp wg_draw                 ; 9
     jmp wg_hit                  ; 10
-    jmp mn_off                  ; 11 reserved
+    jmp mn_key                  ; 11 kernel/ui/menu.asm (keyboard)
     jmp mn_off                  ; 12 reserved
     jmp mn_off                  ; 13 reserved
     jmp mn_off                  ; 14 reserved
@@ -523,9 +528,15 @@ mn_drop
 
 @press
     jsr mn_rowat                ; $FF misses double as "dismiss"
-    sta mn_pick
+    ; falls into mn_finish
 
-@close
+; ---------------------------------------------------------------------
+; mn_finish -- A = the chosen item, or $FF to dismiss. Restores the
+; pixels, pops the modal region, and -- unless dismissed -- posts
+; EV_MENU. Shared by the click, the keyboard, and menu switching.
+; ---------------------------------------------------------------------
+mn_finish
+    sta mn_pick
     lda #0                      ; the pixels back, the region gone
     jsr mn_strip
     jsr rg_pop
@@ -546,6 +557,120 @@ mn_drop
     jmp ev_post
 @out
     rts
+
+; ---------------------------------------------------------------------
+; mn_key -- A = a key. Drives the menus from the keyboard: DOWN opens
+; the bar; once open, UP/DOWN move the highlight, LEFT/RIGHT switch
+; menus, RETURN picks, ESC dismisses. Carry set if the key was a menu
+; key (the app should not also act on it), clear to pass it through.
+;
+; The same open/highlight/finish routines the mouse uses, so a menu
+; driven blind by the keyboard behaves exactly like a clicked one --
+; including the EV_MENU it posts.
+; ---------------------------------------------------------------------
+KEY_DOWN  = $11
+KEY_UP    = $91
+KEY_RIGHT = $1D
+KEY_LEFT  = $9D
+KEY_ENTER = $0D
+KEY_ESC   = $1B
+
+mn_key
+    ldx mn_bar_p+1
+    beq @no                     ; no bar set: not ours
+    ldx mn_open
+    bne @open
+
+    cmp #KEY_DOWN               ; closed: DOWN drops the first menu
+    bne @no
+    lda #0
+    jsr mn_kopen
+    bra @yes
+
+@open
+    cmp #KEY_ESC
+    beq @dismiss
+    cmp #KEY_ENTER
+    beq @pick
+    cmp #KEY_DOWN
+    beq @down
+    cmp #KEY_UP
+    beq @up
+    cmp #KEY_RIGHT
+    beq @right
+    cmp #KEY_LEFT
+    beq @left
+    bra @no                     ; a typing key: the app's, not ours
+
+@dismiss
+    lda #$FF
+    jsr mn_finish
+    bra @yes
+@pick
+    lda mn_hot
+    jsr mn_finish
+    bra @yes
+@down
+    ldx mn_hot
+    inx                         ; $FF (none) wraps to 0 too
+    cpx mn_n
+    bcc @seth
+    ldx #0
+@seth
+    txa
+    jsr mn_hotswap
+    bra @yes
+@up
+    ldx mn_hot
+    bmi @last                   ; none highlighted: wrap to the last
+    dex
+    bpl @seth2
+@last
+    ldx mn_n
+    dex
+@seth2
+    txa
+    jsr mn_hotswap
+    bra @yes
+@right
+    ldx mn_cur
+    inx
+    cpx mn_count
+    bcc @switch
+    ldx #0
+@switch
+    txa
+    jsr mn_switch
+    bra @yes
+@left
+    ldx mn_cur
+    bne @decm
+    ldx mn_count
+@decm
+    dex
+    txa
+    jsr mn_switch
+@yes
+    sec
+    rts
+@no
+    clc
+    rts
+
+; mn_kopen -- A = menu: open its drop-down and highlight item 0.
+mn_kopen
+    jsr mn_drop_open
+    lda #0
+    jmp mn_hotswap
+
+; mn_switch -- A = menu: close the open drop-down (no pick) and open
+; the given one. LEFT/RIGHT walk the bar this way.
+mn_switch
+    pha
+    lda #$FF
+    jsr mn_finish
+    pla
+    jmp mn_kopen
 
 ; ---------------------------------------------------------------------
 ; mn_rowat -- the record's point (X16_P2..P5) against the open box:

@@ -1219,9 +1219,9 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #41                     ; 31 shipped with the table; the loader,
-    bne @report                 ; events, menus, the pointer, themes,
-                                ; dialogs and now the widgets grew it
+    cmp #42                     ; 31 shipped with the table; the rest --
+    bne @report                 ; loader, events, menus, pointer, themes,
+                                ; dialogs, widgets, keyboard nav -- grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0

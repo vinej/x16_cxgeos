@@ -105,3 +105,6 @@ version = 1
 #= widgets
 39  cx_wg_set       1   A/X = a widget list (docs/formats.md); draws it, routes its clicks; posts EV_WIDGET(detail = index, P2 = value)
 40  cx_wg_draw      1   redraw the current widget list
+
+#= keyboard menu nav
+41  cx_menu_key     1   A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key. Call it from your EV_KEY handler

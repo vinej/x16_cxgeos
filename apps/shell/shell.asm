@@ -128,11 +128,18 @@ on_menu
     rts
 
 on_key
-    lda X16_P1
+    lda X16_P1                  ; the menu bar gets first refusal: DOWN
+    jsr cx_menu_key             ; opens it, arrows walk it, RETURN picks
+    bcc @app                    ; -- carry set means it was a menu key
+    rts
+@app
+    lda X16_P1                  ; the number keys still launch directly
     cmp #'1'
     beq @one
     cmp #'2'
     beq @two
+    cmp #'3'
+    beq @three
     rts
 @one
     lda #<s_f1
@@ -145,6 +152,12 @@ on_key
     ldx #>s_f2
     ldy #s_f2_len
     jsr cx_app_load
+    bra sorry
+@three
+    lda #<s_f3
+    ldx #>s_f3
+    ldy #s_f3_len
+    jsr cx_app_load
 
 sorry                           ; a load that came back is a load that
     lda #<s_missing             ; failed
@@ -152,11 +165,12 @@ sorry                           ; a load that came back is a load that
     ldy #<120
     jmp say
 
-handlers                        ; EV_NULL, MOVE, DOWN, UP, DBLCLICK,
-    .addr 0, 0, 0, 0, 0         ; KEY, TIMER, MENU
+handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
+    .addr 0, 0, 0, 0, 0
     .addr on_key
     .addr 0
     .addr on_menu
+    .addr 0                     ; WIDGET: the shell has none
 
 ; ---------------------------------------------------------------------
 ; the menu tree (docs/formats.md)

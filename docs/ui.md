@@ -80,6 +80,18 @@ draw, push the drop-down region. A click on an item pops back, restores
 the pixels, and posts an `EV_MENU` record with the menu/item indices —
 the app hears about menus the same way it hears about everything else.
 
+## Keyboard menu navigation (`cx_menu_key`)
+
+An app forwards each key to `cx_menu_key` from its `EV_KEY` handler; the
+menu engine takes the ones it wants and reports (carry set) that it
+consumed them, so the app acts only on the rest. With the bar closed,
+DOWN drops the first menu; open, UP/DOWN move the highlight, LEFT/RIGHT
+switch menus, RETURN picks, ESC dismisses. A keyboard pick posts the
+same `EV_MENU` a click would, through the same `mn_finish` -- so an app
+handles selections one way whichever drove them. This is the keyboard
+half of the machine the mouse could not reach in one emulator; on
+hardware both drive the same menus.
+
 ## Themes (Phase 5b, `kernel/ui/theme.asm`)
 
 A theme is the four palette RGBs plus which index plays which role —

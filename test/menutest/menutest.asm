@@ -157,6 +157,37 @@ main
     jmp fail
 @item
 
+    ; ---- keyboard menu navigation --------------------------------
+    ; drive menu 0 entirely by key: DOWN opens it (highlight item 0),
+    ; DOWN moves to item 1, RETURN picks it. The EV_MENU that lands must
+    ; match the mouse path: menu 0, item 1. cx_menu_key consumes each,
+    ; so carry comes back set.
+    stz got_item
+    stz got_menu
+    lda #$11                    ; KEY_DOWN: open the bar
+    jsr cx_menu_key
+    bcs @kopen
+    lda #'L'
+    jmp fail
+@kopen
+    lda #$11                    ; KEY_DOWN: highlight item 1
+    jsr cx_menu_key
+    lda #$0D                    ; KEY_ENTER: pick it
+    jsr cx_menu_key
+    jsr drain                   ; the EV_MENU it posted
+    lda got_menu
+    cmp #$80                    ; menu 0
+    beq @kheard
+    lda #'M'
+    jmp fail
+@kheard
+    lda got_item
+    cmp #1                      ; item 1, same as the mouse picked
+    beq @kitem
+    lda #'N'
+    jmp fail
+@kitem
+
     lda #PROBE_X                ; the witness, restored to the pixel
     sta X16_P0
     stz X16_P1

@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 41                    ; slots
+    .word 42                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -89,6 +89,9 @@ cx_jumptab
 ; --- widgets -----------------------------------------------------
     jmp cx_do_wg_set     ; 39  A/X = a widget list (docs/formats.md); draws it, routes its clicks; posts EV_WIDGET(detail = index, P2 = value)
     jmp cx_do_wg_draw    ; 40  redraw the current widget list
+
+; --- keyboard menu nav -------------------------------------------
+    jmp cx_do_menu_key   ; 41  A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key. Call it from your EV_KEY handler
 
 .popseg
 

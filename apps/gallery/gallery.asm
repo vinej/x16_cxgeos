@@ -101,11 +101,14 @@ on_menu
     rts
 
 on_key
+    lda X16_P1                  ; the menu bar first: DOWN opens it,
+    jsr cx_menu_key             ; arrows walk it, RETURN picks
+    bcs @done
     lda X16_P1
     cmp #$1B                    ; ESC exits
-    bne @out
+    bne @done
     jmp cx_exit
-@out
+@done
     rts
 
 handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET

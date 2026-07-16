@@ -60,3 +60,4 @@ cx_theme_set    = cx_do_theme_set
 cx_dlg_alert    = cx_do_dlg_alert
 cx_wg_set       = cx_do_wg_set
 cx_wg_draw      = cx_do_wg_draw
+cx_menu_key     = cx_do_menu_key
