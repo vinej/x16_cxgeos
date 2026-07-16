@@ -97,3 +97,7 @@ version = 1
 #= the pointer
 35  cx_mouse_show   1   A = $FF the arrow, or n a cursor sprite; the loader hides it between apps, so an app that wants it asks
 36  cx_mouse_hide   1   -
+
+#= themes and dialogs
+37  cx_theme_set    1   A/X = a 12-byte theme record (docs/formats.md): four palette RGBs plus the role indices; the palette changes instantly
+38  cx_dlg_alert    1   A/X = a dialog descriptor (docs/formats.md); SYNCHRONOUS -- returns A = the chosen button. RETURN picks button 0

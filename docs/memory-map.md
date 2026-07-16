@@ -66,19 +66,33 @@ build it judged, it failed — and the failure was worth having.
 | | at first | after 0.4.1 | now |
 |---|---|---|---|
 | x16lib | 6,055 | 3,893 | **3,072** |
-| CXGEOS kernel code | 2,096 | 2,096 | 3,163 (+1,020 in bank 2) |
+| CXGEOS kernel code | 2,096 | 2,096 | 3,615 (+1,749 in bank 2) |
 | `fonts/pxl8.cxf` | 871 | 871 | **0 — on the SD card** |
-| **resident total** | **9,022** | **6,728** | **6,063** |
+| **resident total** | **9,022** | **6,728** | **6,299** |
 | budget, `$8200`–`$9EFF` | 7,424 | 7,424 | 7,424 |
-| | **over by 1,598** | 696 spare | **1,361 spare** |
+| | **over by 1,598** | 696 spare | **1,125 spare** |
 
-(The kernel-code figure grew 418 bytes with Phase 4c's loader and
-shell-returning cx_exit; 343 more with Phase 5a's region stack and
-far-call trampoline; then 216 with fx_copy and the menu stubs — while
-the menu ENGINE's 1,020 bytes went to bank 2, exactly what the
-trampoline exists for. `CXBANKS.BIN` is the second file the kernel
-build emits, and stage-0 loads it to bank 2 at boot; when bank 3
-exists it appends there and the one LOAD keeps working.)
+(The resident figure grew through Phase 4c's loader and shell-returning
+cx_exit, Phase 5a's region stack and far-call trampoline, and Phase 5b's
+theme record and vrows save-under helper — while the menu, theme and
+dialog ENGINES' 1,749 bytes went to bank 2, exactly what the trampoline
+exists for. `CXBANKS.BIN` is the second file the kernel build emits, and
+stage-0 loads it to bank 2 at boot; when bank 3 exists it appends there
+and the one LOAD keeps working.)
+
+Two save-under stores, because two things get covered and they are not
+the same size:
+
+- **Menus** → the VRAM strip at `$13100` (`fx_copy`, `_FILL`/`_COPY`
+  gated). Full rows, up to the drop-down's height. NOT `$12C00`: the
+  KERNAL mouse pointer image is at `$13000`, and a strip based there is
+  written through the moment a menu opens over an arrow.
+- **Dialogs** → banked RAM, banks **14-15** (`vrows_save`/`restore`,
+  resident because bank-2 code cannot stream into another bank through
+  the window it executes from). A 400×96 alert is 15,360 bytes, past one
+  bank; 14-15 are the DA slots, and no desk accessory shares the screen
+  with a modal alert. NOT banks 6-8 — those are the font cache, and a
+  dialog that saved there ate its own message glyphs.
 
 Placement is proven: `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$806C`
 (93 bytes = 31 slots × 3), `CODE` at `$8200`.

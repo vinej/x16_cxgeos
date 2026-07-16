@@ -46,11 +46,17 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 ; resolve it.
 .include "kernel/resident/core.asm"
 .include "kernel/resident/farcall.asm"
+.include "kernel/resident/vrows.asm"
 .include "kernel/fs/loader.asm"
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/ui/region.asm"
 .include "kernel/ui/menu.asm"
+; menu.asm FIRST among the bank-2 contributors: it owns the local jump
+; table, and B2CODE fills in include order -- a file ahead of it would
+; shove the table off $A000 and every stub with it
+.include "kernel/ui/theme.asm"
+.include "kernel/ui/dialog.asm"
 .include "kernel/event/event.asm"
 
 ; The system font is NOT here. It ships as PXL8.CXF on the SD card, and

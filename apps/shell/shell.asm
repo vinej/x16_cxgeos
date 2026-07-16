@@ -81,6 +81,8 @@ say
 on_menu
     lda X16_P2                  ; which menu
     beq @sys                    ; 0: CXGEOS
+    cmp #2
+    beq @theme                  ; 2: Themes
     lda X16_P1                  ; 1: Demos -- which item
     beq @h1
     cmp #1
@@ -89,10 +91,19 @@ on_menu
 @sys
     lda X16_P1                  ; About is its only item
     bne @none
-    lda #<s_about
-    ldx #>s_about
-    ldy #<120
-    jmp say
+    lda #<about_dlg             ; a real dialog: the call blocks until
+    ldx #>about_dlg             ; the button, and every pixel it covered
+    jmp cx_dlg_alert            ; comes back on its own
+@theme
+    lda X16_P1                  ; 0 = daylight, 1 = midnight
+    beq @day
+    lda #<theme_night
+    ldx #>theme_night
+    jmp cx_theme_set
+@day
+    lda #<theme_day
+    ldx #>theme_day
+    jmp cx_theme_set
 @h1
     lda #<s_f1
     ldx #>s_f1
@@ -143,9 +154,10 @@ handlers                        ; EV_NULL, MOVE, DOWN, UP, DBLCLICK,
 ; the menu tree (docs/formats.md)
 ; ---------------------------------------------------------------------
 bar
-    .byte 2
+    .byte 3
     .addr s_m0, m0_items
     .addr s_m1, m1_items
+    .addr s_m2, m2_items
 m0_items
     .byte 1
     .addr s_i_about
@@ -153,18 +165,39 @@ m1_items
     .byte 2
     .addr s_i_h1
     .addr s_i_h2
+m2_items
+    .byte 2
+    .addr s_i_day
+    .addr s_i_night
+
+about_dlg
+    .byte 1
+    .addr s_about
+    .addr s_i_ok
+
+; a theme is the four palette RGBs (GB, R nibbles) and the role indices
+theme_day                       ; the default: black ink on white paper
+    .byte $FF, $0F,  $AA, $0A,  $55, $05,  $00, $00
+    .byte 0, 1, 3, 0
+theme_night                     ; pale ink on a deep blue-black
+    .byte $01, $00,  $23, $01,  $56, $03,  $BC, $0A
+    .byte 0, 1, 3, 0
 
 s_m0      .byte "CXGEOS", 0
 s_m1      .byte "Demos", 0
+s_m2      .byte "Themes", 0
 s_i_about .byte "about this machine", 0
 s_i_h1    .byte "hello, from assembly", 0
 s_i_h2    .byte "hello, from C", 0
+s_i_day   .byte "daylight", 0
+s_i_night .byte "midnight", 0
+s_i_ok    .byte "ok", 0
 
 s_marker  .byte "CXGEOS SHELL", $0D, 0
 s_title   .byte "CXGEOS 0.1", 0
 s_hint1   .byte "the menus up there work with the mouse.", 0
 s_hint2   .byte "keys work too: 1 and 2 launch the demos.", 0
-s_about   .byte "a from-scratch GEOS-inspired OS for the Commander X16, on stock ROM.", 0
+s_about   .byte "CXGEOS 0.1 -- a from-scratch, GEOS-inspired OS, on stock ROM.", 0
 s_missing .byte "that app is not on this disk.                                        ", 0
 s_f1      .byte "HELLO1.CXA"
 s_f1_len = * - s_f1

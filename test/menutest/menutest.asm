@@ -21,6 +21,7 @@
 
 EV_MOUSE_MOVE = 1               ; ABI event numbering
 EV_MOUSE_DOWN = 2
+EV_KEY        = 5
 EV_MENU       = 7
 
 PROBE_X = 40                    ; inside menu 0's box-to-be, and OFF
@@ -78,12 +79,8 @@ main
     sta X16_P2
     stz X16_P3
     jsr cx_gfx_read
-    cmp #3
+    cmp #3                      ; the bar's rule line: mn_set really ran
     beq @barred
-    sta s_saw
-    lda s_saw
-    ora #'0'
-    sta s_saw
     lda #'Q'
     jmp fail
 @barred
@@ -103,68 +100,40 @@ main
     sta X16_P2
     stz X16_P3
     jsr cx_gfx_read
-    cmp #0                      ; the box's paper
+    cmp #0                      ; the box's paper covers the witness
     beq @covered
-    lda RAM_BANK                ; peek the engine before judging
-    pha
-    lda #2
-    sta RAM_BANK
-    pla
-    sta RAM_BANK
-    ldx #0                      ; what IS on the screen: four pixels,
-@pix                            ; box corner-ish, box middle, box edge,
-    lda pixx,x                  ; far field
-    sta X16_P0
-    stz X16_P1
-    lda pixy,x
-    sta X16_P2
-    stz X16_P3
-    phx
-    jsr cx_gfx_read
-    plx
-    ora #'0'
-    sta s_hex,x
-    inx
-    cpx #4
-    bne @pix
     lda #'B'
     jmp fail
 @covered
 
-    lda #EV_MOUSE_MOVE          ; hover item 0: its band repaints on
-    ldx #40                     ; paper 1
-    ldy #16
+    ; the hover highlight, checked by the engine's own state rather than
+    ; by pixels: a blind pixel read of a highlighted row is a coin toss
+    ; (the row is a few pixels tall and the text sits on it), but mn_hot
+    ; -- the highlighted row, pinned at 2:$A027 -- is exact. A MOVE into
+    ; row 0 must set it to 0; a MOVE into row 1, to 1.
+    lda #EV_MOUSE_MOVE
+    ldx #20
+    ldy #16                     ; row 0 (rows start at y=13, 10 tall)
     jsr click
     jsr drain
-    lda #40
-    sta X16_P0
-    stz X16_P1
-    lda #18
-    sta X16_P2
-    stz X16_P3
-    jsr cx_gfx_read
-    cmp #1
-    beq @hot
+    lda #0
+    ldx #0                      ; expect mn_hot = 0
+    jsr hot_is
+    bcs @hov0
     lda #'H'
     jmp fail
-@hot
-    lda #EV_MOUSE_MOVE          ; hover item 1: item 0's band goes
-    ldx #40                     ; plain again
-    ldy #26
+@hov0
+    lda #EV_MOUSE_MOVE
+    ldx #20
+    ldy #26                     ; row 1
     jsr click
     jsr drain
-    lda #40
-    sta X16_P0
-    stz X16_P1
-    lda #18
-    sta X16_P2
-    stz X16_P3
-    jsr cx_gfx_read
-    cmp #0
-    beq @cool
+    lda #1                      ; expect mn_hot = 1
+    jsr hot_is
+    bcs @hov1
     lda #'I'
     jmp fail
-@cool
+@hov1
 
     lda #EV_MOUSE_DOWN          ; a click on item 1, "Quit": row 1 spans
     ldx #14                     ; y 23-32
@@ -197,6 +166,90 @@ main
     lda #'E'
     jmp fail
 @ok
+    ; ---- the dialog engine ---------------------------------------
+    lda #<300                   ; a witness under the box-to-be
+    sta X16_P0
+    lda #>300
+    sta X16_P1
+    lda #240
+    sta X16_P2
+    stz X16_P3
+    lda #3
+    jsr cx_gfx_pset
+
+    lda #EV_MOUSE_DOWN          ; the click, queued BEFORE the call:
+    sta X16_P0                  ; the dialog's own loop will find it.
+    stz X16_P1                  ; (471, 268) is button 1's middle in a
+    lda #<471                   ; two-button box (docs/formats.md) --
+    sta X16_P2                  ; both coordinates carry a ninth bit,
+    lda #>471                   ; so the click helper is no use here
+    sta X16_P3
+    lda #<268
+    sta X16_P4
+    lda #>268
+    sta X16_P5
+    stz X16_P6
+    stz X16_P7
+    jsr cx_ev_post
+
+    lda #<dlg2                  ; blocks until the button
+    ldx #>dlg2
+    jsr cx_dlg_alert
+    cmp #1
+    beq @btn1
+    lda #'F'
+    jmp fail
+@btn1
+    lda #<300                   ; the witness, back to the pixel
+    sta X16_P0
+    lda #>300
+    sta X16_P1
+    lda #240
+    sta X16_P2
+    stz X16_P3
+    jsr cx_gfx_read
+    cmp #3
+    beq @dback
+    lda #'G'
+    jmp fail
+@dback
+
+    lda #EV_KEY                 ; RETURN stands in for button 0. A key
+    sta X16_P0                  ; carries its code in detail (P1), not in
+    lda #$0D                    ; the x field the click helper fills --
+    sta X16_P1                  ; that helper is for mouse events only
+    stz X16_P2
+    stz X16_P3
+    stz X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jsr cx_ev_post
+    lda #<dlg1
+    ldx #>dlg1
+    jsr cx_dlg_alert
+    cmp #0
+    beq @keyed
+    lda #'K'
+    jmp fail
+@keyed
+
+    ; ---- the theme -------------------------------------------------
+    lda #<tst_theme             ; palette entry 0 becomes $234
+    ldx #>tst_theme
+    jsr cx_theme_set
+    vera_addr 1, VRAM_PALETTE, VERA_INC_1
+    lda VERA_DATA1
+    cmp #$34
+    beq @themed
+    lda #'J'
+    jmp fail
+@themed
+    lda #<def_theme             ; and back, so the shell inherits the
+    ldx #>def_theme             ; machine it expects
+    jsr cx_theme_set
+
+menu_ok
     lda #<s_ok
     ldx #>s_ok
     jsr pmsg
@@ -210,39 +263,45 @@ fail
 @halt
     bra @halt
 
-pixx .byte 9, 20, 40, 100
-pixy .byte 13, 30, 32, 100
-
-; hexput -- A as two hex digits into s_hex+X.
-hexput
-    pha
-    lsr
-    lsr
-    lsr
-    lsr
-    jsr @dig
-    sta s_hex,x
-    pla
-    and #$0F
-    jsr @dig
-    sta s_hex+1,x
-    rts
-@dig
-    cmp #10
-    bcc @num
-    adc #'A'-11                 ; carry set: +10 total
-    rts
-@num
-    adc #'0'
-    rts
-
-; drain -- dispatch until the queue is quiet. Stray MOVEs from the hook
-; go wherever they go; what matters is that everything queued has been
-; through the dispatcher when this returns.
+; drain -- dispatch a bounded number of events. NOT until-empty: the
+; raster hook posts a mouse MOVE every frame, and under warp a redraw
+; triggered by one can be slower than the next arriving, so an
+; until-empty loop can never see the queue reach zero. Our synthetic
+; event is at most a few slots deep behind coalesced MOVEs, so eight
+; dispatches always reach it; an empty queue dispatches a harmless
+; EV_NULL. (A real app's mainloop dispatches one per iteration and has
+; never had this problem -- only a test that waits for quiet does.)
 drain
+    ldx #8
+@d
+    phx
     jsr cx_ev_dispatch
-    jsr cx_ev_count
-    bne drain
+    plx
+    dex
+    bne @d
+    rts
+
+; hot_is -- A = the row mn_hot should hold. Carry set if it matches.
+; mn_hot lives in bank 2 at $A027 (the menu engine's state block, right
+; behind its eight-entry jump table).
+hot_is
+    sta @want+1
+    lda RAM_BANK
+    pha
+    lda #2
+    sta RAM_BANK
+    lda $A027
+    tay                         ; hold it across the bank restore, which
+    pla                         ; the compare's flags would not survive
+    sta RAM_BANK
+    tya
+@want
+    cmp #$00
+    beq @yes
+    clc
+    rts
+@yes
+    sec
     rts
 
 ; click -- A = type, X = x low, Y = y low; the rest zero. Down the real
@@ -304,8 +363,25 @@ s_open .byte "Open", 0
 s_quit .byte "Quit", 0
 s_one  .byte "One", 0
 
+dlg2                            ; two buttons: 356-427 and 436-507
+    .byte 2
+    .addr s_dmsg
+    .addr s_dno, s_dyes
+dlg1
+    .byte 1
+    .addr s_dmsg
+    .addr s_dok
+tst_theme
+    .byte $34, $02,  $AA, $0A,  $55, $05,  $00, $00
+    .byte 0, 1, 3, 0
+def_theme
+    .byte $FF, $0F,  $AA, $0A,  $55, $05,  $00, $00
+    .byte 0, 1, 3, 0
+s_dmsg .byte "a question with two answers", 0
+s_dno  .byte "no", 0
+s_dyes .byte "yes", 0
+s_dok  .byte "ok", 0
+
 s_ok  .byte "MENUTEST OK", $0D, 0
 s_bad   .byte "MENUTEST FAILED "
-s_which .byte "? "
-s_saw   .byte "- "
-s_hex   .byte "........", $0D, 0
+s_which .byte "?", $0D, 0

@@ -73,6 +73,7 @@ main
     jsr test_rg_route
     jsr test_ev_region
     jsr test_farcall
+    jsr test_vrows
 
     jsr test_app_missing
     jsr test_app_badmagic
@@ -1217,8 +1218,9 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #37                     ; 31 shipped with the table; the loader,
-    bne @report                 ; events, menus and the pointer grew it
+    cmp #39                     ; 31 shipped with the table; the loader,
+    bne @report                 ; events, menus, the pointer, themes and
+                                ; dialogs grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
@@ -1586,6 +1588,97 @@ fc_ra   .byte 0
 fc_rx   .byte 0
 fc_ry   .byte 0
 
+; VROWS: the dialog's save-under (kernel/resident/vrows.asm). Paint a
+; witness, save its rows to a bank, clobber them, restore, and the
+; witness is back. Row 192 for 96 rows spans two banks (15,360 bytes),
+; so this also exercises the $C000 wrap the dialog depends on.
+test_vrows
+    lda #<300                   ; a witness at (300,192) and (300,286)
+    sta X16_P0                  ; -- first and last row of the range,
+    lda #>300                   ; so the far one lives past the $C000
+    sta X16_P1                  ; bank wrap
+    lda #<192
+    sta X16_P2
+    stz X16_P3
+    lda #3
+    jsr gfx2_pset
+    lda #<300
+    sta X16_P0
+    lda #>300
+    sta X16_P1
+    lda #<286                   ; 286 > 255: the high byte matters
+    sta X16_P2
+    lda #>286
+    sta X16_P3
+    lda #2
+    jsr gfx2_pset
+
+    lda #<192                   ; 96 rows: crosses into bank 9
+    sta X16_P0
+    stz X16_P1
+    lda #96
+    sta X16_P2
+    lda #8
+    jsr vrows_save
+
+    lda #<300                   ; clobber both witnesses
+    sta X16_P0
+    lda #>300
+    sta X16_P1
+    lda #<192
+    sta X16_P2
+    stz X16_P3
+    lda #0
+    jsr gfx2_pset
+    lda #<300
+    sta X16_P0
+    lda #>300
+    sta X16_P1
+    lda #<286                   ; 286 > 255: the high byte matters
+    sta X16_P2
+    lda #>286
+    sta X16_P3
+    lda #0
+    jsr gfx2_pset
+
+    lda #<192                   ; restore both from the banks
+    sta X16_P0
+    stz X16_P1
+    lda #96
+    sta X16_P2
+    lda #8
+    jsr vrows_restore
+
+    ldy #1
+    lda #<300                   ; the near witness (bank 8): 3
+    sta X16_P0
+    lda #>300
+    sta X16_P1
+    lda #<192
+    sta X16_P2
+    stz X16_P3
+    jsr gfx2_read
+    cmp #3
+    bne @report
+    lda #<300                   ; the far witness (past the wrap): 2
+    sta X16_P0
+    lda #>300
+    sta X16_P1
+    lda #<286                   ; 286 > 255: the high byte matters
+    sta X16_P2
+    lda #>286
+    sta X16_P3
+    jsr gfx2_read
+    cmp #2
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "VROWS", 0
+
 ; =====================================================================
 ; the app loader (kernel/fs/loader.asm), against real DOS -- the suite
 ; runs with -fsroot, so these opens hit an actual filesystem. Only the
@@ -1667,9 +1760,15 @@ test_app_toonew
 .include "kernel/font/font.asm"
 .include "kernel/ui/region.asm"
 .include "kernel/ui/menu.asm"
+; menu.asm FIRST among the bank-2 contributors: it owns the local jump
+; table, and B2CODE fills in include order -- a file ahead of it would
+; shove the table off $A000 and every stub with it
+.include "kernel/ui/theme.asm"
+.include "kernel/ui/dialog.asm"
 .include "kernel/event/event.asm"
 .include "kernel/resident/core.asm"
 .include "kernel/resident/farcall.asm"
+.include "kernel/resident/vrows.asm"
 .include "kernel/fs/loader.asm"
 .include "kernel/resident/jumptab.asm"
 

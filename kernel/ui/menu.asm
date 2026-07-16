@@ -65,26 +65,30 @@ mn_drop_vec
 .segment "B2CODE"
 
 b2_table                        ; bank-local, NOT the ABI: only the
-    jmp mn_set                  ; stubs above name these slots
-    jmp mn_off
-    jmp mn_bar
-    jmp mn_drop
+    jmp mn_set                  ; stubs name these slots. EIGHT entries,
+    jmp mn_off                  ; the spares parked on mn_off (a safe
+    jmp mn_bar                  ; no-op-ish landing), so the state block
+    jmp mn_drop                 ; below never moves when one is claimed
+    jmp th_set                  ; 4: kernel/ui/theme.asm
+    jmp dg_alert                ; 5: kernel/ui/dialog.asm
+    jmp dg_hit                  ; 6
+    jmp mn_off                  ; 7: spare
 
-; The state, at a FIXED spot right behind the table ($A00C), so a test
+; The state, at a FIXED spot right behind the table ($A018), so a test
 ; -- or a debugger, or a desperate evening -- can peek it from outside
 ; the bank without knowing where the code ends.
-mn_bar_p .word 0                ; $A00C  the app's bar; high 0 = none
-mn_count .byte 0                ; $A00E
-mn_open  .byte 0                ; $A00F
-mn_cur   .byte 0                ; $A010  the open menu
-mn_it_p  .word 0                ; $A011  ...its items
-mn_n     .byte 0                ; $A013
-mn_x0    .word 0                ; $A014  ...its box
-mn_w     .word 0                ; $A016
-mn_h     .byte 0                ; $A018
-mn_pick  .byte 0                ; $A019
-mn_trace .byte 0                ; $A01A  breadcrumbs: mn_bar +1, open +$10
-mn_hot   .byte 0                ; $A01B  the highlighted row; $FF = none
+mn_bar_p .word 0                ; $A018  the app's bar; high 0 = none
+mn_count .byte 0                ; $A01A
+mn_open  .byte 0                ; $A01B
+mn_cur   .byte 0                ; $A01C  the open menu
+mn_it_p  .word 0                ; $A01D  ...its items
+mn_n     .byte 0                ; $A01F
+mn_x0    .word 0                ; $A020  ...its box
+mn_w     .word 0                ; $A022
+mn_h     .byte 0                ; $A024
+mn_pick  .byte 0                ; $A025
+mn_trace .byte 0                ; $A026  breadcrumbs: mn_bar +1, open +$10
+mn_hot   .byte 0                ; $A027  the highlighted row; $FF = none
 mn_i     .byte 0
 mn_t     .byte 0, 0
 mn_t2    .byte 0, 0
@@ -152,7 +156,7 @@ mn_draw_bar
     lda #CX_MENU_H
     sta X16_P6
     stz X16_P7
-    lda #0
+    lda th_paper
     jsr gfx2_rect
     stz X16_P0                  ; ...ruled off along its bottom
     stz X16_P1
@@ -163,7 +167,7 @@ mn_draw_bar
     sta X16_P4
     lda #>640
     sta X16_P5
-    lda #3
+    lda th_frame
     jsr gfx2_hline
 
     lda #8                      ; the pen
@@ -382,7 +386,7 @@ mn_drop_open
     lda mn_h
     sta X16_P6
     stz X16_P7
-    lda #0
+    lda th_paper
     jsr gfx2_rect
     lda mn_x0                   ; ...framed...
     sta X16_P0
@@ -398,7 +402,7 @@ mn_drop_open
     lda mn_h
     sta X16_P6
     stz X16_P7
-    lda #3
+    lda th_frame
     jsr gfx2_frame
 
     stz mn_i                    ; ...and the items
@@ -577,13 +581,13 @@ mn_hotswap
     pha
     lda mn_hot
     bmi @nold
-    ldy #0
+    ldy th_paper
     jsr mn_row_paint
 @nold
     pla
     sta mn_hot
     bmi @done
-    ldy #1
+    ldy th_hi
     jsr mn_row_paint
 @done
     rts

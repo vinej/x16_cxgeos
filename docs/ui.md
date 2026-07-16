@@ -79,3 +79,28 @@ pushes the bar region; a click in the bar opens a drop-down: save-under,
 draw, push the drop-down region. A click on an item pops back, restores
 the pixels, and posts an `EV_MENU` record with the menu/item indices —
 the app hears about menus the same way it hears about everything else.
+
+## Themes (Phase 5b, `kernel/ui/theme.asm`)
+
+A theme is the four palette RGBs plus which index plays which role —
+paper, highlight, frame. Twelve bytes, and they are RESIDENT (`cx_theme`),
+because the menu and dialog engines execute in bank 2 and could not read
+a theme kept in bank 1. Text ink is not a role: the glyph cache is built
+as colour-3 coverage, so text is always index 3 and a theme recolours it
+through the palette entry. `cx_theme_set` copies the record in and
+reprograms the palette on the spot — the colours change instantly,
+everywhere; role changes show on the next redraw, which is the app's
+business. The menu engine reads `th_paper`/`th_hi`/`th_frame` for every
+band it draws, so a theme switch is visible the next time a menu opens.
+
+## Dialogs (Phase 5b, `kernel/ui/dialog.asm`, bank 2)
+
+`cx_dlg_alert` is SYNCHRONOUS, the GEOS shape: the app calls it, the box
+appears, and the call does not return until a button is chosen — the
+engine runs its own `ev_dispatch` loop inside. That is what makes a
+dialog one line of app code instead of a state machine. While the box is
+up it owns the machine: a full-screen modal region eats the mouse, and
+the handler table is swapped for the engine's own so RETURN can stand in
+for button 0. Both are restored before the call returns, and the pixels
+come back from the banked save-under. Geometry is fixed (400×96, centred;
+72×16 buttons right-aligned) so a blind test can click a known button.

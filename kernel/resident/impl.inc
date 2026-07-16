@@ -56,3 +56,5 @@ cx_menu_set     = cx_do_menu_set
 cx_menu_off     = cx_do_menu_off
 cx_mouse_show   = mouse_show
 cx_mouse_hide   = mouse_hide
+cx_theme_set    = cx_do_theme_set
+cx_dlg_alert    = cx_do_dlg_alert
