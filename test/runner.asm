@@ -68,6 +68,11 @@ main
     jsr test_abi_table
     jsr test_abi_call
 
+    jsr test_rg_stack
+    jsr test_rg_route
+    jsr test_ev_region
+    jsr test_farcall
+
     jsr test_app_missing
     jsr test_app_badmagic
     jsr test_app_toonew
@@ -1293,6 +1298,294 @@ test_abi_call
 @name .byte "ABI_CALL", 0
 
 ; =====================================================================
+; the region stack (kernel/ui/region.asm) and the far-call trampoline
+; (kernel/resident/farcall.asm) -- Phase 5a's foundations.
+; =====================================================================
+
+; rg_put -- push a region: A/X/Y = x0, x1 (bytes), vector low byte;
+; y0 = 0, y1 = 200, vector high = >rg_stubs. Enough shape for the tests.
+rg_put
+    sta X16_P0
+    stz X16_P1
+    stx X16_P4
+    stz X16_P5
+    stz X16_P2
+    stz X16_P3
+    lda #200
+    sta X16_P6
+    stz X16_P7
+    tya
+    ldx #>$1000                 ; a recognisable fake page
+    jmp rg_push
+
+; RG_STACK: eight fit, the ninth is refused, a pop makes room again.
+test_rg_stack
+    jsr rg_reset
+    ldy #1
+    ldx #0
+@fill
+    phx
+    lda #10
+    ldx #20
+    phy
+    ldy #0
+    jsr rg_put
+    ply
+    plx
+    bcs @report                 ; refused too early
+    inx
+    cpx #8
+    bne @fill
+
+    lda #10                     ; the ninth
+    ldx #20
+    phy
+    ldy #0
+    jsr rg_put
+    ply
+    bcc @report                 ; accepted too late
+    jsr rg_pop
+    lda #10
+    ldx #20
+    phy
+    ldy #0
+    jsr rg_put
+    ply
+    bcs @report
+    ldy #0
+@report
+    jsr rg_reset
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "RG_STACK", 0
+
+; RG_ROUTE: two overlapping regions; the point in both goes to the one
+; pushed last, the point in one goes to it, the point in neither is
+; nobody's.
+test_rg_route
+    jsr rg_reset
+    lda #10                     ; bottom: x 10-100, vec low $AA
+    ldx #100
+    ldy #$AA
+    jsr rg_put
+    lda #50                     ; top: x 50-150, vec low $BB
+    ldx #150
+    ldy #$BB
+    jsr rg_put
+
+    ldy #1
+    lda #EV_MOUSE_DOWN          ; x = 60: inside both, the top wins
+    sta X16_P0
+    lda #60
+    sta X16_P2
+    stz X16_P3
+    stz X16_P4
+    stz X16_P5
+    jsr rg_route
+    bcs @report
+    lda rg_vec
+    cmp #$BB
+    bne @report
+
+    lda #20                     ; x = 20: only the bottom
+    sta X16_P2
+    jsr rg_route
+    bcs @report
+    lda rg_vec
+    cmp #$AA
+    bne @report
+
+    lda #200                    ; x = 200: nobody
+    sta X16_P2
+    jsr rg_route
+    bcc @report
+    ldy #0
+@report
+    jsr rg_reset
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "RG_ROUTE", 0
+
+; EV_REGION: the dispatcher itself. A pushed region's handler gets the
+; mouse record instead of the app's table; a miss falls through to the
+; table. Key events ignore regions entirely.
+test_ev_region
+    jsr ev_init                 ; also resets the region stack
+    lda #<@tab
+    ldx #>@tab
+    jsr ev_handlers
+    stz @got_rg
+    stz @got_tab
+    stz @got_key
+
+    stz X16_P0                  ; region x 0-100, y 0-200
+    stz X16_P1
+    stz X16_P2
+    stz X16_P3
+    lda #100
+    sta X16_P4
+    stz X16_P5
+    lda #200
+    sta X16_P6
+    stz X16_P7
+    lda #<@rg_hand
+    ldx #>@rg_hand
+    jsr rg_push
+
+    lda #EV_MOUSE_DOWN          ; a click inside: the region's
+    ldx #1
+    ldy #50
+    jsr ev_fill
+    jsr ev_dispatch
+
+    lda #EV_MOUSE_DOWN          ; a click outside: the table's
+    ldx #2
+    ldy #250
+    jsr ev_fill
+    jsr ev_dispatch
+
+    lda #EV_KEY                 ; a key "at" an inside x: geometry
+    ldx #3                      ; must not matter
+    ldy #50
+    jsr ev_fill
+    jsr ev_dispatch
+
+    ldy #1
+    lda @got_rg
+    cmp #1                      ; the inside click, and only it
+    bne @report
+    lda @got_tab
+    cmp #2                      ; the outside click, and only it
+    bne @report
+    lda @got_key
+    cmp #3
+    bne @report
+    ldy #0
+@report
+    jsr rg_reset
+    jsr ev_stop
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@rg_hand
+    lda X16_P1
+    sta @got_rg
+    rts
+@down_hand
+    lda X16_P1
+    sta @got_tab
+    rts
+@key_hand
+    lda X16_P1
+    sta @got_key
+    rts
+@tab
+    .addr 0, 0, @down_hand, 0, 0
+    .addr @key_hand
+    .addr 0
+@got_rg  .byte 0
+@got_tab .byte 0
+@got_key .byte 0
+@name .byte "EV_REGION", 0
+
+; FARCALL: a probe is copied into bank 2's window and called through a
+; real stub. Everything the trampoline promises is asserted: the
+; arguments arrive in A/X/Y, the code runs under the stub's bank, the
+; returns come back in A/X/Y, the carry survives the trip, and the
+; caller's RAM_BANK is put back.
+test_farcall
+    lda RAM_BANK
+    pha
+    lda #2                      ; the probe, into bank 2 at $A000
+    sta RAM_BANK
+    ldx #0
+@copy
+    lda fc_probe,x
+    sta $A000,x
+    inx
+    cpx #fc_probe_len
+    bne @copy
+
+    lda #9                      ; a recognisable caller bank
+    sta RAM_BANK
+    lda #$11
+    ldx #$22
+    ldy #$33
+    jsr @stub
+
+    php                         ; judge the trip
+    sta fc_ra
+    stx fc_rx
+    sty fc_ry
+    ldy #1
+    plp
+    bcc @report                 ; the probe's sec was eaten
+    lda fc_ra
+    cmp #$77
+    bne @report
+    lda fc_rx
+    cmp #$88
+    bne @report
+    lda fc_ry
+    cmp #$99
+    bne @report
+    lda fc_a                    ; what the probe saw
+    cmp #$11
+    bne @report
+    lda fc_x
+    cmp #$22
+    bne @report
+    lda fc_y
+    cmp #$33
+    bne @report
+    lda fc_bank
+    cmp #2
+    bne @report
+    lda RAM_BANK                ; the caller's bank, restored
+    cmp #9
+    bne @report
+    ldy #0
+@report
+    pla
+    sta RAM_BANK
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@stub
+    jsr cxb_call
+    .byte 2
+    .addr $A000
+@name .byte "FARCALL", 0
+
+; The probe. Copied to $A000, so it may reference low RAM absolutely
+; but never itself.
+fc_probe
+    sta fc_a
+    stx fc_x
+    sty fc_y
+    lda RAM_BANK
+    sta fc_bank
+    lda #$77
+    ldx #$88
+    ldy #$99
+    sec
+    rts
+fc_probe_len = * - fc_probe
+fc_a    .byte 0
+fc_x    .byte 0
+fc_y    .byte 0
+fc_bank .byte 0
+fc_ra   .byte 0
+fc_rx   .byte 0
+fc_ry   .byte 0
+
+; =====================================================================
 ; the app loader (kernel/fs/loader.asm), against real DOS -- the suite
 ; runs with -fsroot, so these opens hit an actual filesystem. Only the
 ; refusals can be tested here: a load that SUCCEEDS resets the stack
@@ -1371,8 +1664,10 @@ test_app_toonew
 ; ---------------------------------------------------------------------
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
+.include "kernel/ui/region.asm"
 .include "kernel/event/event.asm"
 .include "kernel/resident/core.asm"
+.include "kernel/resident/farcall.asm"
 .include "kernel/fs/loader.asm"
 .include "kernel/resident/jumptab.asm"
 

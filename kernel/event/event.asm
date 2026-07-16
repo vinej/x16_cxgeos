@@ -88,7 +88,8 @@ ev_init
     sta CX_E_HND                ; ev_mainloop is safe before ev_handlers
     lda #>ev_null_table
     sta CX_E_HND+1
-    plp
+    jsr rg_reset                ; the region stack is event state: an
+    plp                         ; app inherits no stale rectangles
 
     stz X16_P0                  ; scanline 0
     stz X16_P1
@@ -260,6 +261,25 @@ ev_dispatch
     lda X16_P0
     cmp #EV_COUNT
     bcs @done                   ; a type we do not know: drop it
+
+    ; Mouse events belong to whoever is on top: types 1-4 walk the
+    ; region stack (kernel/ui/region.asm) before the app's table is
+    ; consulted. Keys and timers never route by geometry -- focus is
+    ; not a rectangle.
+    cmp #EV_MOUSE_MOVE
+    bcc @table                  ; EV_NULL
+    cmp #EV_DBLCLICK+1
+    bcs @table
+    jsr rg_route
+    bcs @table                  ; nobody claims the point
+    lda rg_vec                  ; a region does: its handler gets the
+    sta @vec+1                  ; record, and the table does not
+    lda rg_vec+1
+    sta @vec+2
+    bra @vec
+
+@table
+    lda X16_P0
     asl                         ; two bytes a vector
     tay
     lda (CX_E_HND),y
