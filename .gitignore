@@ -1,0 +1,15 @@
+# toolchain and emulator binaries are repo-local but never committed;
+# see README.md for where to get them.
+/cc65/
+/emulator/
+
+# build products
+/build/
+/sdcard/
+*.o
+*.PRG
+*.prg
+*.map
+
+# scratch
+/test/fsroot/
