@@ -79,6 +79,7 @@ main
     jsr test_app_missing
     jsr test_app_badmagic
     jsr test_app_toonew
+    jsr test_dir
 
     jsr t_summary
     rts
@@ -1219,7 +1220,7 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #43                     ; 31 shipped with the table; the rest --
+    cmp #46                     ; 31 shipped with the table; the rest --
     bne @report                 ; loader, events, menus, pointer, themes,
                                 ; dialogs, widgets, keyboard nav -- grew it
     lda cx_hdr_slots+1
@@ -1798,6 +1799,70 @@ test_app_toonew
 @nm   .byte "NEWAPP.CXA"
 @nmlen = * - @nm
 
+; DIR: read the directory (kernel/fs/dir.asm) against the real fsroot,
+; which the harness has stocked with BADAPP.CXA and NEWAPP.CXA. The
+; walk must open, hand back the header then the entries, find the two
+; fixtures by name, and end with carry. cx_dir_next clobbers X/Y, so
+; the counters live in memory.
+test_dir
+    lda #<@pat
+    ldx #>@pat
+    ldy #1
+    jsr cx_dir_open
+    ldy #1
+    bcs @report                 ; open failed
+
+    stz @count
+    stz @found
+    lda #<@nb                   ; the header first -- discarded
+    sta X16_P0
+    lda #>@nb
+    sta X16_P1
+    jsr cx_dir_next
+    bcs @close                  ; a listing with no header at all
+@loop
+    lda #<@nb
+    sta X16_P0
+    lda #>@nb
+    sta X16_P1
+    jsr cx_dir_next
+    bcs @done
+    inc @count
+    ldy #6                      ; is it a fixture? both "BADAPP.CXA" and
+@cmp                            ; "NEWAPP.CXA" end "APP.CXA" at offset 3
+    lda @nb+3,y
+    cmp @tail,y
+    bne @loop
+    dey
+    bpl @cmp
+    inc @found
+    bra @loop
+@done
+    jsr cx_dir_close
+    lda @count                  ; at least the two fixtures
+    cmp #2
+    bcc @fail
+    lda @found                  ; and both matched the tail
+    cmp #2
+    bcc @fail
+    ldy #0
+    bra @report
+@close
+    jsr cx_dir_close
+@fail
+    ldy #1
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name  .byte "DIR", 0
+@pat   .byte "$"
+@tail  .byte "APP.CXA"
+@count .byte 0
+@found .byte 0
+@nb    .res 17, 0
+
 ; ---------------------------------------------------------------------
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
@@ -1814,6 +1879,7 @@ test_app_toonew
 .include "kernel/resident/farcall.asm"
 .include "kernel/resident/vrows.asm"
 .include "kernel/fs/loader.asm"
+.include "kernel/fs/dir.asm"
 .include "kernel/resident/jumptab.asm"
 
 ; The system font, linked in so the suite needs no SD card. The kernel

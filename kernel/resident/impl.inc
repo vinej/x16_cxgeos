@@ -62,3 +62,6 @@ cx_wg_set       = cx_do_wg_set
 cx_wg_draw      = cx_do_wg_draw
 cx_menu_key     = cx_do_menu_key
 cx_wg_key       = cx_do_wg_key
+cx_dir_open     = cx_dir_open
+cx_dir_next     = cx_dir_next
+cx_dir_close    = cx_dir_close

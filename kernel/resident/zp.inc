@@ -52,12 +52,17 @@ CX_M_PTR   = CX_ZP + 18         ; $44/$45  walking the app's menu tree
 
 CX_M_ZP_TOP = CX_ZP + 20        ; = $46
 
-; --- free: $46-$5F ---------------------------------------------------
+; --- directory reader (kernel/fs/dir.asm) ----------------------------
+CX_D_BUF   = CX_ZP + 20         ; $46/$47  the caller's name buffer
+
+CX_D_ZP_TOP = CX_ZP + 22        ; = $48
+
+; --- free: $48-$5F ---------------------------------------------------
 
 .if CX_ZP < $32
     .error "CX_ZP must be >= $32: below that is x16lib's block"
 .endif
-.if CX_M_ZP_TOP > CX_ZP_END
+.if CX_D_ZP_TOP > CX_ZP_END
     .error "kernel zero page overflows into the application's $60-$7F"
 .endif
 

@@ -68,9 +68,9 @@ build it judged, it failed — and the failure was worth having.
 | x16lib | 6,055 | 3,893 | **3,072** |
 | CXGEOS kernel code | 2,096 | 2,096 | 3,650 (+3,944 in bank 2) |
 | `fonts/pxl8.cxf` | 871 | 871 | **0 — on the SD card** |
-| **resident total** | **9,022** | **6,728** | **6,334** |
+| **resident total** | **9,022** | **6,728** | **6,525** |
 | budget, `$8200`–`$9EFF` | 7,424 | 7,424 | 7,424 |
-| | **over by 1,598** | 696 spare | **1,090 spare** |
+| | **over by 1,598** | 696 spare | **899 spare** |
 
 (The resident figure grew through Phase 4c's loader and shell-returning
 cx_exit, Phase 5a's region stack and far-call trampoline, and Phase 5b's

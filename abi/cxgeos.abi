@@ -111,3 +111,8 @@ version = 1
 
 #= keyboard widget focus
 42  cx_wg_key       1   A = a key; TAB/UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar, printable keys type into a focused field. Carry set if it was a widget key; clobbers X and Y. Call from EV_KEY
+
+#= the directory
+43  cx_dir_open     1   A/X = a pattern like "$", Y = length; opens the directory channel. Carry set on a DOS error
+44  cx_dir_next     1   P0/P1 = a >=17-byte buffer; fills the entry's name, A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header
+45  cx_dir_close    1   close the directory channel

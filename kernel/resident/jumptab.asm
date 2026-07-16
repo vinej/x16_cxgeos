@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 43                    ; slots
+    .word 46                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -95,6 +95,11 @@ cx_jumptab
 
 ; --- keyboard widget focus ---------------------------------------
     jmp cx_do_wg_key     ; 42  A = a key; TAB/UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar, printable keys type into a focused field. Carry set if it was a widget key; clobbers X and Y. Call from EV_KEY
+
+; --- the directory -----------------------------------------------
+    jmp cx_dir_open      ; 43  A/X = a pattern like "$", Y = length; opens the directory channel. Carry set on a DOS error
+    jmp cx_dir_next      ; 44  P0/P1 = a >=17-byte buffer; fills the entry's name, A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header
+    jmp cx_dir_close     ; 45  close the directory channel
 
 .popseg
 
