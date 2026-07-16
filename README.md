@@ -54,12 +54,19 @@ Repo-local tools, never committed:
 
 ## Vendored x16lib
 
-`x16lib/` is a snapshot of `x16_library/src_ca65/` at commit `e2c9425`
-("Add vasm as a seventh first-class assembler dialect"). Update it by
-re-copying the tree and noting the new commit here.
+`x16lib/` is a snapshot of `x16_library/src_ca65/` at commit `5303131`
+("Add gfx2: a 640x480@2bpp bitmap module, across all 7 dialects").
+Update it by re-copying the tree and noting the new commit here.
 
 ## Status
 
-Phase 0 — bootstrap and risk spikes (2bpp fill rate, masked glyph blit,
-event latency). See `docs/perf.md` for measured numbers and the phase plan
-in `CLAUDE.md`.
+- Phase 0 done — bootstrap and risk spikes all green with measured
+  numbers (`docs/perf.md`): fx_fill 1.25 frames/screen, 160 masked
+  glyphs/frame, 22–31 scanline event dispatch.
+- Phase 1 in progress — the 2bpp primitives now live upstream as
+  x16_library's `gfx2` module (`X16_USE_BITMAP2`: init, clear, pset,
+  read, hline/vline, rect/frame, line, patterns, blits), verified
+  byte-identical across all 7 assembler dialects, 146/146 tests.
+  CXGEOS consumes it through `x16lib/`. Still to come in Phase 1:
+  the x16_clib C port, the kernel-side dirty-rect/clip layer, and the
+  primitive torture-demo with a live redraw-ms counter.
