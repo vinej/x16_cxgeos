@@ -75,10 +75,20 @@ CXF_WIDTHS    = 16
 
 ; ---------------------------------------------------------------------
 ; font_set -- adopt a CXF and build its cache.
+;
+; The CXF must be addressable at the given pointer under the RAM_BANK
+; that is live on entry -- that bank is captured here, and every later
+; read of the font (widths at draw time, rows while caching) switches
+; back to it. A font in low RAM works under any bank; a font in banked
+; RAM must sit entirely inside the $A000 window, which holds it to 8 KB.
+; The kernel's own font arrives in bank CX_SYSFONT_BANK, put there by
+; the boot loader, and costs the resident image nothing.
 ; ---------------------------------------------------------------------
 font_set
     sta CX_F_CXF
     stx CX_F_CXF+1
+    lda RAM_BANK                ; where the font lives, for every read
+    sta f_bank                  ; after this one
 
     ldy #3                      ; magic "CXF1"
 @magic
@@ -156,7 +166,11 @@ font_cache
 @phase
     stz f_row
 @row
+    ldx f_bank                  ; the rows are read from the font's bank,
+    stx RAM_BANK
     jsr f_row_cov               ; f_cov = the row's three coverage bytes
+    ldx f_cbank                 ; ...and the slot written in the cache's
+    stx RAM_BANK
     jsr f_store_row
     inc f_row
     lda f_row
@@ -206,6 +220,8 @@ f_slot_addr
     bra @div
 @got
     stx RAM_BANK                ; A = gi % 42
+    stx f_cbank                 ; ...remembered, so a source read between
+                                ; here and the blit can switch back
 
     sta CX_F_T0                 ; n*3, at most 123
     asl
@@ -310,6 +326,8 @@ font_style
 ; come here, so bold's extra pixel cannot make them disagree.
 ; ---------------------------------------------------------------------
 f_advance
+    ldx f_bank                  ; the widths live with the font, whose
+    stx RAM_BANK                ; bank the cache walk has moved off
     sec
     sbc f_first
     bcc @none                   ; below the font's first codepoint
@@ -341,6 +359,8 @@ f_advance
 font_measure
     sta CX_F_STR
     stx CX_F_STR+1
+    lda RAM_BANK                ; f_advance reads the font's bank, so the
+    pha                         ; caller's comes back like font_draw's
     stz X16_P0
     stz X16_P1
     stz f_idx
@@ -358,6 +378,8 @@ font_measure
     inc f_idx
     bne @loop                   ; 255 characters is the string limit
 @done
+    pla
+    sta RAM_BANK
     rts
 
 ; ---------------------------------------------------------------------
@@ -490,6 +512,8 @@ f_blit_at
     sta X16_P4
     jsr f_columns               ; only the columns this glyph reaches
     sta X16_P5
+    ldx f_cbank                 ; f_columns read the font's bank; the
+    stx RAM_BANK                ; slot blitm reads is in the cache's
     lda CX_F_SRC
     sta X16_P6
     lda CX_F_SRC+1
@@ -502,6 +526,8 @@ f_blit_at
 ; column, not three, and the blit is a third of the work.
 ; ---------------------------------------------------------------------
 f_columns
+    ldx f_bank                  ; the width is the font's; the caller
+    stx RAM_BANK                ; puts the cache bank back for the blit
     lda f_gi
     clc
     adc #CXF_WIDTHS
@@ -529,6 +555,9 @@ f_spacing .byte 0
 f_bmp     .word 0               ; the glyph bitmaps
 
 f_style   .byte 0               ; FONT_BOLD | FONT_UNDER
+
+f_bank    .byte 0               ; where the CXF lives, from font_set
+f_cbank   .byte 0               ; the cache bank of the glyph in hand
 
 f_gi      .byte 0               ; the glyph being cached / drawn
 f_phase   .byte 0

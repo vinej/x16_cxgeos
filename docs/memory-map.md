@@ -66,11 +66,11 @@ build it judged, it failed — and the failure was worth having.
 | | at first | after 0.4.1 | now |
 |---|---|---|---|
 | x16lib | 6,055 | 3,893 | **3,072** |
-| CXGEOS kernel code | 2,096 | 2,096 | 2,098 |
-| `fonts/pxl8.cxf`, linked in | 871 | 871 | 871 |
-| **resident total** | **9,022** | **6,728** | **5,912** |
+| CXGEOS kernel code | 2,096 | 2,096 | 2,014 |
+| `fonts/pxl8.cxf` | 871 | 871 | **0 — on the SD card** |
+| **resident total** | **9,022** | **6,728** | **5,086** |
 | budget, `$8200`–`$9EFF` | 7,424 | 7,424 | 7,424 |
-| | **over by 1,598** | 696 spare | **1,512 spare** |
+| | **over by 1,598** | 696 spare | **2,338 spare** |
 
 Placement is proven: `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$806C`
 (93 bytes = 31 slots × 3), `CODE` at `$8200`.
@@ -112,16 +112,19 @@ pulls in, the image carries whether anything calls it or not.
 
 ### What is left, and why
 
-- **The font blob is 871 resident bytes**, and moving it to a bank waits
-  on the boot chain, not on an argument. It cannot ride the same PRG: a
-  PRG is one contiguous run from its load address, and `$9F00` is I/O, so
-  there is nowhere past the resident area for it to sit. It needs a
-  loader to put it in a bank — which is Phase 4c.
+- **The font blob is out** (Phase 4c): it ships as `PXL8.CXF` and the
+  boot loader puts it at `CX_SYSFONT_BANK`:`$A000` — bank 1, the kernel
+  data bank — before calling `cx_init`. The font engine captures the
+  bank at `font_set` and switches to it for every source read (header,
+  rows while caching, widths at draw time), so a font may live in low
+  RAM or in one banked window, up to 8 KB. `cx_init` judges the font
+  *before* switching video modes: if the loader forgot it, the carry
+  comes back while the machine can still print with the KERNAL.
 
-  (An earlier note here claimed it had to stay resident so a kernel whose
-  font failed to load could still report it. That was wrong: the KERNAL
-  charset is kept at VRAM `$1F000` for exactly that panic console, and it
-  needs nothing of ours.)
+  (An earlier note here claimed the blob had to stay resident so a
+  kernel whose font failed to load could still report it. That was
+  wrong: the KERNAL charset is kept at VRAM `$1F000` for exactly that
+  panic console, and it needs nothing of ours.)
 
 - **Banking the cold code** is still right — `font_cache` runs once at
   boot and has no business resident — but with 1,512 spare it is now a

@@ -55,6 +55,7 @@ main
     jsr test_font_bold
     jsr test_font_under
     jsr test_font_pen_bold
+    jsr test_font_banked
 
     jsr test_ev_queue
     jsr test_ev_coalesce
@@ -773,6 +774,98 @@ test_font_pen_bold
 @str  .byte "Hamburgefonstiv 123", 0
 @want .word 0
 
+; FONT_BANKED: the path the kernel actually boots through. The font is
+; copied to CX_SYSFONT_BANK:$A000 -- where the boot loader puts
+; PXL8.CXF -- and adopted from there, so every source read (header,
+; rows, widths) crosses the banked window. If any of them forgets to
+; switch back to the font's bank, it reads a cache bank's glyph slots
+; instead and one of these goes wrong: the header check, the rebuilt
+; cache byte, the measure, or the drawn pixels. Runs last in the font
+; group on purpose: the tests before it prove the resident-source path,
+; and the banked font it leaves behind is the one the suite keeps using.
+test_font_banked
+    lda RAM_BANK
+    pha
+    lda #CX_SYSFONT_BANK        ; the 871 bytes, into bank 1 at $A000
+    sta RAM_BANK
+    lda #<pxl8
+    sta X16_T0
+    lda #>pxl8
+    sta X16_T0+1
+    lda #<CX_F_WIN
+    sta X16_T2
+    lda #>CX_F_WIN
+    sta X16_T2+1
+    ldx #4                      ; 4 x 256 covers 871
+    ldy #0
+@copy
+    lda (X16_T0),y
+    sta (X16_T2),y
+    iny
+    bne @copy
+    inc X16_T0+1
+    inc X16_T2+1
+    dex
+    bne @copy
+
+    lda #<CX_F_WIN              ; adopt it where the kernel will
+    ldx #>CX_F_WIN
+    jsr font_set
+    ldy #1
+    bcs @report
+    lda f_height                ; the header, read across the window
+    cmp #8
+    bne @report
+
+    lda #7                      ; 'i' again, cached from the banked rows:
+    sta RAM_BANK                ; the same bytes FONT_CACHE proved
+    lda $B740
+    cmp #$0F
+    bne @report
+    lda $B741
+    cmp #$F0
+    bne @report
+
+    lda #<@str                  ; widths across the window: still 21
+    ldx #>@str
+    jsr font_measure
+    lda X16_P0
+    cmp #21
+    bne @report
+    lda X16_P1
+    bne @report
+
+    vera_addr 0, ROW100, VERA_INC_1
+    lda #$00
+    ldx #8
+    ldy #0
+    jsr vera_fill
+    stz X16_P0                  ; 'i' at (0,100): the same $F0 the
+    stz X16_P1                  ; resident-source draw test proved
+    lda #<100
+    sta X16_P2
+    stz X16_P3
+    lda #<@i
+    ldx #>@i
+    jsr font_draw
+    vera_addr 1, ROW100, VERA_INC_1
+    lda VERA_DATA1
+    cmp #$F0
+    bne @report
+    lda VERA_DATA1
+    bne @report
+    ldy #0
+@report
+    pla
+    sta RAM_BANK
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONT_BANKED", 0
+@str  .byte "Wig.", 0
+@i    .byte "i", 0
+
 
 ; =====================================================================
 ; the event system (kernel/event/event.asm).
@@ -1202,9 +1295,9 @@ test_abi_call
 .include "kernel/resident/core.asm"
 .include "kernel/resident/jumptab.asm"
 
-; the system font, linked in so the suite needs no SD card
-; The kernel image supplies cx_sysfont; here the suite is the image.
-cx_sysfont
+; The system font, linked in so the suite needs no SD card. The kernel
+; image carries no font at all -- the boot loader puts this same file at
+; CX_SYSFONT_BANK:$A000, and FONT_BANKED walks that path.
 pxl8
     .incbin "fonts/pxl8.cxf"
 .include "testlib.asm"

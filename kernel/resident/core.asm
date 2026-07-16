@@ -6,30 +6,38 @@
 ; subsystems, and that the ABI's first section names.
 ; =====================================================================
 
+; The system font's home: the boot loader puts PXL8.CXF at $A000 in this
+; bank before calling cx_init, and the font engine reads it there for as
+; long as the font is live. Bank 1 is the kernel data bank -- the font is
+; its first tenant, the theme record is next.
+CX_SYSFONT_BANK = 1
+
 ; ---------------------------------------------------------------------
 ; cx_init -- bring the machine up. The header at $8008 points here, so
 ; a loader starts the kernel without knowing anything but the header.
 ;
-; The screen and the font first, because everything visible needs them,
-; and the event system last, because once its hook is in the machine is
-; live and an interrupt can arrive.
+; The font before the screen, deliberately: it is the only thing here
+; that can fail, and while it is being judged the machine is still in
+; text mode -- so the boot stub can print what went wrong. Once the mode
+; switches there is no font to say anything with. The event system goes
+; last, because once its hook is in the machine is live and an interrupt
+; can arrive.
 ;
-; The image supplies `cx_sysfont`: the kernel does not read its font off
-; the SD card, because a kernel whose font failed to load could not put
-; a message on the screen to say so.
-;
-; Carry set if the font would not parse, which is the only thing here
-; that can fail.
+; Carry set if there is no CXF at CX_SYSFONT_BANK:$A000 -- the loader
+; forgot it, or loaded it shifted. Leaves RAM_BANK on the kernel data
+; bank.
 ; ---------------------------------------------------------------------
 cx_init
+    lda #CX_SYSFONT_BANK
+    sta RAM_BANK
+    lda #<CX_F_WIN
+    ldx #>CX_F_WIN
+    jsr font_set
+    bcs @nofont
+
     jsr gfx2_init
     lda #0
     jsr gfx2_clear
-
-    lda #<cx_sysfont
-    ldx #>cx_sysfont
-    jsr font_set
-    bcs @nofont
 
     jsr ev_init
     clc

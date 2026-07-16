@@ -48,11 +48,11 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/font/font.asm"
 .include "kernel/event/event.asm"
 
-; The system font. It is 871 bytes of the resident budget, and it earns
-; them: a kernel that had to read its own font off the SD card could not
-; put a message on the screen when the read failed.
-cx_sysfont
-    .incbin "fonts/pxl8.cxf"
+; The system font is NOT here. It ships as PXL8.CXF on the SD card, and
+; the boot loader puts it at CX_SYSFONT_BANK:$A000 before calling
+; cx_init -- 871 bytes the resident budget gets back. If the loader
+; forgets it, cx_init says so with carry while the machine is still in
+; text mode, and the boot stub prints the complaint with the KERNAL.
 
 .include "kernel/resident/jumptab.asm"
 .include "x16_code.asm"
