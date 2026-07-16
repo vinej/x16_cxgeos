@@ -84,6 +84,23 @@ function Invoke-Emulator([string[]]$extraArgs, [int]$timeout) {
 }
 
 if ($Test) {
+    # The ABI first: sdk/ and the jump table are generated from
+    # abi/cxgeos.abi, and a suite that passed against a stale sdk/ would
+    # be testing something no app is built with. --check writes nothing
+    # and fails if anything would change.
+    $py = Get-Command python -ErrorAction SilentlyContinue
+    if ($py) {
+        & $py.Source (Join-Path $root "abi\gen_bindings.py") --check
+        if ($LASTEXITCODE -ne 0) { Fail "abi: sdk/ is out of date" }
+        & $py.Source (Join-Path $root "abi\gen_bindings.py") --selftest | Out-Null
+        if ($LASTEXITCODE -ne 0) { Fail "abi: gen_bindings.py selftest failed" }
+        & $py.Source (Join-Path $root "tools\fontconv.py") --selftest | Out-Null
+        if ($LASTEXITCODE -ne 0) { Fail "fontconv: selftest failed" }
+        Write-Host "abi + fontconv: host checks pass"
+    } else {
+        Write-Host "python not found: skipping the host checks" -ForegroundColor Yellow
+    }
+
     Write-Host "x16emu (headless testbench)"
 
     $fsroot = Join-Path $root "test\fsroot"

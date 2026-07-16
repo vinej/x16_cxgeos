@@ -83,3 +83,19 @@ Update it by re-copying the tree and noting the new commit here.
   double strike) and underline cost nothing when off. See
   `demos/specimen.asm`. Still to come: a second face, which is when
   the cache needs eviction rather than three fixed banks.
+- **Phase 3 done** — the event system. A raster hook at scanline 0
+  samples the mouse, decodes its button edges, drains the keyboard and
+  ticks a timer; each becomes a typed record in a 16-deep queue, and
+  `ev_dispatch` hands it to the app's handler for that type. An app is
+  a table of vectors and a call to `ev_mainloop`. Buttons and keys are
+  never dropped silently (a full queue counts the loss); mouse moves
+  coalesce so the pointer cannot lag behind the hand. Milestone:
+  `demos/evmon.asm`.
+- **Phase 4 in progress** — the ABI. `abi/cxgeos.abi` is the manifest:
+  31 append-only slots, from which `abi/gen_bindings.py` generates the
+  jump table at `$8010` and bindings for all 12 toolchains (7 `.inc`,
+  5 `.h`). `kernel/resident/impl.inc` maps each ABI promise to the
+  kernel routine behind it, so code can be renamed or moved without an
+  app noticing. `.uild.ps1 -Test` fails if `sdk/` has drifted from
+  the manifest. Still to come: `AUTOBOOT.X16`, the CXAP app format,
+  and the loader.
