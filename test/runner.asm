@@ -15,6 +15,7 @@
 ; =====================================================================
 
 .include "x16.asm"
+.include "kernel/resident/zp.inc"
 
 X16_USE_BITMAP2 = 1             ; pulls in VERA and VERAFX
 
@@ -43,6 +44,12 @@ main
     jsr test_dr_separate
     jsr test_dr_cascade
     jsr test_dr_full
+
+    jsr test_font_set
+    jsr test_font_cache
+    jsr test_font_measure
+    jsr test_font_draw
+    jsr test_font_pen
 
     jsr t_summary
     rts
@@ -378,7 +385,227 @@ test_gfx2_draws
     jmp t_result
 @name .byte "GFX2_DRAWS", 0
 
+
+; =====================================================================
+; the font engine (kernel/font/font.asm) against the real system font.
+; Expected values come from fonts/pxl8.cxf itself, not from arithmetic
+; done here: 'i' is glyph 73, two pixels wide, and its first row is $C0.
+; =====================================================================
+
+; FONT_SET: the magic is checked and the header parked
+test_font_set
+    lda #<pxl8
+    ldx #>pxl8
+    jsr font_set
+    ldy #1
+    bcs @report                 ; carry set = magic rejected
+    lda f_height
+    cmp #8
+    bne @report
+    lda f_ascent
+    cmp #7
+    bne @report
+    lda f_first
+    cmp #32
+    bne @report
+    lda f_count
+    cmp #95
+    bne @report
+    lda f_spacing
+    cmp #1
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONT_SET", 0
+
+; FONT_CACHE: 'i' row 0 is $C0 -- pixels 0 and 1. At phase 0 that is
+; coverage $F0 in column 0 and nothing in columns 1-2; at phase 1 the
+; same two pixels have walked right to $3C. Glyph 73 lives in bank 7 at
+; $B740, which is (73 % 42) * 192 past the window.
+test_font_cache
+    lda RAM_BANK
+    pha
+    lda #7
+    sta RAM_BANK
+    ldy #1
+
+    lda $B740                   ; phase 0, column 0, row 0: mask
+    cmp #$0F
+    bne @report
+    lda $B741                   ; ...and data
+    cmp #$F0
+    bne @report
+    lda $B750                   ; phase 0, column 1: untouched by a
+    cmp #$FF                    ; two-pixel glyph, so all mask
+    bne @report
+    lda $B751
+    bne @report
+
+    lda $B742                   ; row 1 of 'i' is blank
+    cmp #$FF
+    bne @report
+    lda $B743
+    bne @report
+
+    lda $B740+48                ; phase 1, column 0, row 0
+    cmp #$C3
+    bne @report
+    lda $B741+48
+    cmp #$3C
+    bne @report
+    ldy #0
+@report
+    pla
+    sta RAM_BANK
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONT_CACHE", 0
+
+; FONT_MEASURE: W=7 i=2 g=6 .=2, plus one pixel of spacing each = 21.
+; A monospace 8 would say 32.
+test_font_measure
+    lda #<@str
+    ldx #>@str
+    jsr font_measure
+    ldy #1
+    lda X16_P0
+    cmp #21
+    bne @report
+    lda X16_P1
+    bne @report
+
+    lda #<@empty                ; an empty string measures zero
+    ldx #>@empty
+    jsr font_measure
+    lda X16_P0
+    ora X16_P1
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name  .byte "FONT_MEASURE", 0
+@str   .byte "Wig.", 0
+@empty .byte 0
+
+; FONT_DRAW: 'i' at (0,100) on a cleared row lights pixels 0 and 1 of
+; byte 0 -- $F0 -- and leaves byte 1 alone. At x=1 the same glyph lands
+; on pixels 1 and 2, $3C, which is the pre-shifted phase doing its job.
+test_font_draw
+    vera_addr 0, ROW100, VERA_INC_1
+    lda #$00
+    ldx #8
+    ldy #0
+    jsr vera_fill
+
+    stz X16_P0
+    stz X16_P1
+    lda #<100
+    sta X16_P2
+    stz X16_P3
+    lda #<@i
+    ldx #>@i
+    jsr font_draw
+
+    vera_addr 1, ROW100, VERA_INC_1
+    ldy #1
+    lda VERA_DATA1
+    cmp #$F0
+    bne @report
+    lda VERA_DATA1              ; a 2-pixel glyph never reaches byte 1
+    bne @report
+
+    vera_addr 0, ROW100, VERA_INC_1
+    lda #$00
+    ldx #8
+    ldy #0
+    jsr vera_fill
+
+    lda #1                      ; x = 1: phase 1
+    sta X16_P0
+    stz X16_P1
+    lda #<100
+    sta X16_P2
+    stz X16_P3
+    lda #<@i
+    ldx #>@i
+    jsr font_draw
+
+    vera_addr 1, ROW100, VERA_INC_1
+    lda VERA_DATA1
+    cmp #$3C
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONT_DRAW", 0
+@i    .byte "i", 0
+
+; FONT_PEN: what font_draw advances the pen by must be exactly what
+; font_measure promised. If these ever disagree, every layout in the
+; system is wrong -- and the two compute it by different routes.
+test_font_pen
+    vera_addr 0, ROW200B1 - 1, VERA_INC_1
+    lda #$00
+    ldx #<200
+    ldy #>200
+    jsr vera_fill
+
+    lda #<@str
+    ldx #>@str
+    jsr font_measure
+    lda X16_P0
+    sta @want
+    lda X16_P1
+    sta @want+1
+
+    lda #<40                    ; draw from a non-zero, non-aligned pen
+    sta X16_P0
+    stz X16_P1
+    lda #<200
+    sta X16_P2
+    stz X16_P3
+    lda #<@str
+    ldx #>@str
+    jsr font_draw               ; out: P0/P1 = the pen
+
+    ldy #1
+    sec                         ; pen - 40 == measured width?
+    lda X16_P0
+    sbc #40
+    cmp @want
+    bne @report
+    lda X16_P1
+    sbc #0
+    cmp @want+1
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONT_PEN", 0
+@str  .byte "Hamburgefonstiv 123", 0
+@want .word 0
+
 ; ---------------------------------------------------------------------
 .include "kernel/gfx2/dirty.asm"
+.include "kernel/font/font.asm"
+
+; the system font, linked in so the suite needs no SD card
+pxl8
+    .incbin "fonts/pxl8.cxf"
 .include "testlib.asm"
 .include "x16_code.asm"

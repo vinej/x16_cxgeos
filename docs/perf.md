@@ -87,14 +87,48 @@ drops) and flood via `fx_fill` at 1.25 JF/screen. Re-run with:
 .\build.ps1 -Source demos\torture.asm -Capture
 ```
 
+## Phase 2 — the font engine
+
+`demos/specimen.asm` draws the system font as a type specimen, reflows a
+paragraph twice at measured widths, and times 32 passes of a 37-character
+pangram at a walking x, so all four pixel phases are hit the way real
+text hits them.
+
+| Measure | Raw | Per glyph | Rate |
+|---|---|---|---|
+| PANGRAM32 (1,184 glyphs) | **12 JF** | 169 µs / ~1,350 cycles | **98.7 glyphs/frame, ~5,900/s** |
+
+What that buys, in the units the UI actually asks in:
+
+| | |
+|---|---|
+| menu bar, 40 chars | 0.41 frames |
+| a full screen, 60 lines × ~112 chars | 68 frames (6,720 glyphs) |
+
+Spike B blitted 160 raw glyphs/frame, so the engine spends ~520 cycles a
+glyph on everything that is not the blit: the string walk, the width
+lookup, `f_slot_addr`'s divide and multiply, and rebuilding P0..P7 for
+every call. That is the obvious place to go if text ever needs to be
+faster — a per-glyph table of precomputed bank/offset would kill most of
+it — but a menu bar in under half a frame is not asking for it yet.
+
+Re-run with:
+
+```powershell
+.\build.ps1 -Source demos\specimen.asm -Capture
+```
+
 ## Phase 0 verdicts on the three headline risks
 
 1. **2bpp blit performance at 640×480** — retired. Masked text at 160
    glyphs/frame and FX-accelerated fills leave the target UI budgets
    with 3×+ headroom.
-2. **VRAM budget** — closes. See `docs/memory-map.md`: 28.4KB glyph
-   cache + 16KB menu save-unders + 4KB sprites fit beside the 75KB
-   framebuffer, with the KERNAL mouse image at $13000 carved out.
+2. **VRAM budget** — closes, and with more room than Phase 0 thought.
+   The 28.4KB it reserved for glyph caches was a mistake: `gfx2_blitm`
+   reads its source from CPU RAM, so the cache lives in banked RAM
+   (Phase 2 found this — see `docs/memory-map.md`). VRAM holds the 75KB
+   framebuffer, 16KB of menu save-unders, sprites, and the KERNAL mouse
+   image at $13000, with 28KB now free for icon sheets.
 3. **Event latency** — retired. Chained IRQ costs the KERNAL nothing,
    queue dispatch is ~1 ms, cursor is a zero-latency hardware sprite.
 
