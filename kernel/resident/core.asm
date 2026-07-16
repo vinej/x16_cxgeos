@@ -63,6 +63,14 @@ cx_do_version
 cx_do_exit
     jsr ev_stop
     jsr mouse_hide
-    lda #$80                    ; the 80x60 text screen
-    jsr screen_set_mode
-    rts
+
+    ; The 80x60 text screen. This is screen_set_mode's body, inlined:
+    ; four instructions against the 121 bytes of the module it lives in,
+    ; and cx_exit is the kernel's only caller of it. ADDRSEL has to be 0
+    ; first -- the KERNAL's screen code assumes it -- and the macro
+    ; clobbers A, which is why the mode is loaded after it rather than
+    ; pushed around it.
+    vera_addrsel 0
+    lda #$80
+    clc
+    jmp SCREEN_MODE

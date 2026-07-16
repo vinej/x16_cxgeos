@@ -20,7 +20,6 @@
 X16_USE_BITMAP2 = 1             ; pulls in VERA and VERAFX
 X16_USE_IRQ     = 1             ; the event system's raster hook
 X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
-X16_USE_SCREEN  = 1             ; cx_exit hands the text screen back
 
 FB_STRIDE   = 160
 

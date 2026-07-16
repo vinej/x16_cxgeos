@@ -63,31 +63,31 @@ file in the same commit as the code that claims or releases a region.
 rather than leaving it a comment someone has to remember. The first
 build it judged, it failed — and the failure was worth having.
 
-| | at first | now |
-|---|---|---|
-| x16lib | 6,055 | 3,893 |
-| CXGEOS kernel code | 2,096 | 2,096 |
-| `fonts/pxl8.cxf`, linked in | 871 | 871 |
-| **resident total** | **9,022** | **6,728** |
-| budget, `$8200`–`$9EFF` | 7,424 | 7,424 |
-| | **over by 1,598** | **696 spare** |
+| | at first | after 0.4.1 | now |
+|---|---|---|---|
+| x16lib | 6,055 | 3,893 | **3,072** |
+| CXGEOS kernel code | 2,096 | 2,096 | 2,098 |
+| `fonts/pxl8.cxf`, linked in | 871 | 871 | 871 |
+| **resident total** | **9,022** | **6,728** | **5,912** |
+| budget, `$8200`–`$9EFF` | 7,424 | 7,424 | 7,424 |
+| | **over by 1,598** | 696 spare | **1,512 spare** |
 
 Placement is proven: `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$806C`
 (93 bytes = 31 slots × 3), `CODE` at `$8200`.
 
 **Two thirds of the image was the library, and most of it was unused.**
-Measured, one gate at a time:
+Measured, one gate at a time, when it first failed to fit:
 
-| gate | bytes | what CXGEOS calls from it |
-|---|---|---|
-| VERA | 143 | `vera_fill`, via gfx2 |
-| **VERAFX** | **2,502** | **`fx_fill`, via gfx2 — and nothing else** |
-| BITMAP2 (gfx2 itself) | 2,149 | all of it |
-| IRQ | 400 | all five routines |
-| INPUT | 39 | `mouse_get`/`show`/`hide` |
-| SCREEN | 121 | `screen_set_mode`, in `cx_exit` alone |
-| LOAD | 76 | nothing yet |
-| BANK | 624 | nothing — `font.asm` writes `RAM_BANK` itself |
+| gate | bytes | what CXGEOS calls from it | now |
+|---|---|---|---|
+| VERA | 143 | `vera_fill`, via gfx2 | kept |
+| **VERAFX** | **2,502** | **`fx_fill`, via gfx2 — and nothing else** | **`_FILL` alone: 340** |
+| BITMAP2 (gfx2 itself) | 2,149 | all of it | kept |
+| IRQ | 400 | all five routines | kept |
+| INPUT | 39 | `mouse_get`/`show`/`hide` | kept |
+| SCREEN | 121 | `screen_set_mode`, in `cx_exit` alone | **dropped** |
+| LOAD | 76 | nothing yet | **dropped** |
+| BANK | 624 | nothing — `font.asm` writes `RAM_BANK` itself | **dropped** |
 
 The 320×240 8bpp module was never linked: the gates select correctly.
 The problem was granularity. x16lib is one translation unit, so a gated
@@ -103,17 +103,29 @@ broke. A CXGEOS-local trimmed copy would have worked and been the wrong
 answer: the vendored tree is a clean snapshot on purpose, and the next
 re-vendor would have silently undone it.
 
-Still on the table, and no longer urgent:
+**Then the gates nothing called went**, for another 821: `cx_exit`
+inlines the four instructions it wanted out of SCREEN, and LOAD and BANK
+were being carried for a loader that does not exist. They come back when
+something calls them. The rule the numbers argue for: **a gate is not
+free, and in a single translation unit it is not lazy either** — what it
+pulls in, the image carries whether anything calls it or not.
 
-- **SCREEN, LOAD and BANK are 821 bytes nothing calls.** `cx_exit` is
-  SCREEN's only user; LOAD and BANK are for a loader that does not exist
-  yet and will.
-- **The font blob is 871 resident bytes.** It stays for now: a kernel
-  that had to read its own font off the SD card could not put a message
-  on the screen when the read failed.
+### What is left, and why
+
+- **The font blob is 871 resident bytes**, and moving it to a bank waits
+  on the boot chain, not on an argument. It cannot ride the same PRG: a
+  PRG is one contiguous run from its load address, and `$9F00` is I/O, so
+  there is nowhere past the resident area for it to sit. It needs a
+  loader to put it in a bank — which is Phase 4c.
+
+  (An earlier note here claimed it had to stay resident so a kernel whose
+  font failed to load could still report it. That was wrong: the KERNAL
+  charset is kept at VRAM `$1F000` for exactly that panic console, and it
+  needs nothing of ours.)
+
 - **Banking the cold code** is still right — `font_cache` runs once at
-  boot and has no business resident — but it should not be done to pay
-  for somebody else's `fx_triangle`.
+  boot and has no business resident — but with 1,512 spare it is now a
+  choice rather than a debt.
 
 ## The glyph cache lives in banked RAM, not VRAM
 

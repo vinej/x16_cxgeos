@@ -22,12 +22,17 @@
 .include "x16.asm"
 .include "kernel/resident/zp.inc"
 
-X16_USE_BITMAP2 = 1             ; the screen: pulls in VERA and VERAFX
+; Only what is called. A gate here is 76 to 2,502 bytes of a 7,424-byte
+; budget, and x16lib is one translation unit -- what a gate pulls in,
+; the image carries whether anything calls it or not. SCREEN, LOAD and
+; BANK were 821 bytes between them and nothing called any of them:
+; cx_exit inlines the four instructions it wanted from SCREEN, the
+; loader that will want LOAD does not exist yet, and font.asm writes
+; RAM_BANK itself rather than going through BANK. Add them back when
+; something calls them, not before.
+X16_USE_BITMAP2 = 1             ; the screen; asks VERAFX for _FILL alone
 X16_USE_IRQ     = 1             ; the event system's raster hook
 X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
-X16_USE_SCREEN  = 1             ; cx_exit hands the text screen back
-X16_USE_LOAD    = 1             ; the loader
-X16_USE_BANK    = 1             ; the glyph cache's banks
 
 .segment "LOADADDR"
     .word $8000
