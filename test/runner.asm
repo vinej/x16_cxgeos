@@ -18,6 +18,8 @@
 .include "kernel/resident/zp.inc"
 
 X16_USE_BITMAP2 = 1             ; pulls in VERA and VERAFX
+X16_USE_IRQ     = 1             ; the event system's raster hook
+X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 
 FB_STRIDE   = 160
 
@@ -53,6 +55,13 @@ main
     jsr test_font_bold
     jsr test_font_under
     jsr test_font_pen_bold
+
+    jsr test_ev_queue
+    jsr test_ev_coalesce
+    jsr test_ev_overflow
+    jsr test_ev_wrap
+    jsr test_ev_dispatch
+    jsr test_ev_null
 
     jsr t_summary
     rts
@@ -760,9 +769,315 @@ test_font_pen_bold
 @str  .byte "Hamburgefonstiv 123", 0
 @want .word 0
 
+
+; =====================================================================
+; the event system (kernel/event/event.asm).
+;
+; The raster hook cannot fire under -testbench -- there is no VSYNC, so
+; no interrupt at all -- which is exactly why ev_post exists: a
+; synthetic record goes down the same path a sampled one does,
+; coalescing included. These drive the queue and the dispatcher through
+; it. What the interrupt itself decodes (button edges, double clicks) is
+; spike C's ground, and demos/evmon.asm shows it running.
+; =====================================================================
+
+; ev_fill -- post a record: A = type, X = detail, Y = x low.
+ev_fill
+    sta X16_P0
+    stx X16_P1
+    sty X16_P2
+    stz X16_P3
+    stz X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jmp ev_post
+
+; EV_QUEUE: records come back oldest first, byte for byte.
+test_ev_queue
+    jsr ev_init
+    ldy #1
+    jsr ev_count
+    bne @report                 ; a fresh queue is empty
+
+    lda #EV_KEY
+    ldx #65
+    ldy #11
+    jsr ev_fill
+    lda #EV_MOUSE_DOWN
+    ldx #1
+    ldy #22
+    jsr ev_fill
+    lda #EV_TIMER
+    ldx #0
+    ldy #33
+    jsr ev_fill
+
+    ldy #1
+    jsr ev_count
+    cmp #3
+    bne @report
+
+    jsr ev_get                  ; FIFO: the key first
+    bcs @report
+    lda X16_P0
+    cmp #EV_KEY
+    bne @report
+    lda X16_P1
+    cmp #65
+    bne @report
+    lda X16_P2
+    cmp #11
+    bne @report
+
+    jsr ev_get
+    bcs @report
+    lda X16_P0
+    cmp #EV_MOUSE_DOWN
+    bne @report
+    lda X16_P2
+    cmp #22
+    bne @report
+
+    jsr ev_get
+    bcs @report
+    lda X16_P0
+    cmp #EV_TIMER
+    bne @report
+
+    jsr ev_get                  ; and then it is empty again
+    bcc @report
+    jsr ev_count
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "EV_QUEUE", 0
+
+; EV_COALESCE: a move landing on a move overwrites it -- only the newest
+; position was ever interesting. A move landing on anything else queues.
+test_ev_coalesce
+    jsr ev_init
+
+    lda #EV_MOUSE_MOVE
+    ldx #0
+    ldy #10
+    jsr ev_fill
+    lda #EV_MOUSE_MOVE
+    ldx #0
+    ldy #20
+    jsr ev_fill
+    lda #EV_MOUSE_MOVE
+    ldx #0
+    ldy #30
+    jsr ev_fill
+
+    ldy #1
+    jsr ev_count
+    cmp #1                      ; three moves, one record
+    bne @report
+    jsr ev_get
+    lda X16_P2
+    cmp #30                     ; and it is the newest position
+    bne @report
+
+    lda #EV_MOUSE_MOVE          ; a move, then a press, then a move:
+    ldx #0                      ; the press breaks the run, so the
+    ldy #40                     ; second move cannot fold into the first
+    jsr ev_fill
+    lda #EV_MOUSE_DOWN
+    ldx #1
+    ldy #40
+    jsr ev_fill
+    lda #EV_MOUSE_MOVE
+    ldx #0
+    ldy #50
+    jsr ev_fill
+    jsr ev_count
+    cmp #3
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "EV_COALESCE", 0
+
+; EV_OVERFLOW: a full queue drops the newest and says so. It must never
+; drop a button silently, and it must not corrupt what it already holds.
+test_ev_overflow
+    jsr ev_init
+    ldx #0
+@fill
+    phx
+    txa
+    clc
+    adc #1                      ; detail 1..17, so the order is checkable
+    tax
+    lda #EV_MOUSE_DOWN
+    ldy #0
+    jsr ev_fill
+    plx
+    inx
+    cpx #17                     ; one more than the queue holds
+    bne @fill
+
+    ldy #1
+    jsr ev_count
+    cmp #16
+    bne @report
+    lda ev_lost
+    cmp #1                      ; exactly one, counted
+    bne @report
+
+    jsr ev_get                  ; the oldest survived intact
+    lda X16_P1
+    cmp #1
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "EV_OVERFLOW", 0
+
+; EV_WRAP: push and pop past the ring's end. 40 records through a
+; 16-record queue walks head and tail over the wrap three times.
+test_ev_wrap
+    jsr ev_init
+    stz @n
+@round
+    lda #EV_KEY
+    ldx @n
+    ldy #0
+    jsr ev_fill
+    jsr ev_get
+    bcs @bad
+    lda X16_P1
+    cmp @n                      ; what went in is what came out
+    bne @bad
+    inc @n
+    lda @n
+    cmp #40
+    bne @round
+    jsr ev_count                ; and nothing is left behind
+    bne @bad
+    ldy #0
+    bra @report
+@bad
+    ldy #1
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "EV_WRAP", 0
+@n    .byte 0
+
+; EV_DISPATCH: the handler for the record's type runs, and sees it.
+test_ev_dispatch
+    jsr ev_init
+    lda #<@table
+    ldx #>@table
+    jsr ev_handlers
+
+    stz @hits
+    stz @saw
+    lda #EV_KEY
+    ldx #77
+    ldy #0
+    jsr ev_fill
+    jsr ev_dispatch
+
+    ldy #1
+    lda @hits
+    cmp #1                      ; ran once
+    bne @report
+    lda @saw
+    cmp #77                     ; and the record reached it
+    bne @report
+
+    lda #EV_TIMER               ; a type this app ignores: a null vector
+    ldx #0                      ; is not a crash
+    ldy #0
+    jsr ev_fill
+    jsr ev_dispatch
+    lda @hits
+    cmp #1                      ; the key handler did not run again
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "EV_DISPATCH", 0
+
+@key_handler
+    inc @hits
+    lda X16_P1
+    sta @saw
+    rts
+
+@table  .word 0, 0, 0, 0, 0, @key_handler, 0   ; only EV_KEY is handled
+@hits   .byte 0
+@saw    .byte 0
+
+; EV_NULL: an empty queue dispatches EV_NULL with an all-zero record --
+; the app's idle time, without polling.
+test_ev_null
+    jsr ev_init
+    lda #<@table
+    ldx #>@table
+    jsr ev_handlers
+    stz @hits
+
+    lda #$FF                    ; poison the block: EV_NULL must clear it
+    sta X16_P1
+    sta X16_P2
+    sta X16_P7
+    jsr ev_dispatch
+
+    ldy #1
+    lda @hits
+    cmp #1
+    bne @report
+    lda @zeroes                 ; the handler found it all zero
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "EV_NULL", 0
+
+@null_handler
+    inc @hits
+    lda X16_P0                  ; every byte of the record
+    ora X16_P1
+    ora X16_P2
+    ora X16_P3
+    ora X16_P4
+    ora X16_P5
+    ora X16_P6
+    ora X16_P7
+    sta @zeroes
+    rts
+
+@table   .word @null_handler, 0, 0, 0, 0, 0, 0
+@hits    .byte 0
+@zeroes  .byte 0
+
 ; ---------------------------------------------------------------------
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
+.include "kernel/event/event.asm"
 
 ; the system font, linked in so the suite needs no SD card
 pxl8

@@ -35,12 +35,17 @@ CX_F_T1    = CX_ZP + 13         ; $3F
 
 CX_F_ZP_TOP = CX_ZP + 14        ; = $40
 
-; --- free: $40-$5F ---------------------------------------------------
+; --- event system (kernel/event/event.asm) ---------------------------
+CX_E_HND   = CX_ZP + 14         ; $40/$41  the app's handler table
+
+CX_E_ZP_TOP = CX_ZP + 16        ; = $42
+
+; --- free: $42-$5F ---------------------------------------------------
 
 .if CX_ZP < $32
     .error "CX_ZP must be >= $32: below that is x16lib's block"
 .endif
-.if CX_F_ZP_TOP > CX_ZP_END
+.if CX_E_ZP_TOP > CX_ZP_END
     .error "kernel zero page overflows into the application's $60-$7F"
 .endif
 
