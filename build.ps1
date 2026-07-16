@@ -308,8 +308,11 @@ if ($Apps -or $Image -or $Boot) {
         Get-ChildItem $sdroot | ForEach-Object { Write-Host ("      {0,-14} {1,6} bytes" -f $_.Name, $_.Length) }
     }
     if ($Boot) {
-        Write-Host "x16emu (booting the staged root)"
-        & $emu -rom $rom -fsroot $sdroot -scale $Scale
+        # -capture: x16emu does not feed the host mouse to the guest
+        # without it, so the pointer would sit frozen. Interactive only;
+        # the headless smoke never needs it.
+        Write-Host "x16emu (booting the staged root; -capture for the mouse)"
+        & $emu -rom $rom -fsroot $sdroot -scale $Scale -capture
     }
     exit 0
 }

@@ -76,6 +76,22 @@ cx_do_version
 ; against the 121-byte module that was its only other content. ADDRSEL
 ; must be 0 first; the KERNAL's screen code assumes it.)
 ; ---------------------------------------------------------------------
+; ---------------------------------------------------------------------
+; cx_do_mouse_show -- A = $FF for the arrow, or a cursor sprite number.
+;
+; Turns VERA sprite output ON before handing off to the KERNAL mouse
+; driver. The pointer is sprite 0, and our screen setup (gfx2_init)
+; programs the bitmap layer but never enables the sprite plane -- so
+; without this the KERNAL configures a pointer that cannot be seen.
+; `tsb` is idempotent, so calling show twice costs nothing.
+; ---------------------------------------------------------------------
+cx_do_mouse_show
+    pha
+    lda #VERA_VIDEO_SPRITES_EN
+    tsb VERA_DC_VIDEO
+    pla
+    jmp mouse_show
+
 cx_do_exit
     jsr ev_stop
     jsr mouse_hide
