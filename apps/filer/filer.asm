@@ -701,17 +701,17 @@ on_timer
     sta tbuf+15
     stz tbuf+16
 
-    lda #<470                   ; the patch, inside the bar
-    sta X16_P0
-    lda #>470
-    sta X16_P1
+    lda #<470                   ; the patch, inside the bar. Height 10,
+    sta X16_P0                  ; not 11: row 11 is the bar's rule line
+    lda #>470                   ; (CX_MENU_H-1), and a wide patch that ate
+    sta X16_P1                  ; it left a gap under the date
     lda #1
     sta X16_P2
     stz X16_P3
     lda #<150                   ; sixteen glyphs' worth
     sta X16_P4
     stz X16_P5
-    lda #11
+    lda #10
     sta X16_P6
     stz X16_P7
     lda #0

@@ -19,6 +19,14 @@
 ;   cx_dir_close  let the channel go.
 ;
 ; One logical file (2). Not re-entrant: one directory walk at a time.
+;
+; INTERRUPTS OFF for the whole walk. CHKIN makes LFN 2 the current input
+; channel, and the event IRQ drains the keyboard with GETIN, which reads
+; the CURRENT channel -- so a firing IRQ steals bytes straight out of the
+; directory stream and desyncs the parse (it drew ghost "PRG" lines in
+; the file browser). cx_dir_open masks interrupts once CHKIN has taken,
+; cx_dir_close restores them. Directory reads are short, so the masked
+; window is brief.
 ; =====================================================================
 
 CX_DIR_LFN = 2
@@ -39,15 +47,17 @@ cx_dir_open
     ldx #CX_DIR_LFN
     jsr CHKIN
     bcs @err
+    sei                         ; ours now -- the IRQ's GETIN must not
+    jsr CHRIN                   ; touch this channel (see the header)
     jsr CHRIN                   ; the two-byte load address, discarded
-    jsr CHRIN
     clc
     rts
 @err
     rts                         ; carry from OPEN/CHKIN
 
 cx_dir_close
-    jsr CLRCHN
+    jsr CLRCHN                  ; default input back...
+    cli                         ; ...then the IRQ may read the keyboard
     lda #CX_DIR_LFN
     jmp CLOSE
 

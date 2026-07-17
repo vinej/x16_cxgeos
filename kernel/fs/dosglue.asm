@@ -14,8 +14,19 @@
 ; cannot see it; cx_dos_msg copies it into a caller buffer.
 ; =====================================================================
 
-; the slots' resident stubs
+; the slots' resident stubs.
+;
+; cx_do_dos_cmd masks interrupts across the whole command: dos_cmd does
+; CHKIN #15 and reads the reply with CHRIN, and the event IRQ's GETIN
+; reads the current channel -- a firing IRQ would steal reply bytes the
+; way it stole directory bytes (kernel/fs/dir.asm). cli preserves A and
+; the carry, which are dos_cmd's return, so the result survives.
 cx_do_dos_cmd
+    sei
+    jsr @go
+    cli
+    rts
+@go
     jsr cxb_call
     .byte 2
     .addr $A000 + 7*3

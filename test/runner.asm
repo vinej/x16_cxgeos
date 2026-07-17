@@ -80,6 +80,7 @@ main
     jsr test_app_badmagic
     jsr test_app_toonew
     jsr test_dir
+    jsr test_dir_irq
     jsr test_clip
     jsr test_clip_span
     jsr test_font_bank
@@ -1866,6 +1867,44 @@ test_dir
 @count .byte 0
 @found .byte 0
 @nb    .res 17, 0
+
+; ---------------------------------------------------------------------
+; cx_dir_open must MASK interrupts and cx_dir_close restore them: the
+; event IRQ's GETIN reads the current channel, so a firing IRQ steals
+; bytes out of the open directory (it drew ghost "PRG" lines in the file
+; browser). This checks the guard is in place; without it the browser
+; corrupts on every refresh.
+; ---------------------------------------------------------------------
+test_dir_irq
+    cli                         ; start with interrupts enabled
+    lda #<@pat
+    ldx #>@pat
+    ldy #1
+    jsr cx_dir_open
+    bcs @fail
+    php                         ; open must have masked them
+    pla
+    and #$04                    ; the I flag
+    beq @failclose
+    jsr cx_dir_close
+    php                         ; close must have restored them
+    pla
+    and #$04
+    bne @fail
+    ldy #0
+    bra @report
+@failclose
+    jsr cx_dir_close
+@fail
+    cli                         ; leave interrupts as we found them
+    ldy #1
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "DIRIRQ", 0
+@pat  .byte "$"
 
 ; ---------------------------------------------------------------------
 ; the clipboard -- put, ask, get back, truncate, empty, and a payload
