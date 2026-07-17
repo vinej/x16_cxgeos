@@ -417,6 +417,105 @@ static void cx_print(const char *s) {
     cbm_k_chrout('\r');
 }
 
+/* =====================================================================
+ * picture files -- a framebuffer rectangle to/from a SEQ file
+ * =====================================================================
+ * cx_pic_save / cx_pic_load stream a w x h rectangle of the screen at
+ * (x, y) as native framebuffer bytes (four 2-bit pixels a byte) straight
+ * through VERA's auto-incrementing data port, a row at a time. This is
+ * far faster than a cx_pget/cx_pset per pixel -- each of those is a full
+ * ABI crossing -- so the file I/O becomes the only cost. x and w are in
+ * pixels and MUST be multiples of 4; a row is at most 640 px (160 bytes).
+ *
+ * Interrupts are masked around the stream: the event IRQ's GETIN reads
+ * the current channel (the file, once CHKIN'd) and its mouse-sprite
+ * update writes VERA -- either would corrupt the transfer. A whole row is
+ * read before any is written, and each row re-seeks VERA, so the file and
+ * VRAM accesses never interleave. Device 8 (the SD); the framebuffer is
+ * 160 bytes/row at VRAM $00000 (docs/memory-map). */
+#define CX__V_ADDR_L (*(volatile unsigned char *)0x9F20)
+#define CX__V_ADDR_M (*(volatile unsigned char *)0x9F21)
+#define CX__V_ADDR_H (*(volatile unsigned char *)0x9F22)
+#define CX__V_DATA0  (*(volatile unsigned char *)0x9F23)
+#define CX__V_CTRL   (*(volatile unsigned char *)0x9F25)
+
+static unsigned char cx__row[160];       /* one framebuffer row segment */
+static char          cx__fn[28];         /* the built "name,S,x" filename */
+
+/* point DATA0 at pixel (x, y) in the framebuffer, +1 auto-increment */
+static void cx__vseek(unsigned x, unsigned y) {
+    unsigned long off = (unsigned long)y * 160ul + (x >> 2);
+    CX__V_CTRL   = 0;                                  /* ADDRSEL 0 -> DATA0 */
+    CX__V_ADDR_L = (unsigned char)off;
+    CX__V_ADDR_M = (unsigned char)(off >> 8);
+    CX__V_ADDR_H = ((unsigned char)(off >> 16) & 0x0F) | 0x10;
+}
+
+/* build pre + name + suf into cx__fn (a DOS name like "S:PICT" or
+ * "PICT,S,W"); names are short, the buffer holds 27 chars */
+static void cx__mkname(const char *pre, const char *name, const char *suf) {
+    unsigned char i = 0, j;
+    for (j = 0; pre[j];  j++) cx__fn[i++] = pre[j];
+    for (j = 0; name[j]; j++) cx__fn[i++] = name[j];
+    for (j = 0; suf[j];  j++) cx__fn[i++] = suf[j];
+    cx__fn[i] = 0;
+}
+
+/* save the w x h framebuffer rectangle at (x, y) to SEQ file `name` */
+static void cx_pic_save(const char *name, unsigned x, unsigned y,
+                        unsigned w, unsigned h) {
+    unsigned row, bx, wb = w >> 2;
+    cx__mkname("S:", name, "");           /* drop any old file first */
+    cx_dos(cx__fn);
+    cx__mkname("", name, ",S,W");
+    cbm_k_setnam(cx__fn);
+    cbm_k_setlfs(3, 8, 3);
+    cbm_k_open();
+    __asm__ volatile ("sei" ::: "memory");
+    cbm_k_chkout(3);
+    for (row = 0; row < h; row++) {
+        cx__vseek(x, y + row);
+        for (bx = 0; bx < wb; bx++) cx__row[bx] = CX__V_DATA0;
+        for (bx = 0; bx < wb; bx++) cbm_k_chrout(cx__row[bx]);
+    }
+    cbm_k_clrch();
+    cbm_k_close(3);
+    __asm__ volatile ("cli" ::: "memory");
+}
+
+/* load SEQ file `name` into the w x h rectangle at (x, y); returns the
+ * number of rows restored (0 = no file / empty) */
+static unsigned cx_pic_load(const char *name, unsigned x, unsigned y,
+                            unsigned w, unsigned h) {
+    unsigned row, bx, wb = w >> 2, rows = 0;
+    unsigned char st = 0;
+    char done = 0;
+    cx__mkname("", name, ",S,R");
+    cbm_k_setnam(cx__fn);
+    cbm_k_setlfs(2, 8, 2);
+    cbm_k_open();
+    __asm__ volatile ("sei" ::: "memory");
+    cbm_k_chkin(2);
+    for (row = 0; row < h && !done; row++) {
+        char full;
+        for (bx = 0; bx < wb; bx++) {
+            cx__row[bx] = cbm_k_chrin();
+            st = cbm_k_readst();
+            if (st) { done = 1; break; }         /* EOF ($40) or an error */
+        }
+        full = (bx == wb) || (st == 0x40 && bx == wb - 1);
+        if (full) {
+            cx__vseek(x, y + row);
+            for (bx = 0; bx < wb; bx++) CX__V_DATA0 = cx__row[bx];
+            rows++;
+        }
+    }
+    cbm_k_clrch();
+    cbm_k_close(2);
+    __asm__ volatile ("cli" ::: "memory");
+    return rows;
+}
+
 #pragma GCC diagnostic pop
 
 /* =====================================================================

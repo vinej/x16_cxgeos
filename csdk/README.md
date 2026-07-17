@@ -157,6 +157,21 @@ python tools\mkcxap.py build\MYAPP.PRG build\MYAPP.CXA --name "My App"
   and responds exactly like the asm `apps/gallery` if (and only if) every
   field lands where the kernel expects it.
 
+- **Picture files** — save or restore a screen rectangle to a SEQ file in
+  one call:
+
+  ```c
+  cx_pic_save("PAINT.DAT", x, y, w, h);            /* screenshot a region  */
+  if (cx_pic_load("PAINT.DAT", x, y, w, h)) { ... } /* returns rows loaded */
+  ```
+
+  The rectangle streams as native framebuffer bytes straight through
+  VERA's data port (four 2-bit pixels a byte), a row at a time, with
+  interrupts masked — far faster than a `cx_pget`/`cx_pset` per pixel
+  (each of those is a full ABI crossing). `x` and `w` are in pixels and
+  must be multiples of 4; a row is at most 640 px. This is how
+  `apps/paint` persists its canvas.
+
 ## Reference apps
 
 - `apps/hello_c/hello.c` — the smallest example: `cx_print`, `cx_say`,
@@ -168,6 +183,12 @@ python tools\mkcxap.py build\MYAPP.PRG build\MYAPP.CXA --name "My App"
   widget set, a modal dialog and two themes, all declared as C data, and
   polled with `cx_next` so the mouse drives them. The kernel-managed
   toolkit path.
+- `apps/paint/paint.c` — a small paint program: a pencil and an eraser
+  driven by dragging the mouse (raw `cx_poll` + its own hit-testing,
+  `cx_line`/`cx_pset`/`cx_rect`), plus save/load that stream the canvas
+  to a SEQ file through the KERNAL (`cx_pget`/`cx_pset` pack the pixels,
+  interrupts masked around the stream). The immediate-mode + file-I/O
+  example.
 
 ## Scope
 
