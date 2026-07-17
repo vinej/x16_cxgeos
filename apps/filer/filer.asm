@@ -68,6 +68,10 @@ main
     lda #$09                    ; focus the list so UP/DOWN work at once
     jsr cx_wg_key
 
+    lda #60                     ; a tick a second, for the clock
+    jsr cx_ev_timer
+    jsr on_timer                ; and the clock NOW, not in a second
+
     lda #<handlers
     ldx #>handlers
     jsr cx_ev_handlers
@@ -554,6 +558,62 @@ no_dots
     clc
     rts
 
+; on_timer -- the live clock, top right of the menu bar. The KERNAL
+; keeps the RTC; this draws HH:MM over a paper patch once a second.
+; The bar's rule line (row 13) is left alone.
+on_timer
+    jsr CLOCK_GET_DATE_TIME     ; r1H = hours, r2L = minutes
+    lda $05                     ; r1H
+    jsr two_digits
+    stx tbuf
+    sta tbuf+1
+    lda #':'
+    sta tbuf+2
+    lda $06                     ; r2L
+    jsr two_digits
+    stx tbuf+3
+    sta tbuf+4
+    stz tbuf+5
+
+    lda #<590                   ; the patch, inside the bar
+    sta X16_P0
+    lda #>590
+    sta X16_P1
+    lda #1
+    sta X16_P2
+    stz X16_P3
+    lda #44                     ; wide enough for five glyphs
+    sta X16_P4
+    stz X16_P5
+    lda #11
+    sta X16_P6
+    stz X16_P7
+    lda #0
+    jsr cx_gfx_rect
+
+    lda #<592
+    sta X16_P0
+    lda #>592
+    sta X16_P1
+    lda #2
+    sta X16_P2
+    stz X16_P3
+    lda #<tbuf
+    ldx #>tbuf
+    jmp cx_font_draw
+
+two_digits                      ; A = 0-59 -> X = tens char, A = units
+    ldx #'0'
+@tens
+    cmp #10
+    bcc @units
+    sbc #10
+    inx
+    bra @tens
+@units
+    adc #'0'
+    rts
+
 on_key
     lda inmenu
     bne @menu
@@ -589,7 +649,7 @@ on_key
 handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
     .addr 0, 0, 0, 0, 0
     .addr on_key
-    .addr 0
+    .addr on_timer
     .addr on_menu
     .addr on_widget
 
@@ -670,7 +730,7 @@ ftype     .byte 0
 deldir    .byte 0
 inmenu    .byte 0               ; 0 = browsing, 1 = a menu is open
 oblen     .byte 0
-atmp      .byte 0
+tbuf      .res 6, 0             ; "HH:MM"
 obuf      .res NAMEMAX, 0       ; the selected name, slash stripped
 pbuf      .res 20, 0            ; what the prompt collects
 qbuf      .res 32, 0            ; the delete question
