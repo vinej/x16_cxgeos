@@ -342,10 +342,16 @@ wg_p_button
     lda (CX_M_PTR),y
     adc wg_t+1
     sta X16_P1
-    ldy #WG_Y                   ; y + (h-8)/2, h is small so approx +2
-    lda (CX_M_PTR),y
+    ldy #WG_H                   ; y + (h-8)/2: the glyphs centred top to
+    lda (CX_M_PTR),y            ; bottom, not sat near the top
+    sec
+    sbc #8
+    lsr
+    sta wg_t
     clc
-    adc #2
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    adc wg_t
     sta X16_P2
     ldy #WG_Y+1
     lda (CX_M_PTR),y
@@ -444,7 +450,24 @@ wg_p_scroll
     jsr wg_load_box
     lda th_frame
     jsr gfx2_frame
+    lda wg_drag                 ; while this bar is dragged the thumb
+    cmp wg_i                    ; tracks the mouse pixel by pixel (the
+    bne @snapped                ; live offset), snapping to the value only
+    clc                         ; when the drag ends
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    adc #2
+    adc wg_dragpx
+    sta X16_P0
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    adc #0
+    adc wg_dragpx+1
+    sta X16_P1
+    bra @thumb
+@snapped
     jsr wg_thumb_x              ; X16_P0/P1 = the thumb's left
+@thumb
     ldy #WG_Y
     lda (CX_M_PTR),y
     clc
@@ -996,9 +1019,13 @@ wg_hit
     beq @release
     rts
 @release
-    lda #$FF
-    sta wg_drag
-    rts
+    lda wg_drag                 ; nothing dragging: done
+    bmi @none
+    sta wg_i
+    jsr wg_rec
+    lda #$FF                    ; clear first, so the repaint snaps the
+    sta wg_drag                 ; thumb to the (quantised) value
+    jmp wg_paint
 @drag
     lda wg_drag                 ; a scrollbar being dragged? (else $FF)
     bmi @none
@@ -1495,8 +1522,10 @@ wg_scroll_to
     sbc #0
     sta wg_t+1
     bpl @pos
-    lda #0                      ; left of the trough: value 0
-    bra @store
+    stz wg_dragpx               ; left of the trough: thumb hard left,
+    stz wg_dragpx+1             ; value 0
+    lda #0
+    jmp @store
 @pos
     ; value = rel * max / span, span = innerw - thumb = w - 4 - THUMB
     ldy #WG_W
@@ -1507,6 +1536,28 @@ wg_scroll_to
     ldy #WG_W+1
     lda (CX_M_PTR),y
     sbc #0
+    sta wg_dvh                  ; span high
+
+    lda wg_t+1                  ; the live thumb pixel = rel clamped to span
+    cmp wg_dvh
+    bcc @relok
+    bne @relhi
+    lda wg_t
+    cmp wg_div
+    bcc @relok
+@relhi
+    lda wg_div
+    sta wg_dragpx
+    lda wg_dvh
+    sta wg_dragpx+1
+    bra @reld
+@relok
+    lda wg_t
+    sta wg_dragpx
+    lda wg_t+1
+    sta wg_dragpx+1
+@reld
+    lda wg_dvh
     bne @slow                   ; span >= 256: rare; pin to max-ish
     lda wg_div
     beq @max                    ; degenerate span
@@ -1575,11 +1626,15 @@ wg_grp   .byte 0
 wg_win   .byte 0
 wg_mul   .byte 0
 wg_div   .byte 0
+wg_dvh   .byte 0                  ; scroll span's high byte
 wg_rem   .byte 0
 wg_res   .word 0
 wg_acc   .word 0
 wg_focus .byte $FF               ; the keyboard-focused widget; $FF none
 wg_drag  .byte $FF               ; the scrollbar being dragged; $FF none
+wg_dragpx .word 0                ; ...and its thumb's live pixel offset,
+                                 ; so the thumb tracks the mouse smoothly
+                                 ; while WG_VAL stays quantised
 wg_cand  .byte 0                  ; focus_move's candidate walker
 wg_step  .byte 0
 wg_ch    .byte 0                  ; the character being typed into a field

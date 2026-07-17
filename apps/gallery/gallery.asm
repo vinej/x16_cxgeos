@@ -222,11 +222,16 @@ text360
     ldx X16_T1
     jmp cx_font_draw
 on_menu
-    lda X16_P2                  ; menu 1 = Themes
-    cmp #1
+    lda X16_P2
+    beq @quit                  ; menu 0 (Gallery) has only "quit"
+    cmp #1                      ; menu 1 = Themes
     bne @out
     lda X16_P1
     beq @day
+    bra @night
+@quit
+    jmp cx_exit
+@night
     lda #<theme_night
     ldx #>theme_night
     jsr cx_theme_set
@@ -246,13 +251,8 @@ on_key
     bcs @done
     lda X16_P1                  ; then the widgets: TAB moves the focus
     jsr cx_wg_key               ; frame, SPACE toggles, LEFT/RIGHT scroll
-    bcs @done
-    lda X16_P1
-    cmp #$1B                    ; ESC exits
-    bne @done
-    jmp cx_exit
-@done
-    rts
+@done                           ; leaving is the "exit" button or the
+    rts                         ; Gallery menu -- ESC is the app's to use
 
 handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
     .addr 0, 0, 0, 0, 0
@@ -283,10 +283,10 @@ m1_items
 widgets
     .byte 9
 
-    ; a push button "OK"
+    ; the exit button, bottom-right of the screen
     .byte WG_BUTTON, 0
-    .word 40, 60, 80
-    .byte 20, 0, 0
+    .word 520, 448, 100
+    .byte 24, 0, 0
     .addr s_ok
     .byte 0, 0, 0
 
@@ -352,7 +352,7 @@ s_m1     .byte "Themes", 0
 s_quit   .byte "quit", 0
 s_day    .byte "daylight", 0
 s_night  .byte "midnight", 0
-s_ok     .byte "OK", 0
+s_ok     .byte "exit", 0
 s_c1     .byte "wrap long lines", 0
 s_c2     .byte "show the ruler", 0
 s_r0     .byte "left", 0

@@ -215,8 +215,8 @@ static void draw(void) {
     static char lab[2];
 
     cx_call_a(CX_GFX_CLEAR, 0);
-    say("calc -- type or click; . for decimals, RETURN =, C clears, ESC out.",
-        120, 60);
+    say("calc -- type or click; . for decimals, RETURN =, C clears; exit lower-right.",
+        90, 60);
 
     frame(GX, 110, 248, 28, 3);
     for (i = 0; i < 16; i++) {
@@ -229,6 +229,9 @@ static void draw(void) {
     /* one wide clear button under the grid, not four "C"s */
     frame(GX, GY + 4 * (CH + GAP), CLEARW, CH, 3);
     say("clear", GX + 100, GY + 4 * (CH + GAP) + 8);
+    /* the exit button, bottom-right of the screen */
+    frame(520, 448, 100, 24, 3);
+    say("exit", 552, 456);
     show();
 }
 
@@ -252,6 +255,8 @@ int main(void) {
         } else if (cx_p[0] == EV_MOUSE_DOWN) {
             unsigned x = cx_p[2] | ((unsigned)cx_p[3] << 8);
             unsigned y = cx_p[4] | ((unsigned)cx_p[5] << 8);
+            if (x >= 520 && x < 620 && y >= 448 && y < 472)
+                break;                /* the exit button */
             if (x >= GX && y >= GY) {
                 unsigned char col = (x - GX) / (CW + GAP);
                 unsigned char row = (y - GY) / (CH + GAP);

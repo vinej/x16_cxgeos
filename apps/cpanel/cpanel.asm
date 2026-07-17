@@ -249,7 +249,11 @@ on_widget
     beq @night
     cmp #7
     beq @set
+    cmp #8
+    beq @exit
     rts
+@exit
+    jmp cx_exit
 @day
     lda #<theme_day
     ldx #>theme_day
@@ -466,13 +470,8 @@ mul10w
     rts
 
 on_key
-    lda X16_P1
+    lda X16_P1                  ; leaving is the "exit" button, not ESC
     jsr cx_wg_key
-    bcs @done
-    lda X16_P1
-    cmp #$1B                    ; ESC: back to the desktop
-    bne @done
-    jmp cx_exit
 @done
     rts
 
@@ -485,7 +484,7 @@ handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
 
 ; ---------------------------------------------------------------------
 widgets
-    .byte 8
+    .byte 9
 wg_day                          ; record 0: radio, group 1, selected
     .byte 2, 0
     .word 40, 90, 140
@@ -534,6 +533,12 @@ wg_set                          ; record 7: the button
     .byte 16, 0, 0
     .addr s_set
     .byte 0, 0, 0
+wg_exit                         ; record 8: exit, bottom-right
+    .byte 0, 0
+    .word 520, 448, 100
+    .byte 24, 0, 0
+    .addr s_exit
+    .byte 0, 0, 0
 
 theme_day
     .byte $FF, $0F,  $AA, $0A,  $55, $05,  $00, $00
@@ -543,7 +548,8 @@ theme_night
     .byte 0, 1, 3, 0
 
 s_marker .byte "CPANEL UP", $0D, 0
-s_title  .byte "control panel -- TAB walks, ESC leaves", 0
+s_title  .byte "control panel -- TAB or click a field; exit is bottom-right", 0
+s_exit   .byte "exit", 0
 s_theme  .byte "theme", 0
 s_clock  .byte "clock -- now:", 0
 s_yr     .byte "year", 0
