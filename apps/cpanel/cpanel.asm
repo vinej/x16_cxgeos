@@ -4,9 +4,10 @@
 ; =====================================================================
 ; Settings that belong to the machine, not to an app: the theme, and
 ; the real-time clock. Two radio buttons recolour the desktop live;
-; the clock shows itself once a second, and typing new hours/minutes
-; into the two fields and pressing "set clock" writes the RTC through
-; the KERNAL -- the date is read first and written back untouched.
+; the clock shows itself once a second, and typing a new date and time
+; into the five fields (year, month, day, hour, minute) and pressing
+; "set clock" writes the RTC through the KERNAL. A full year (2026) or
+; a two-digit one (26 -> 2026) both work; out-of-range values refuse.
 ;
 ; TAB walks the widgets, ESC leaves. No menu bar: a control panel is
 ; its own single page. Settings are per-session for now -- there is no
@@ -18,6 +19,8 @@
 
 EV_KEY    = 5
 EV_WIDGET = 8
+
+p4ptr = $60                     ; app zero page: parse4's buffer walker
 
 .segment "LOADADDR"
     .word $0801
@@ -51,20 +54,60 @@ main
     ldx #>s_clock
     ldy #150
     jsr text_at
+    lda #<s_fields              ; the field labels
+    ldx #>s_fields
+    ldy #170
+    jsr text_at
 
-    jsr CLOCK_GET_DATE_TIME     ; seed the fields with the time now
-    lda $05                     ; r1H = hours
+    jsr CLOCK_GET_DATE_TIME     ; seed the fields with the date/time now
+    lda $02                     ; year: r0L is (year-1900)
+    cmp #100
+    bcc @c19
+    sec
+    sbc #100
+    ldx #'2'
+    ldy #'0'
+    bra @yy
+@c19
+    ldx #'1'
+    ldy #'9'
+@yy
+    stx ybuf
+    sty ybuf+1
+    jsr two_digits
+    stx ybuf+2
+    sta ybuf+3
+    stz ybuf+4
+    lda #4
+    sta wg_yy + 9
+
+    lda $03                     ; month
+    jsr two_digits
+    stx obuf
+    sta obuf+1
+    stz obuf+2
+    lda #2
+    sta wg_mo + 9
+    lda $04                     ; day
+    jsr two_digits
+    stx dbuf
+    sta dbuf+1
+    stz dbuf+2
+    lda #2
+    sta wg_dd + 9
+    lda $05                     ; hours
     jsr two_digits
     stx hbuf
     sta hbuf+1
     stz hbuf+2
-    lda $06                     ; r2L = minutes
+    lda #2
+    sta wg_hh + 9
+    lda $06                     ; minutes
     jsr two_digits
     stx mbuf
     sta mbuf+1
     stz mbuf+2
-    lda #2                      ; both fields hold two chars already
-    sta wg_hh + 9
+    lda #2
     sta wg_mm + 9
 
     jsr cx_ev_init
@@ -156,7 +199,7 @@ on_widget
     beq @day
     cmp #1
     beq @night
-    cmp #4
+    cmp #7
     beq @set
     rts
 @day
@@ -170,38 +213,102 @@ on_widget
     jsr cx_theme_set
     jmp cx_wg_draw
 @set
-    ; parse the two fields; nonsense is refused with a note
-    lda #<hbuf
-    ldx #>hbuf
-    jsr parse2
+    jsr parsefields             ; carry set = out of range, refused
     bcs @bad
-    cmp #24
-    bcs @bad
-    sta newh
-    lda #<mbuf
-    ldx #>mbuf
-    jsr parse2
-    bcs @bad
-    cmp #60
-    bcs @bad
-    sta newm
-    jsr CLOCK_GET_DATE_TIME     ; the date stays whatever it was
+    lda newy                    ; write the new date/time
+    sta $02
+    lda newo
+    sta $03
+    lda newd
+    sta $04
     lda newh
-    sta $05                     ; r1H = hours
+    sta $05
     lda newm
-    sta $06                     ; r2L = minutes
-    stz $07                     ; r2H = seconds: on the minute
+    sta $06
+    stz $07                     ; on the minute
+    stz $08
+    lda #1
+    sta $09                     ; a weekday, so the RTC is happy
     jsr CLOCK_SET_DATE_TIME
     lda #<s_did
     ldx #>s_did
-    ldy #220
+    ldy #226
     jsr text_at
     jmp on_timer
 @bad
     lda #<s_nope
     ldx #>s_nope
-    ldy #220
+    ldy #226
     jmp text_at
+
+; parsefields -- read all five clock fields into newy/newo/newd/newh/
+; newm, validating each. Carry set on any bad value. newy comes back as
+; (year - 1900): a full year like 2026 minus 1900, or a 2-digit year
+; read as 20xx.
+parsefields
+    lda #<ybuf
+    ldx #>ybuf
+    jsr parse4                  ; newy = the entered value (0-9999)
+    bcs @no
+    lda newy+1
+    bne @full                   ; >= 256: a full year
+    lda newy
+    cmp #100
+    bcs @full                   ; 100-255: also a full year
+    clc                         ; 0-99: a 2-digit year is 20xx
+    adc #100
+    sta newy
+    bra @yok
+@full
+    sec                         ; year - 1900
+    lda newy
+    sbc #<1900
+    tay
+    lda newy+1
+    sbc #>1900
+    bne @no                     ; outside 1900..2155
+    sty newy
+@yok
+    lda newy
+    cmp #200                    ; 1900..2099
+    bcs @no
+    sta newy
+
+    lda #<obuf                  ; month 1-12
+    ldx #>obuf
+    jsr parse2
+    bcs @no
+    beq @no
+    cmp #13
+    bcs @no
+    sta newo
+    lda #<dbuf                  ; day 1-31
+    ldx #>dbuf
+    jsr parse2
+    bcs @no
+    beq @no
+    cmp #32
+    bcs @no
+    sta newd
+    lda #<hbuf                  ; hours 0-23
+    ldx #>hbuf
+    jsr parse2
+    bcs @no
+    cmp #24
+    bcs @no
+    sta newh
+    lda #<mbuf                  ; minutes 0-59
+    ldx #>mbuf
+    jsr parse2
+    bcs @no
+    cmp #60
+    bcs @no
+    sta newm
+    clc
+    rts
+@no
+    sec
+    rts
 
 ; parse2 -- A/X = a one- or two-digit buffer -> A = its value, carry
 ; set if it is not a number.
@@ -249,6 +356,67 @@ digit                           ; A = a char -> A = 0-9, carry if not
     sec
     rts
 
+; parse4 -- A/X = a 1-to-4 digit buffer -> newy (word) = the value,
+; carry set if it holds a non-digit or is empty.
+parse4
+    sta p4ptr
+    stx p4ptr+1
+    stz newy
+    stz newy+1
+    ldy #0
+@l
+    lda (p4ptr),y
+    beq @end
+    jsr digit
+    bcs @no
+    sta p4d
+    jsr mul10w                  ; newy *= 10, then += the digit
+    lda newy
+    clc
+    adc p4d
+    sta newy
+    bcc @nc
+    inc newy+1
+@nc
+    iny
+    cpy #4
+    bcc @l
+@end
+    cpy #0                      ; at least one digit
+    beq @no
+    clc
+    rts
+@no
+    sec
+    rts
+
+; mul10w -- newy = newy * 10 = newy*8 + newy*2
+mul10w
+    lda newy                    ; p4t = newy * 2
+    asl
+    sta p4t
+    lda newy+1
+    rol
+    sta p4t+1
+    lda newy                    ; newy = newy * 8
+    asl
+    sta newy
+    lda newy+1
+    rol
+    sta newy+1
+    asl newy
+    rol newy+1
+    asl newy
+    rol newy+1
+    lda newy                    ; newy = newy*8 + newy*2
+    clc
+    adc p4t
+    sta newy
+    lda newy+1
+    adc p4t+1
+    sta newy+1
+    rts
+
 on_key
     lda X16_P1
     jsr cx_wg_key
@@ -269,7 +437,7 @@ handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
 
 ; ---------------------------------------------------------------------
 widgets
-    .byte 5
+    .byte 8
 wg_day                          ; record 0: radio, group 1, selected
     .byte 2, 0
     .word 40, 90, 140
@@ -282,21 +450,39 @@ wg_night                        ; record 1: radio, group 1
     .byte 12, 0, 1
     .addr s_night
     .byte 0, 0, 0
-wg_hh                           ; record 2: hours field, 2 chars
+wg_yy                           ; record 2: year field, 4 chars
     .byte 4, 0
-    .word 40, 176, 40
+    .word 40, 188, 52
+    .byte 16, 0, 5
+    .addr ybuf
+    .byte 0, 0, 0
+wg_mo                           ; record 3: month field
+    .byte 4, 0
+    .word 100, 188, 36
+    .byte 16, 0, 3
+    .addr obuf
+    .byte 0, 0, 0
+wg_dd                           ; record 4: day field
+    .byte 4, 0
+    .word 144, 188, 36
+    .byte 16, 0, 3
+    .addr dbuf
+    .byte 0, 0, 0
+wg_hh                           ; record 5: hours field
+    .byte 4, 0
+    .word 188, 188, 36
     .byte 16, 0, 3
     .addr hbuf
     .byte 0, 0, 0
-wg_mm                           ; record 3: minutes field
+wg_mm                           ; record 6: minutes field
     .byte 4, 0
-    .word 96, 176, 40
+    .word 232, 188, 36
     .byte 16, 0, 3
     .addr mbuf
     .byte 0, 0, 0
-wg_set                          ; record 4: the button
+wg_set                          ; record 7: the button
     .byte 0, 0
-    .word 152, 176, 90
+    .word 284, 188, 90
     .byte 16, 0, 0
     .addr s_set
     .byte 0, 0, 0
@@ -311,14 +497,23 @@ theme_night
 s_marker .byte "CPANEL UP", $0D, 0
 s_title  .byte "control panel -- TAB walks, ESC leaves", 0
 s_theme  .byte "theme", 0
-s_clock  .byte "clock  (hours, minutes, then set)", 0
+s_clock  .byte "clock  (year, month, day, hour, minute, then set)", 0
+s_fields .byte "  year   mo  dd  hh  mm", 0
 s_day    .byte "daylight", 0
 s_night  .byte "midnight", 0
 s_set    .byte "set clock", 0
-s_did    .byte "clock set.          ", 0
-s_nope   .byte "that is not a time. ", 0
+s_did    .byte "clock set.               ", 0
+s_nope   .byte "out of range, not set.   ", 0
+ybuf     .res 6, 0
+obuf     .res 4, 0
+dbuf     .res 4, 0
 hbuf     .res 4, 0
 mbuf     .res 4, 0
 tbuf     .res 9, 0
+newy     .word 0
+newo     .byte 0
+newd     .byte 0
 newh     .byte 0
 newm     .byte 0
+p4d      .byte 0
+p4t      .word 0

@@ -58,6 +58,9 @@ main
     ldy #s_home_len             ; the desktop always resets. depth stays 0
     jsr cx_dos_cmd
 
+    jsr seed_clock              ; start the RTC if it is at the frozen
+                                ; emulator default
+
     jsr readdir                 ; fill the list from the directory
 
     jsr cx_ev_init
@@ -386,9 +389,10 @@ on_menu
     beq @theme
     lda X16_P1                  ; menu 0: about / quit
     bne @quit
-    lda #<s_about
-    ldx #>s_about
-    jmp note
+    lda #<dlg_about             ; a real box with an ok button, not a
+    ldx #>dlg_about             ; line that is easy to miss
+    jsr cx_dlg_alert
+    rts
 @quit
     jmp cx_exit
 @theme
@@ -648,28 +652,63 @@ no_dots
 ; on_timer -- the live clock, top right of the menu bar. The KERNAL
 ; keeps the RTC; this draws HH:MM over a paper patch once a second.
 ; The bar's rule line (row 13) is left alone.
+; on_timer -- "YYYY-MM-DD HH:MM" top right, once a second. The emulator
+; RTC starts stopped at 2000-01-01 and only ticks once set, so the boot
+; seeds it (see main); on real hardware it is already right and the seed
+; is skipped.
 on_timer
-    jsr CLOCK_GET_DATE_TIME     ; r1H = hours, r2L = minutes
-    lda $05                     ; r1H
-    jsr two_digits
+    jsr CLOCK_GET_DATE_TIME
+    lda $02                     ; year: r0L is (year - 1900), so 100+ is
+    cmp #100                    ; a 20xx date, below it a 19xx one
+    bcc @c19
+    sec
+    sbc #100
+    ldx #'2'
+    ldy #'0'
+    bra @yy
+@c19
+    ldx #'1'
+    ldy #'9'
+@yy
     stx tbuf
-    sta tbuf+1
-    lda #':'
-    sta tbuf+2
-    lda $06                     ; r2L
-    jsr two_digits
-    stx tbuf+3
+    sty tbuf+1
+    jsr two_digits              ; the last two digits of the year
+    stx tbuf+2
+    sta tbuf+3
+    lda #'-'
     sta tbuf+4
-    stz tbuf+5
+    lda $03                     ; month
+    jsr two_digits
+    stx tbuf+5
+    sta tbuf+6
+    lda #'-'
+    sta tbuf+7
+    lda $04                     ; day
+    jsr two_digits
+    stx tbuf+8
+    sta tbuf+9
+    lda #' '
+    sta tbuf+10
+    lda $05                     ; hours
+    jsr two_digits
+    stx tbuf+11
+    sta tbuf+12
+    lda #':'
+    sta tbuf+13
+    lda $06                     ; minutes
+    jsr two_digits
+    stx tbuf+14
+    sta tbuf+15
+    stz tbuf+16
 
-    lda #<590                   ; the patch, inside the bar
+    lda #<470                   ; the patch, inside the bar
     sta X16_P0
-    lda #>590
+    lda #>470
     sta X16_P1
     lda #1
     sta X16_P2
     stz X16_P3
-    lda #44                     ; wide enough for five glyphs
+    lda #<150                   ; sixteen glyphs' worth
     sta X16_P4
     stz X16_P5
     lda #11
@@ -678,9 +717,9 @@ on_timer
     lda #0
     jsr cx_gfx_rect
 
-    lda #<592
+    lda #<472
     sta X16_P0
-    lda #>592
+    lda #>472
     sta X16_P1
     lda #2
     sta X16_P2
@@ -689,7 +728,7 @@ on_timer
     ldx #>tbuf
     jmp cx_font_draw
 
-two_digits                      ; A = 0-59 -> X = tens char, A = units
+two_digits                      ; A = 0-99 -> X = tens char, A = units
     ldx #'0'
 @tens
     cmp #10
@@ -699,6 +738,42 @@ two_digits                      ; A = 0-59 -> X = tens char, A = units
     bra @tens
 @units
     adc #'0'
+    rts
+
+; seed_clock -- the emulator's RTC sits stopped at 2000-01-01 00:00:00
+; until it is set, then it ticks. If it reads exactly that frozen state,
+; start it at a sane date so the desktop clock moves; the control panel
+; sets the real time. A hardware RTC holds a real date, fails this test,
+; and is left alone.
+seed_clock
+    jsr CLOCK_GET_DATE_TIME
+    lda $02                     ; year 2000?
+    cmp #100
+    bne @out
+    lda $03                     ; month 1, day 1, 00:00:00?
+    cmp #1
+    bne @out
+    lda $04
+    cmp #1
+    bne @out
+    lda $05
+    ora $06
+    ora $07
+    bne @out
+    lda #126                    ; 2026-01-01 12:00:00 -- moving, not 00:00
+    sta $02
+    lda #1
+    sta $03
+    sta $04
+    lda #12
+    sta $05
+    stz $06
+    stz $07
+    stz $08
+    lda #4
+    sta $09
+    jmp CLOCK_SET_DATE_TIME
+@out
     rts
 
 on_key
@@ -777,6 +852,11 @@ dlg_del                         ; keep | delete -- keep is the default
     .addr qbuf
     .addr s_keep, s_dodel
 
+dlg_about                       ; one ok button
+    .byte 1
+    .addr s_about
+    .addr s_ok
+
 theme_day
     .byte $FF, $0F,  $AA, $0A,  $55, $05,  $00, $00
     .byte 0, 1, 3, 0
@@ -797,7 +877,8 @@ s_cpy     .byte "copy", 0
 s_del     .byte "delete", 0
 s_day     .byte "daylight", 0
 s_night   .byte "midnight", 0
-s_about   .byte "CXGEOS -- the directory is live off the SD card.", 0
+s_about   .byte "CXGEOS -- a GEOS-inspired desktop for the X16.", 0
+s_ok      .byte "ok", 0
 s_bad     .byte "that is not a CXGEOS app.", 0
 s_noda    .byte "that desk accessory would not open.", 0
 s_mkq     .byte "name the new folder:", 0
@@ -822,7 +903,7 @@ depth     .byte 0               ; folders deep from the root; 0 = home
 ddelta    .byte 0               ; a pending CD's step: +1 down, -1 up
 inmenu    .byte 0               ; 0 = browsing, 1 = a menu is open
 oblen     .byte 0
-tbuf      .res 6, 0             ; "HH:MM"
+tbuf      .res 17, 0            ; "YYYY-MM-DD HH:MM"
 obuf      .res NAMEMAX, 0       ; the selected name, slash stripped
 pbuf      .res 20, 0            ; what the prompt collects
 qbuf      .res 32, 0            ; the delete question
