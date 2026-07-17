@@ -161,20 +161,25 @@ function Build-Apps {
         if (Test-Path (Join-Path $c "mos-cx16-clang.bat")) { $mosbin = $c; break }
     }
     if ($mosbin) {
-        $prg = Join-Path $build "HELLO2.PRG"
-        Write-Host "llvm  apps\hello_c\hello.c -> $prg"
         # -mreserve-zp=90 keeps clang's whole-program pass out of $26-$7F,
         # all of which belongs to the kernel or to the app ZP convention;
         # the sdk header's cx_run() handles the $22-$25 collision with the
         # compiler's own soft stack pointer. (The soft stack itself sits at
         # $9F00 growing down with ~1.9KB of free zone before kernel code --
         # a proper linker cap on RAM is SDK-packaging work, noted there.)
-        & (Join-Path $mosbin "mos-cx16-clang.bat") -Os -mreserve-zp=90 -I $root -o $prg (Join-Path $root "apps\hello_c\hello.c")
-        if ($LASTEXITCODE -ne 0) { Fail "mos-cx16-clang failed on hello.c" }
-        & $py $mkcxap $prg (Join-Path $build "HELLO2.CXA") --name "Hello (C)"
-        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on HELLO2" }
+        foreach ($capp in @(
+            @{ src = "apps\hello_c\hello.c"; prg = "HELLO2"; name = "Hello (C)" },
+            @{ src = "apps\calc\calc.c";     prg = "CALC";   name = "Calculator" }
+        )) {
+            $prg = Join-Path $build "$($capp.prg).PRG"
+            Write-Host "llvm  $($capp.src) -> $prg"
+            & (Join-Path $mosbin "mos-cx16-clang.bat") -Os -mreserve-zp=90 -I $root -o $prg (Join-Path $root $capp.src)
+            if ($LASTEXITCODE -ne 0) { Fail "mos-cx16-clang failed on $($capp.src)" }
+            & $py $mkcxap $prg (Join-Path $build "$($capp.prg).CXA") --name $capp.name
+            if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on $($capp.prg)" }
+        }
     } else {
-        Write-Host "llvm-mos not found: skipping apps\hello_c" -ForegroundColor Yellow
+        Write-Host "llvm-mos not found: skipping the C apps" -ForegroundColor Yellow
     }
 }
 
@@ -193,6 +198,9 @@ function Stage-SdRoot {
     Copy-Item (Join-Path $build "CPANEL.CXA")    $sdroot
     if (Test-Path (Join-Path $build "HELLO2.CXA")) {
         Copy-Item (Join-Path $build "HELLO2.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "CALC.CXA")) {
+        Copy-Item (Join-Path $build "CALC.CXA") $sdroot
     }
     return $sdroot
 }
