@@ -412,14 +412,18 @@ on_menu
     lda X16_P1                  ; the ops live pages away: jmp, not branch
     beq @fmk
     cmp #1
-    beq @frn
+    beq @fnf
     cmp #2
-    beq @fcp
+    beq @frn
     cmp #3
+    beq @fcp
+    cmp #4
     beq @fdl
     rts
 @fmk
     jmp do_mkdir
+@fnf
+    jmp do_newfile
 @frn
     jmp do_rename
 @fcp
@@ -452,6 +456,64 @@ do_mkdir
     bne @c2
 @send
     jmp dop
+@out
+    rts
+
+; ---- new file --------------------------------------------------------
+; An empty sequential file, created by opening "NAME,S,W" and closing
+; it. Interrupts masked around the OPEN/CLOSE, the same reason the loader
+; masks them -- the event IRQ must not re-enter the KERNAL mid-I/O. The
+; drive's status is shown after, then the list re-reads.
+do_newfile
+    stz pbuf
+    lda #<s_nfq
+    ldx #>s_nfq
+    jsr ask
+    bcs @out
+    ldx #0                      ; "NAME" into cbuf
+@c
+    lda pbuf,x
+    beq @suf
+    sta cbuf,x
+    inx
+    bne @c
+@suf
+    ldy #0                      ; ...then ",S,W"
+@s
+    lda s_sw,y
+    sta cbuf,x
+    beq @open
+    inx
+    iny
+    bne @s
+@open
+    txa                         ; A = length (up to the NUL)
+    ldx #<cbuf
+    ldy #>cbuf
+    jsr SETNAM
+    lda #3
+    ldx #8
+    ldy #3                      ; secondary 3: a write channel
+    jsr SETLFS
+    sei                         ; do not let the IRQ re-enter the KERNAL
+    jsr OPEN                    ; creates (and truncates) the file
+    jsr CLRCHN
+    lda #3
+    jsr CLOSE
+    cli
+    lda #0                      ; the drive's verdict, then the list again
+    tax
+    tay
+    jsr cx_dos_cmd
+    lda #<mbuf
+    sta X16_P0
+    lda #>mbuf
+    sta X16_P1
+    jsr cx_dos_msg
+    lda #<mbuf
+    ldx #>mbuf
+    jsr note
+    jmp refresh
 @out
     rts
 
@@ -828,8 +890,9 @@ m0_items
     .addr s_about_i
     .addr s_quit
 m1_items
-    .byte 4
+    .byte 5
     .addr s_newf
+    .addr s_newfl
     .addr s_ren
     .addr s_cpy
     .addr s_del
@@ -872,6 +935,7 @@ s_m2      .byte "Themes", 0
 s_about_i .byte "about", 0
 s_quit    .byte "quit", 0
 s_newf    .byte "new folder", 0
+s_newfl   .byte "new file", 0
 s_ren     .byte "rename", 0
 s_cpy     .byte "copy", 0
 s_del     .byte "delete", 0
@@ -882,6 +946,7 @@ s_ok      .byte "ok", 0
 s_bad     .byte "that is not a CXGEOS app.", 0
 s_noda    .byte "that desk accessory would not open.", 0
 s_mkq     .byte "name the new folder:", 0
+s_nfq     .byte "name the new file:", 0
 s_rnq     .byte "rename to:", 0
 s_cpq     .byte "copy to:", 0
 s_delp    .byte "delete "
@@ -894,6 +959,7 @@ s_home_len = * - s_home
 s_md      .byte "MD:", 0
 s_r       .byte "R:", 0
 s_c       .byte "C:", 0
+s_sw      .byte ",S,W", 0
 pat       .byte "$"
 
 fcount    .byte 0
