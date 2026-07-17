@@ -1,10 +1,12 @@
 /* =====================================================================
  * CXGEOS :: apps/calc/calc.c -- the calculator (llvm-mos)
  * =====================================================================
- * The first real C application: a four-function 32-bit integer
+ * The first real C application: a four-function FLOATING-POINT
  * calculator, built against sdk/include_llvm/cxgeos.h alone. Click the
- * buttons or type -- digits, + - * /, RETURN for =, C to clear, ESC
- * back to the desktop.
+ * buttons or type -- digits, a decimal point, + - * /, RETURN for =,
+ * C to clear, ESC back to the desktop. The math is C float (llvm-mos
+ * soft-float); the result is formatted to four decimals, trailing
+ * zeros trimmed, so 10 / 3 reads 3.3333 and 1.5 + 2.5 reads 4.
  *
  * It polls CX_EV_GET (the hello_c pattern) instead of running the
  * kernel dispatcher: a C handler cannot take a kernel callback -- the
@@ -20,24 +22,28 @@
 #define EV_MOUSE_DOWN 2
 #define EV_KEY 5
 
-/* the grid: 4x4 cells at (200,160), 56 wide, 28 tall, 8 apart */
+/* the grid: 4 columns x 5 rows at (200,150), 56 wide, 28 tall, 8 apart */
 #define GX 200
-#define GY 160
+#define GY 150
 #define CW 56
 #define CH 28
 #define GAP 8
+#define ROWS 5
 
-static const char keys[16] = {
+static const char keys[20] = {
     '7', '8', '9', '/',
     '4', '5', '6', '*',
     '1', '2', '3', '-',
-    'C', '0', '=', '+',
+    '0', '.', '=', '+',
+    'C', 'C', 'C', 'C',
 };
 
-static unsigned long acc, cur;
-static char op;            /* the pending operator, 0 = none        */
-static char typing;        /* 1 while cur is being entered          */
-static char digits;       /* how many, to keep the u32 exact       */
+static float acc, cur;
+static float frac;         /* 0 = whole-number entry; else the next   */
+                           /* fractional digit's place value          */
+static char op;            /* the pending operator, 0 = none          */
+static char typing;        /* 1 while cur is being entered            */
+static char err;           /* 1 after divide-by-zero, until cleared   */
 static const char *note = "";
 
 static void rect(unsigned x, unsigned y, unsigned w, unsigned h,
@@ -70,20 +76,70 @@ static void marker(const char *s) {
     cbm_k_chrout('\r');
 }
 
-/* the display: the number right-ish in its frame, notes underneath */
-static void show(void) {
-    static char buf[12];
-    unsigned long v = typing ? cur : acc;
-    char *p = buf + sizeof(buf) - 1;
+/* fmt -- v into out, four decimals, trailing zeros (and a bare point)
+ * trimmed. Handles the sign and guards the range where a u32 integer
+ * part would overflow. */
+static void fmt(float v, char *out) {
+    char tmp[12];
+    char *p = out;
+    unsigned long ip;
+    unsigned f;
+    signed char nd;
 
-    *p = 0;
+    if (v < 0) {
+        *p++ = '-';
+        v = -v;
+    }
+    if (v >= 1000000000.0f) {      /* past nine digits: not a display */
+        *p++ = 'o'; *p++ = 'v'; *p++ = 'f'; *p++ = 0;
+        return;
+    }
+
+    ip = (unsigned long)v;
+    f = (unsigned)((v - (float)ip) * 10000.0f + 0.5f);
+    if (f >= 10000u) {             /* the round carried into the ones */
+        f -= 10000u;
+        ip++;
+    }
+
+    nd = 0;                        /* integer part, emitted big-end first */
     do {
-        *--p = '0' + (unsigned char)(v % 10);
-        v /= 10;
-    } while (v);
+        tmp[nd++] = '0' + (char)(ip % 10);
+        ip /= 10;
+    } while (ip);
+    while (nd)
+        *p++ = tmp[--nd];
 
-    rect(GX + 2, 122, 244, 24, 0);
-    say(p, GX + 12, 128);
+    if (f) {                       /* four decimals, trailing zeros gone */
+        char dg[4];
+        char len;
+        dg[0] = '0' + (char)(f / 1000 % 10);
+        dg[1] = '0' + (char)(f / 100 % 10);
+        dg[2] = '0' + (char)(f / 10 % 10);
+        dg[3] = '0' + (char)(f % 10);
+        len = 4;
+        while (len > 0 && dg[len - 1] == '0')
+            len--;
+        if (len) {
+            char i;
+            *p++ = '.';
+            for (i = 0; i < len; i++)
+                *p++ = dg[i];
+        }
+    }
+    *p = 0;
+}
+
+static void show(void) {
+    static char buf[16];
+
+    if (err)
+        buf[0] = 0;
+    else
+        fmt(typing ? cur : acc, buf);
+
+    rect(GX + 2, 112, 244, 24, 0);
+    say(err ? "" : buf, GX + 12, 118);
     rect(GX, 300, 320, 14, 0);
     say(note, GX, 300);
     note = "";
@@ -95,39 +151,50 @@ static void apply(void) {
     case '-': acc -= cur; break;
     case '*': acc *= cur; break;
     case '/':
-        if (cur == 0) {
-            note = "divide by zero -- cleared.";
-            acc = 0;
-        } else {
-            acc /= cur;
+        if (cur == 0.0f) {
+            err = 1;
+            note = "divide by zero -- C clears.";
+            return;
         }
+        acc /= cur;
         break;
     default:  acc = cur; break;
     }
-    cur = 0;
-    digits = 0;
+    cur = 0.0f;
+    frac = 0.0f;
     typing = 0;
 }
 
 static void feed(char c) {
+    if (err && c != 'C' && c != 'c')
+        return;
+
     if (c >= '0' && c <= '9') {
-        if (digits < 9) {
-            cur = cur * 10 + (c - '0');
-            digits++;
+        if (frac == 0.0f) {
+            cur = cur * 10.0f + (float)(c - '0');
+        } else {
+            cur += (float)(c - '0') * frac;
+            frac *= 0.1f;
         }
+        typing = 1;
+    } else if (c == '.') {
+        if (frac == 0.0f)
+            frac = 0.1f;           /* a second point is ignored */
         typing = 1;
     } else if (c == '+' || c == '-' || c == '*' || c == '/') {
         if (typing || op == 0)
             apply();
-        op = c;
+        if (!err)
+            op = c;
     } else if (c == '=' || c == '\r') {
         apply();
         op = 0;
     } else if (c == 'C' || c == 'c') {
-        acc = cur = 0;
+        acc = cur = 0.0f;
+        frac = 0.0f;
         op = 0;
-        digits = 0;
         typing = 0;
+        err = 0;
         note = "cleared.";
     } else {
         return;
@@ -140,11 +207,11 @@ static void draw(void) {
     static char lab[2];
 
     cx_call_a(CX_GFX_CLEAR, 0);
-    say("calc -- type or click; RETURN is =, C clears, ESC leaves.",
-        140, 60);
+    say("calc -- type or click; . for decimals, RETURN =, C clears, ESC out.",
+        120, 60);
 
-    frame(GX, 120, 248, 28, 3);
-    for (i = 0; i < 16; i++) {
+    frame(GX, 110, 248, 28, 3);
+    for (i = 0; i < 20; i++) {
         unsigned x = GX + (i & 3) * (CW + GAP);
         unsigned y = GY + (i >> 2) * (CH + GAP);
         frame(x, y, CW, CH, 3);
@@ -177,7 +244,7 @@ int main(void) {
             if (x >= GX && y >= GY) {
                 unsigned char col = (x - GX) / (CW + GAP);
                 unsigned char row = (y - GY) / (CH + GAP);
-                if (col < 4 && row < 4 &&
+                if (col < 4 && row < ROWS &&
                     (x - GX) % (CW + GAP) < CW &&
                     (y - GY) % (CH + GAP) < CH)
                     feed(keys[row * 4 + col]);
