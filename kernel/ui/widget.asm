@@ -503,7 +503,7 @@ wg_p_field
     lda wg_focus                ; a caret only while this field has focus
     cmp wg_i
     bne @done
-    ; P0/P1 is the pen after the text; a short vline there
+    ; P0/P1 is the pen after the text; a 2px block caret there
     ldy #WG_Y                   ; y = field y + 2
     lda (CX_M_PTR),y
     clc
@@ -513,14 +513,17 @@ wg_p_field
     lda (CX_M_PTR),y
     adc #0
     sta X16_P3
-    ldy #WG_H                   ; len = h - 4
+    lda #2                      ; 2px wide so it reads as a cursor
+    sta X16_P4
+    stz X16_P5
+    ldy #WG_H                   ; h - 4 tall
     lda (CX_M_PTR),y
     sec
     sbc #4
-    sta X16_P4
-    stz X16_P5
+    sta X16_P6
+    stz X16_P7
     lda th_frame
-    jsr gfx2_vline
+    jsr gfx2_rect
 @done
     rts
 
@@ -1050,8 +1053,8 @@ wg_act
     beq @scroll
     cmp #WG_LIST
     beq @list
-    cmp #WG_FIELD               ; a field takes typing, not presses
-    beq @none
+    cmp #WG_FIELD               ; a click focuses a field so it can be typed
+    beq @focusfield
     ; button: value 1, momentary; redraw pressed then released
     lda #1
     ldy #WG_VAL
@@ -1119,6 +1122,10 @@ wg_act
     bra @post
 @none
     rts
+
+@focusfield
+    lda wg_i                    ; a click gives the field the keyboard
+    jmp wg_setfocus
 
 @post
     jmp wg_post_val
@@ -1260,25 +1267,21 @@ wg_scroll_key
     clc
     rts
 
-; wg_focus_move -- A = +1 forward or $FF back. Advances wg_focus to the
-; next enabled widget (wrapping), erasing the old focus frame and
-; drawing the new. Skips disabled widgets; a lap with no landing leaves
-; focus put.
+; wg_focus_move -- A = +1 forward or $FF back. Advances focus to the
+; next enabled widget (wrapping) via wg_setfocus, which repaints the old
+; widget plain and the new one with its caret and frame. Skips disabled
+; widgets; a lap with no landing leaves focus put. wg_cand walks the
+; candidates so wg_focus is only committed once, in wg_setfocus.
 wg_focus_move
     sta wg_step
-    lda wg_focus                ; erase the old frame first
-    bmi @search
-    sta wg_i
-    jsr wg_rec
-    jsr wg_clr_frame
-
-@search
     lda wg_focus
     bpl @from
     lda #$FF                    ; none yet: forward starts before 0
 @from
+    sta wg_cand
     ldx wg_n                    ; try at most n candidates
 @try
+    lda wg_cand
     clc
     adc wg_step
     cmp wg_n
@@ -1292,21 +1295,41 @@ wg_focus_move
     sec
     sbc #1
 @inrange
-    sta wg_focus
-    tay                         ; is this one enabled?
-    sty wg_i
+    sta wg_cand
+    sta wg_i                    ; is this one enabled?
     jsr wg_rec
     ldy #WG_FLAGS
     lda (CX_M_PTR),y
     and #WG_DISABLED
     beq @landed
-    lda wg_focus                ; skip it, keep looking
     dex
     bne @try
-    ; nowhere to land: leave focus as it was ($FF or old)
-    rts
+    rts                         ; nowhere enabled: leave focus put
 @landed
+    lda wg_cand
+    ; fall into wg_setfocus
+
+; wg_setfocus -- A = the new focused widget index. Repaints the widget
+; that had focus without its caret/frame and the new one with them, so a
+; focused field shows a caret and the one left behind loses it. Used by
+; TAB and by a click landing on a field. CX_M_PTR ends on the new one.
+wg_setfocus
+    cmp wg_focus
+    beq @same
+    ldx wg_focus                ; the old focus (may be $FF)
+    sta wg_focus                ; commit the new BEFORE repainting, so the
+    txa                         ; old one paints without a caret
+    bmi @new
+    sta wg_i
+    jsr wg_rec
+    jsr wg_clr_frame
+@new
+    lda wg_focus
+    sta wg_i
+    jsr wg_rec
+    jsr wg_paint                ; a field draws its caret here
     jsr wg_draw_frame
+@same
     rts
 
 ; wg_refocus_frame -- redraw the focus frame on the current wg_i (its
@@ -1517,6 +1540,7 @@ wg_rem   .byte 0
 wg_res   .word 0
 wg_acc   .word 0
 wg_focus .byte $FF               ; the keyboard-focused widget; $FF none
+wg_cand  .byte 0                  ; focus_move's candidate walker
 wg_step  .byte 0
 wg_ch    .byte 0                  ; the character being typed into a field
 wg_row   .byte 0                  ; a list's visible row being drawn

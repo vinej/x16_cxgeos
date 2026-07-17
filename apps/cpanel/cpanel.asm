@@ -116,6 +116,14 @@ main
     jsr cx_wg_set
     lda #1
     jsr cx_mouse_show
+
+    lda #$09                    ; TAB three times: past the two radios to
+    jsr cx_wg_key               ; the year field, so a caret shows at once
+    lda #$09
+    jsr cx_wg_key
+    lda #$09
+    jsr cx_wg_key
+
     lda #60
     jsr cx_ev_timer
     jsr on_timer
@@ -167,9 +175,9 @@ on_timer
     sta tbuf+7
     stz tbuf+8
 
-    lda #<300                   ; a paper patch, then the time
-    sta X16_P0
-    lda #>300
+    lda #<160                   ; a paper patch, then the time -- past
+    sta X16_P0                  ; the "clock -- now:" label, clear of the
+    lda #>160                   ; fields below
     sta X16_P1
     lda #150
     sta X16_P2
@@ -182,9 +190,9 @@ on_timer
     stz X16_P7
     lda #0
     jsr cx_gfx_rect
-    lda #<300
+    lda #<160
     sta X16_P0
-    lda #>300
+    lda #>160
     sta X16_P1
     lda #150
     sta X16_P2
@@ -497,8 +505,8 @@ theme_night
 s_marker .byte "CPANEL UP", $0D, 0
 s_title  .byte "control panel -- TAB walks, ESC leaves", 0
 s_theme  .byte "theme", 0
-s_clock  .byte "clock  (year, month, day, hour, minute, then set)", 0
-s_fields .byte "  year   mo  dd  hh  mm", 0
+s_clock  .byte "clock -- now:", 0
+s_fields .byte "  year   mo  dd  hh  mm  (TAB or click a field, then set)", 0
 s_day    .byte "daylight", 0
 s_night  .byte "midnight", 0
 s_set    .byte "set clock", 0
