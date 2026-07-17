@@ -2,25 +2,24 @@
  * CXGEOS :: apps/calc/calc.c -- the calculator (llvm-mos)
  * =====================================================================
  * The first real C application: a four-function FLOATING-POINT
- * calculator, built against sdk/include_llvm/cxgeos.h alone. Click the
- * buttons or type -- digits, a decimal point, + - * /, RETURN for =,
+ * calculator, drawn through the csdk (cx_button for the keypad, cx_say
+ * for the display). Click the buttons or type -- digits, a decimal
+ * point, + - * /, RETURN for =,
  * C to clear, ESC back to the desktop. The math is C float (llvm-mos
  * soft-float); the result is formatted to four decimals, trailing
  * zeros trimmed, so 10 / 3 reads 3.3333 and 1.5 + 2.5 reads 4.
  *
- * It polls CX_EV_GET (the hello_c pattern) instead of running the
+ * It polls with cx_poll() (the hello_c pattern) instead of running the
  * kernel dispatcher: a C handler cannot take a kernel callback -- the
- * event data arrives in $22-$29, which is also where llvm-mos keeps
- * its soft stack pointer -- and polling through cx_run() is exactly
- * the safe crossing the SDK provides. The buttons are its own grid,
- * hit-tested here in C; the widget engine stays out of it.
+ * event data arrives in $22-$29, which is also where llvm-mos keeps its
+ * soft stack pointer -- and cx_poll's crossing is the safe path. The
+ * buttons are its own grid, hit-tested here in C; the widget engine
+ * stays out of it. All drawing and events go through the csdk.
  * ===================================================================== */
 
 #include <cbm.h>
 #include "sdk/include_llvm/cxgeos.h"
-
-#define EV_MOUSE_DOWN 2
-#define EV_KEY 5
+#include "csdk/cxsdk.h"
 
 /* the grid: 4 columns x 5 rows at (200,150), 56 wide, 28 tall, 8 apart */
 #define GX 200
@@ -44,36 +43,6 @@ static char op;            /* the pending operator, 0 = none          */
 static char typing;        /* 1 while cur is being entered            */
 static char err;           /* 1 after divide-by-zero, until cleared   */
 static const char *note = "";
-
-static void rect(unsigned x, unsigned y, unsigned w, unsigned h,
-                 unsigned char colour) {
-    cx_p[0] = x & 0xFF; cx_p[1] = x >> 8;
-    cx_p[2] = y & 0xFF; cx_p[3] = y >> 8;
-    cx_p[4] = w & 0xFF; cx_p[5] = w >> 8;
-    cx_p[6] = h & 0xFF; cx_p[7] = h >> 8;
-    cx_call_a(CX_GFX_RECT, colour);
-}
-
-static void frame(unsigned x, unsigned y, unsigned w, unsigned h,
-                  unsigned char colour) {
-    cx_p[0] = x & 0xFF; cx_p[1] = x >> 8;
-    cx_p[2] = y & 0xFF; cx_p[3] = y >> 8;
-    cx_p[4] = w & 0xFF; cx_p[5] = w >> 8;
-    cx_p[6] = h & 0xFF; cx_p[7] = h >> 8;
-    cx_call_a(CX_GFX_FRAME, colour);
-}
-
-static void say(const char *s, unsigned x, unsigned y) {
-    cx_p[0] = x & 0xFF; cx_p[1] = x >> 8;
-    cx_p[2] = y & 0xFF; cx_p[3] = y >> 8;
-    cx_call_p(CX_FONT_DRAW, s);
-}
-
-static void marker(const char *s) {
-    while (*s)
-        cbm_k_chrout(*s++);
-    cbm_k_chrout('\r');
-}
 
 /* fmt -- v into out, seven decimals (a 32-bit float's worth, so 1/3
  * reads 0.3333333), trailing zeros (and a bare point) trimmed. Handles
@@ -139,12 +108,12 @@ static void show(void) {
     else
         fmt(typing ? cur : acc, buf);
 
-    rect(GX + 2, 112, 244, 24, 0);
-    say(err ? "" : buf, GX + 12, 118);
+    cx_rect(GX + 2, 112, 244, 24, CX_PAPER);
+    cx_say(err ? "" : buf, GX + 12, 118);
     /* the note goes ABOVE the display -- at y=300 it sat on the bottom
      * button row and wiped out the C labels */
-    rect(40, 88, 420, 14, 0);
-    say(note, 40, 90);
+    cx_rect(40, 88, 420, 14, CX_PAPER);
+    cx_say(note, 40, 90);
     note = "";
 }
 
@@ -214,47 +183,45 @@ static void draw(void) {
     unsigned char i;
     static char lab[2];
 
-    cx_call_a(CX_GFX_CLEAR, 0);
-    say("calc -- type or click; . for decimals, RETURN =, C clears; exit lower-right.",
-        90, 60);
+    cx_clear(CX_PAPER);
+    cx_say("calc -- type or click; . for decimals, RETURN =, C clears; exit lower-right.",
+           90, 60);
 
-    frame(GX, 110, 248, 28, 3);
+    cx_frame(GX, 110, 248, 28, CX_FRAME);       /* the result display */
     for (i = 0; i < 16; i++) {
         unsigned x = GX + (i & 3) * (CW + GAP);
         unsigned y = GY + (i >> 2) * (CH + GAP);
-        frame(x, y, CW, CH, 3);
         lab[0] = keys[i];
-        say(lab, x + 24, y + 8);
+        cx_button(x, y, CW, CH, lab);           /* centres the glyph itself */
     }
     /* one wide clear button under the grid, not four "C"s */
-    frame(GX, GY + 4 * (CH + GAP), CLEARW, CH, 3);
-    say("clear", GX + 100, GY + 4 * (CH + GAP) + 8);
+    cx_button(GX, GY + 4 * (CH + GAP), CLEARW, CH, "clear");
     /* the exit button, bottom-right of the screen */
-    frame(520, 448, 100, 24, 3);
-    say("exit", 552, 456);
+    cx_button(520, 448, 100, 24, "exit");
     show();
 }
 
 int main(void) {
-    marker("CALC UP");
+    cx_event ev;
 
-    cx_call(CX_GFX_INIT);
+    cx_print("CALC UP");
+
+    cx_gfx_init();
     draw();
-    cx_call(CX_EV_INIT);
-    cx_call_a(CX_MOUSE_SHOW, 1);
+    cx_ev_init();
+    cx_mouse_show(1);
 
     for (;;) {
-        if (!cx_ret(CX_EV_COUNT))
+        if (!cx_poll(&ev))
             continue;
-        cx_call(CX_EV_GET);
-        if (cx_p[0] == EV_KEY) {
-            char k = (char)cx_p[1];
-            if (k == 0x1B)
+        if (ev.type == CX_ET_KEY) {
+            char k = (char)ev.detail;
+            if (k == CX_K_ESC)
                 break;
             feed(k);
-        } else if (cx_p[0] == EV_MOUSE_DOWN) {
-            unsigned x = cx_p[2] | ((unsigned)cx_p[3] << 8);
-            unsigned y = cx_p[4] | ((unsigned)cx_p[5] << 8);
+        } else if (ev.type == CX_ET_DOWN) {
+            unsigned x = ev.x;
+            unsigned y = ev.y;
             if (x >= 520 && x < 620 && y >= 448 && y < 472)
                 break;                /* the exit button */
             if (x >= GX && y >= GY) {
@@ -273,5 +240,5 @@ int main(void) {
         }
     }
 
-    cx_call(CX_EXIT); /* never returns */
+    cx_exit(); /* never returns */
 }

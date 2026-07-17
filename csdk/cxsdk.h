@@ -1,0 +1,503 @@
+/* =====================================================================
+ * CXGEOS csdk -- friendly C wrappers over the generated ABI header
+ * =====================================================================
+ * The generated header (sdk/include_<compiler>/cxgeos.h) is deliberately
+ * low-level: you set the parameter block by hand and call a slot number.
+ * This header turns that into named cx_* functions, a typed event
+ * record, the shared constants, and packed structs/macros for building
+ * menus, widgets, dialogs and themes -- so C apps read clearly and no
+ * one re-derives rect()/say()/marker() ever again.
+ *
+ * Include it AFTER the generated header:
+ *
+ *     #include <cbm.h>
+ *     #include "sdk/include_llvm/cxgeos.h"
+ *     #include "csdk/cxsdk.h"
+ *
+ * Header-only: every wrapper is `static`, so -Os drops the ones you do
+ * not call. Targets llvm-mos (the fully-supported C toolchain); it uses
+ * only the shared macro surface (cx_p, cx_call_a, cx_call_p, cx_ret,
+ * cx_a/cx_x/cx_c), so it extends to the other C compilers once their
+ * generated bindings can pass A.
+ * ===================================================================== */
+
+#ifndef CXSDK_H
+#define CXSDK_H
+
+#include <cbm.h>          /* cbm_k_chrout, for cx_print */
+
+/* --- constants: event types (the record's `type`) ------------------ */
+/* CX_ET_*, not CX_EV_*, so they never clash with the CX_EV_* slot names
+ * the generated header defines (CX_EV_TIMER, CX_EV_GET, ...) */
+#define CX_ET_NULL    0
+#define CX_ET_MOVE    1
+#define CX_ET_DOWN    2
+#define CX_ET_UP      3
+#define CX_ET_DBL     4
+#define CX_ET_KEY     5
+#define CX_ET_TIMER   6
+#define CX_ET_MENU    7
+#define CX_ET_WIDGET  8
+#define CX_ET_TYPES   9          /* how many, for a handler table */
+
+/* --- widget types (a record's `type`) ------------------------------- */
+#define CX_WG_BUTTON  0
+#define CX_WG_CHECK   1
+#define CX_WG_RADIO   2
+#define CX_WG_SCROLL  3
+#define CX_WG_FIELD   4
+#define CX_WG_LIST    5
+
+/* --- font style flags ----------------------------------------------- */
+#define CX_BOLD       1
+#define CX_UNDER      2
+
+/* --- theme role colours (palette indices, not RGB) ------------------ */
+/* The live theme maps these three roles to palette entries; a cx_theme()
+ * swap changes the RGB behind an index, never the index, so drawing with
+ * these recolours automatically -- exactly as the kernel toolkit does. */
+#define CX_PAPER      0          /* the background     (theme "paper") */
+#define CX_HI         1          /* the highlight fill (theme "hi")    */
+#define CX_FRAME      3          /* borders            (theme "frame") */
+
+/* --- keys (PETSCII), as EV_KEY delivers them ------------------------ */
+#define CX_K_ENTER    0x0D
+#define CX_K_ESC      0x1B
+#define CX_K_TAB      0x09
+#define CX_K_BTAB     0x18      /* shift-TAB */
+#define CX_K_DEL      0x14
+#define CX_K_UP       0x91
+#define CX_K_DOWN     0x11
+#define CX_K_LEFT     0x9D
+#define CX_K_RIGHT    0x1D
+#define CX_K_SPACE    0x20
+
+/* small helpers that pack a 16-bit value into two mirror bytes */
+#define CX__W(i, v)   (cx_p[i] = (unsigned char)(v), \
+                       cx_p[(i) + 1] = (unsigned char)((unsigned)(v) >> 8))
+#define CX__R(i)      ((unsigned)cx_p[i] | ((unsigned)cx_p[(i) + 1] << 8))
+
+/* The wrappers are `static` in a header, so an app that calls only some
+ * would draw -Wunused-function for the rest under -Wall. They are all
+ * meant to be optional; -Os drops the unused ones. Silence the noise. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+
+/* =====================================================================
+ * system
+ * ===================================================================== */
+static void     cx_exit(void)          { cx_call(CX_EXIT); }
+static unsigned cx_version(void)       { return cx_ret16(CX_VERSION); }
+
+/* =====================================================================
+ * screen / graphics
+ * ===================================================================== */
+static void cx_gfx_init(void) { cx_call(CX_GFX_INIT); }
+static void cx_clear(unsigned char color) { cx_call_a(CX_GFX_CLEAR, color); }
+
+static void cx_pset(unsigned x, unsigned y, unsigned char color) {
+    CX__W(0, x); CX__W(2, y);
+    cx_call_a(CX_GFX_PSET, color);
+}
+static unsigned char cx_pget(unsigned x, unsigned y) {
+    CX__W(0, x); CX__W(2, y);
+    return cx_ret(CX_GFX_READ);
+}
+static void cx_hline(unsigned x, unsigned y, unsigned len, unsigned char color) {
+    CX__W(0, x); CX__W(2, y); CX__W(4, len);
+    cx_call_a(CX_GFX_HLINE, color);
+}
+static void cx_vline(unsigned x, unsigned y, unsigned len, unsigned char color) {
+    CX__W(0, x); CX__W(2, y); CX__W(4, len);
+    cx_call_a(CX_GFX_VLINE, color);
+}
+static void cx_rect(unsigned x, unsigned y, unsigned w, unsigned h, unsigned char color) {
+    CX__W(0, x); CX__W(2, y); CX__W(4, w); CX__W(6, h);
+    cx_call_a(CX_GFX_RECT, color);
+}
+static void cx_frame(unsigned x, unsigned y, unsigned w, unsigned h, unsigned char color) {
+    CX__W(0, x); CX__W(2, y); CX__W(4, w); CX__W(6, h);
+    cx_call_a(CX_GFX_FRAME, color);
+}
+static void cx_line(unsigned x0, unsigned y0, unsigned x1, unsigned y1, unsigned char color) {
+    CX__W(0, x0); CX__W(2, y0); CX__W(4, x1); CX__W(6, y1);
+    cx_call_a(CX_GFX_LINE, color);
+}
+static void cx_pattern(const void *pat8, unsigned char bg, unsigned char fg) {
+    cx_y = (unsigned char)((bg << 2) | fg);
+    cx_call_p(CX_GFX_PATTERN, pat8);
+}
+static void cx_patrect(unsigned x, unsigned y, unsigned w, unsigned h) {
+    CX__W(0, x); CX__W(2, y); CX__W(4, w); CX__W(6, h);
+    cx_call(CX_GFX_PATRECT);
+}
+static void cx_blit(unsigned x, unsigned y, unsigned char wbytes, unsigned char h,
+                    const void *src, unsigned char op) {
+    CX__W(0, x); CX__W(2, y);
+    cx_p[4] = wbytes; cx_p[5] = h;
+    CX__W(6, (unsigned)src);
+    cx_call_a(CX_GFX_BLIT, op);
+}
+static void cx_blitm(unsigned x, unsigned y, unsigned char h, unsigned char cols,
+                     const void *src) {
+    CX__W(0, x); CX__W(2, y);
+    cx_p[4] = h; cx_p[5] = cols;
+    CX__W(6, (unsigned)src);
+    cx_call(CX_GFX_BLITM);
+}
+
+/* =====================================================================
+ * text
+ * ===================================================================== */
+static char cx_font(const void *cxf) {          /* 0 ok, 1 bad */
+    cx_call_p(CX_FONT_SET, cxf);
+    return cx_c;
+}
+static void cx_style(unsigned char flags) { cx_call_a(CX_FONT_STYLE, flags); }
+
+static unsigned cx_measure(const char *s) {
+    cx_call_p(CX_FONT_MEASURE, s);
+    return CX__R(0);
+}
+/* draw s at (x, y); returns the pen x just past the text */
+static unsigned cx_say(const char *s, unsigned x, unsigned y) {
+    CX__W(0, x); CX__W(2, y);
+    cx_call_p(CX_FONT_DRAW, s);
+    return CX__R(0);
+}
+
+/* =====================================================================
+ * immediate-mode widget painters
+ * =====================================================================
+ * These DRAW a widget by name -- a button, a checkbox, a slider, an edit
+ * box -- so custom-layout code (the calculator's keypad, a status bar)
+ * reads by intent instead of composing an anonymous cx_frame()+cx_say().
+ * They paint only: the app hit-tests the coordinates itself (see calc).
+ * They match the kernel toolkit's look pixel for pixel and use the same
+ * theme role colours, so a hand-painted button sits beside a real one.
+ *
+ * For INTERACTIVE, kernel-managed widgets -- clicks and keyboard focus
+ * dispatched as EV_WIDGET -- declare a CX_WIDGETS list and cx_wg_set it
+ * instead. These painters are the draw-it-yourself alternative.
+ * ===================================================================== */
+#define CX_FONT_H     8          /* the system font's glyph height */
+#define CX_BOX        12         /* the checkbox marker square (= WG_BOX) */
+#define CX_THUMB      16         /* the slider thumb width (= WG_THUMB) */
+#define CX_SLIDER_H   16         /* the slider's height */
+
+/* a push button: a framed box with its label centred both ways */
+static void cx_button(unsigned x, unsigned y, unsigned w, unsigned h,
+                      const char *label) {
+    unsigned tw = cx_measure(label);
+    cx_rect(x, y, w, h, CX_PAPER);
+    cx_frame(x, y, w, h, CX_FRAME);
+    cx_say(label, x + (w - tw) / 2, y + (h - CX_FONT_H) / 2);
+}
+
+/* a checkbox: a marker box (filled when checked) and a label to its right.
+ * Radio buttons share this look in the toolkit -- use it for a radio too,
+ * managing the group's exclusivity yourself. */
+static void cx_checkbox(unsigned x, unsigned y, const char *label,
+                        unsigned char checked) {
+    cx_rect(x, y, CX_BOX, CX_BOX, CX_PAPER);
+    cx_frame(x, y, CX_BOX, CX_BOX, CX_FRAME);
+    if (checked)
+        cx_rect(x + 3, y + 3, CX_BOX - 6, CX_BOX - 6, CX_FRAME);
+    cx_say(label, x + CX_BOX + 6, y + 2);
+}
+
+/* a horizontal slider: a framed trough with a thumb at value/max (0..max
+ * inclusive, so a 1..10 slider passes value 0..9, max 9) */
+static void cx_slider(unsigned x, unsigned y, unsigned w,
+                      unsigned char value, unsigned char max) {
+    unsigned travel = (w - 4) - CX_THUMB;   /* inner width less the thumb */
+    unsigned tx = x + 2;
+    cx_rect(x, y, w, CX_SLIDER_H, CX_PAPER);
+    cx_frame(x, y, w, CX_SLIDER_H, CX_FRAME);
+    if (max)
+        tx += (unsigned)((unsigned long)value * travel / max);
+    cx_rect(tx, y + 2, CX_THUMB, CX_SLIDER_H - 4, CX_HI);
+}
+
+/* an edit box: a framed field with its text, left-aligned and vertically
+ * centred. No caret -- the app owns the text; repaint to update it. */
+static void cx_edit(unsigned x, unsigned y, unsigned w, unsigned h,
+                    const char *text) {
+    cx_rect(x, y, w, h, CX_PAPER);
+    cx_frame(x, y, w, h, CX_FRAME);
+    cx_say(text, x + 4, y + (h - CX_FONT_H) / 2);
+}
+
+/* =====================================================================
+ * events -- a typed record and a one-call poll
+ * ===================================================================== */
+typedef struct {
+    unsigned char type;      /* CX_EV_*                                */
+    unsigned char detail;    /* key code / widget index / menu item    */
+    unsigned int  x, y;      /* mouse x/y; a widget's x = its value;   */
+                             /* a menu's x = the menu index            */
+    unsigned char frame;     /* the frame stamp                        */
+} cx_event;
+
+static void cx_ev_init(void) { cx_call(CX_EV_INIT); }
+
+/* fill *ev from a raw record; carry from the ABI is what cx_ret16 hides */
+static char cx__fill(cx_event *ev) {
+    if (cx_c)                    /* the ABI set carry: the queue was empty */
+        return 0;
+    ev->type   = cx_p[0];
+    ev->detail = cx_p[1];
+    ev->x      = CX__R(2);
+    ev->y      = CX__R(4);
+    ev->frame  = cx_p[6];
+    return 1;
+}
+
+/* RAW poll: fill *ev with the next event, 1 if one was waiting, 0 if not.
+ * Mouse events arrive as EV_DOWN/EV_MOVE/EV_UP with ev->x/ev->y, for an
+ * app that hit-tests its own pixels (the calculator). A toolkit app --
+ * one that called cx_wg_set / cx_menu_set -- wants cx_next instead, which
+ * routes the mouse for it; cx_poll never reaches the widget engine. */
+static char cx_poll(cx_event *ev) {
+    if (!cx_ret(CX_EV_COUNT))
+        return 0;
+    cx_call(CX_EV_GET);
+    return cx__fill(ev);
+}
+
+/* TOOLKIT poll: like cx_poll, but every pending mouse event is first
+ * routed through the widget/menu regions, so a click on a widget or a
+ * menu surfaces as the EV_WIDGET / EV_MENU the toolkit posts. Returns 1
+ * with a non-mouse event in *ev, or 0 when the queue is drained. This is
+ * the loop primitive for a C app built on cx_wg_set / cx_menu_set. */
+static char cx_next(cx_event *ev) {
+    cx_call(CX_EV_NEXT);
+    return cx__fill(ev);
+}
+static void cx_post(const cx_event *ev) {
+    cx_p[0] = ev->type; cx_p[1] = ev->detail;
+    CX__W(2, ev->x); CX__W(4, ev->y);
+    cx_p[6] = ev->frame; cx_p[7] = 0;
+    cx_call(CX_EV_POST);
+}
+static void          cx_timer(unsigned char frames) { cx_call_a(CX_EV_TIMER, frames); }
+static unsigned char cx_frames(void) { return cx_ret(CX_EV_FRAMES); }
+static void          cx_mainloop(void) { cx_call(CX_EV_MAINLOOP); }
+static void          cx_handlers(const void *table) { cx_call_p(CX_EV_HANDLERS, table); }
+
+/* =====================================================================
+ * pointer, menus, widgets
+ * ===================================================================== */
+static void cx_mouse_show(unsigned char sprite) { cx_call_a(CX_MOUSE_SHOW, sprite); }
+static void cx_mouse_hide(void) { cx_call(CX_MOUSE_HIDE); }
+
+static char cx_menu_set(const void *bar) {      /* 0 ok, 1 region stack full */
+    cx_call_p(CX_MENU_SET, bar);
+    return cx_c;
+}
+static void cx_menu_off(void) { cx_call(CX_MENU_OFF); }
+static char cx_menu_key(unsigned char key) {    /* 1 if it was a menu key */
+    cx_call_a(CX_MENU_KEY, key);
+    return cx_c;
+}
+static void cx_wg_set(const void *list) { cx_call_p(CX_WG_SET, list); }
+static void cx_wg_draw(void) { cx_call(CX_WG_DRAW); }
+static char cx_wg_key(unsigned char key) {      /* 1 if it was a widget key */
+    cx_call_a(CX_WG_KEY, key);
+    return cx_c;
+}
+
+/* =====================================================================
+ * themes and dialogs
+ * ===================================================================== */
+static void          cx_theme(const void *rec12) { cx_call_p(CX_THEME_SET, rec12); }
+static unsigned char cx_alert(const void *desc) { /* modal; returns the button */
+    cx_call_p(CX_DLG_ALERT, desc);
+    return cx_a;
+}
+/* modal line editor; returns the length, or -1 if cancelled */
+static int cx_prompt(const char *msg, char *buf, unsigned char cap) {
+    CX__W(0, (unsigned)buf);
+    cx_p[2] = cap;
+    cx_call_p(CX_DLG_PROMPT, msg);
+    return cx_c ? -1 : (int)(unsigned char)cx_a;
+}
+
+/* =====================================================================
+ * loader and desk accessories
+ * ===================================================================== */
+static unsigned char cx__strlen(const char *s) {
+    unsigned char n = 0;
+    while (s[n]) n++;
+    return n;
+}
+/* load and run a .CXA; returns only on failure (1 not an app, 2 old) */
+static unsigned char cx_launch(const char *name) {
+    cx_y = cx__strlen(name);
+    cx_call_p(CX_APP_LOAD, name);
+    return cx_a;
+}
+static char cx_da_open(const char *name) {      /* 0 ok, 1 fail */
+    cx_y = cx__strlen(name);
+    cx_call_p(CX_DA_OPEN, name);
+    return cx_c;
+}
+static void cx_da_close(void) { cx_call(CX_DA_CLOSE); }
+
+/* =====================================================================
+ * directory and DOS
+ * ===================================================================== */
+static char cx_dir_open(const char *pattern) {  /* 0 ok, 1 DOS error */
+    cx_y = cx__strlen(pattern);
+    cx_call_p(CX_DIR_OPEN, pattern);
+    return cx_c;
+}
+static signed char cx_dir_next(char *buf17) {   /* 0 file, 1 dir, -1 end */
+    CX__W(0, (unsigned)buf17);
+    cx_call(CX_DIR_NEXT);
+    return cx_c ? -1 : (signed char)cx_a;
+}
+static void          cx_dir_close(void) { cx_call(CX_DIR_CLOSE); }
+static unsigned char cx_dos(const char *cmd) {  /* the status code (>=20 = error) */
+    cx_y = cx__strlen(cmd);
+    cx_call_p(CX_DOS_CMD, cmd);
+    return cx_a;
+}
+static unsigned char cx_dos_msg(char *buf64) {  /* copies the last reply, returns length */
+    CX__W(0, (unsigned)buf64);
+    return cx_ret(CX_DOS_MSG);
+}
+
+/* =====================================================================
+ * clipboard
+ * ===================================================================== */
+static char cx_clip_put(unsigned char type, const void *src, unsigned len) {
+    CX__W(0, (unsigned)src); CX__W(2, len);
+    cx_call_a(CX_CLIP_PUT, type);
+    return cx_c;                 /* 0 ok, 1 too big */
+}
+static unsigned cx_clip_get(void *dst, unsigned cap, unsigned char *type_out) {
+    CX__W(0, (unsigned)dst); CX__W(2, cap);
+    cx_call(CX_CLIP_GET);
+    if (type_out) *type_out = cx_a;
+    return CX__R(2);             /* the length actually copied */
+}
+static unsigned char cx_clip_type(unsigned *len_out) {
+    cx_call(CX_CLIP_TYPE);
+    if (len_out) *len_out = CX__R(2);
+    return cx_a;                 /* the waiting type, 0 = empty */
+}
+
+/* =====================================================================
+ * dirty rectangles (advanced)
+ * ===================================================================== */
+static void          cx_dirty_reset(void) { cx_call(CX_DIRTY_RESET); }
+static void          cx_dirty_add(unsigned x, unsigned y, unsigned w, unsigned h) {
+    CX__W(0, x); CX__W(2, y); CX__W(4, w); CX__W(6, h);
+    cx_call(CX_DIRTY_ADD);
+}
+static unsigned char cx_dirty_count(void) { return cx_ret(CX_DIRTY_COUNT); }
+static void          cx_dirty_get(unsigned char i, unsigned *x0, unsigned *y0,
+                                  unsigned *x1, unsigned *y1) {
+    cx_call_a(CX_DIRTY_GET, i);
+    if (x0) *x0 = CX__R(0);
+    if (y0) *y0 = CX__R(2);
+    if (x1) *x1 = CX__R(4);
+    if (y1) *y1 = CX__R(6);
+}
+
+/* =====================================================================
+ * utility -- not an ABI slot, but every app wants it
+ * ===================================================================== */
+/* CHROUT a NUL-terminated string plus a return, through the KERNAL --
+ * the boot/debug marker line every app prints */
+static void cx_print(const char *s) {
+    while (*s)
+        cbm_k_chrout((unsigned char)*s++);
+    cbm_k_chrout('\r');
+}
+
+#pragma GCC diagnostic pop
+
+/* =====================================================================
+ * descriptor builders -- structs packed to the kernel's byte layouts
+ * (docs/formats.md), with macros for the count-prefixed lists.
+ *
+ * A widget list is written back in place by the toolkit, so declare it
+ * with CX_WIDGETS (mutable). Menus, dialogs and themes are read-only.
+ * ===================================================================== */
+
+/* one 16-byte widget record */
+typedef struct __attribute__((packed)) {
+    unsigned char type, flags;
+    unsigned int  x, y, w;
+    unsigned char h, val, grp;
+    const void   *label;         /* string / field buffer / list-of-pointers */
+    unsigned char pad[3];        /* pad[0] = WG_TOP for a list */
+} cx_widget;
+
+/* per-type widget constructors (compound literals) */
+#define CX_BUTTON(x, y, w, h, lbl) \
+    (cx_widget){ CX_WG_BUTTON, 0, (x), (y), (w), (h), 0, 0, (lbl), {0,0,0} }
+#define CX_CHECK(x, y, w, on, lbl) \
+    (cx_widget){ CX_WG_CHECK, 0, (x), (y), (w), 14, (on), 0, (lbl), {0,0,0} }
+#define CX_RADIO(x, y, w, on, group, lbl) \
+    (cx_widget){ CX_WG_RADIO, 0, (x), (y), (w), 14, (on), (group), (lbl), {0,0,0} }
+#define CX_SCROLL(x, y, w, val, max) \
+    (cx_widget){ CX_WG_SCROLL, 0, (x), (y), (w), 16, (val), (max), 0, {0,0,0} }
+#define CX_FIELD(x, y, w, cap, buf) \
+    (cx_widget){ CX_WG_FIELD, 0, (x), (y), (w), 16, 0, (cap), (buf), {0,0,0} }
+#define CX_LIST(x, y, w, h, count, ptrs) \
+    (cx_widget){ CX_WG_LIST, 0, (x), (y), (w), (h), 0, (count), (ptrs), {0,0,0} }
+
+/* a widget list: a count byte, then the records, one packed block */
+#define CX_WIDGETS(name, ...) \
+    static struct __attribute__((packed)) { \
+        unsigned char n; \
+        cx_widget w[sizeof((cx_widget[]){ __VA_ARGS__ }) / sizeof(cx_widget)]; \
+    } name = { \
+        (unsigned char)(sizeof((cx_widget[]){ __VA_ARGS__ }) / sizeof(cx_widget)), \
+        { __VA_ARGS__ } \
+    }
+
+/* a menu bar: a count, then (title, items) per menu */
+typedef struct __attribute__((packed)) { const void *title, *items; } cx_menu_entry;
+#define CX_MENU(title, items)  (cx_menu_entry){ (title), (items) }
+#define CX_MENU_BAR(name, ...) \
+    static const struct __attribute__((packed)) { \
+        unsigned char n; \
+        cx_menu_entry m[sizeof((cx_menu_entry[]){ __VA_ARGS__ }) / sizeof(cx_menu_entry)]; \
+    } name = { \
+        (unsigned char)(sizeof((cx_menu_entry[]){ __VA_ARGS__ }) / sizeof(cx_menu_entry)), \
+        { __VA_ARGS__ } \
+    }
+
+/* one menu's drop-down: a count, then a label pointer per item */
+#define CX_MENU_ITEMS(name, ...) \
+    static const struct __attribute__((packed)) { \
+        unsigned char n; \
+        const void *label[sizeof((const void *[]){ __VA_ARGS__ }) / sizeof(const void *)]; \
+    } name = { \
+        (unsigned char)(sizeof((const void *[]){ __VA_ARGS__ }) / sizeof(const void *)), \
+        { __VA_ARGS__ } \
+    }
+
+/* an alert/prompt descriptor: a count, the message, then button labels */
+#define CX_DIALOG(name, message, ...) \
+    static const struct __attribute__((packed)) { \
+        unsigned char n; \
+        const void *msg; \
+        const void *button[sizeof((const void *[]){ __VA_ARGS__ }) / sizeof(const void *)]; \
+    } name = { \
+        (unsigned char)(sizeof((const void *[]){ __VA_ARGS__ }) / sizeof(const void *)), \
+        (message), { __VA_ARGS__ } \
+    }
+
+/* a 12-byte theme record: four palette colours (2 bytes each), then the
+ * paper / highlight / frame role indices and one reserved byte */
+typedef struct __attribute__((packed)) {
+    unsigned char pal[8];
+    unsigned char paper, hi, frame, reserved;
+} cx_theme_rec;
+
+#endif /* CXSDK_H */

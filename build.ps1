@@ -174,7 +174,8 @@ function Build-Apps {
         # a proper linker cap on RAM is SDK-packaging work, noted there.)
         foreach ($capp in @(
             @{ src = "apps\hello_c\hello.c"; prg = "HELLO2"; name = "Hello (C)" },
-            @{ src = "apps\calc\calc.c";     prg = "CALC";   name = "Calculator" }
+            @{ src = "apps\calc\calc.c";     prg = "CALC";   name = "Calculator" },
+            @{ src = "apps\cdemo\cdemo.c";   prg = "CDEMO";  name = "C Demo" }
         )) {
             $prg = Join-Path $build "$($capp.prg).PRG"
             Write-Host "llvm  $($capp.src) -> $prg"
@@ -206,6 +207,9 @@ function Stage-SdRoot {
     }
     if (Test-Path (Join-Path $build "CALC.CXA")) {
         Copy-Item (Join-Path $build "CALC.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "CDEMO.CXA")) {
+        Copy-Item (Join-Path $build "CDEMO.CXA") $sdroot
     }
     Copy-Item (Join-Path $build "NOTES.CXD")     $sdroot
     return $sdroot
