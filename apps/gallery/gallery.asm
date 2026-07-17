@@ -25,6 +25,17 @@ WG_RADIO  = 2
 WG_SCROLL = 3
 WG_FIELD  = 4
 
+; widget indices, defined up here so on_widget's compares resolve
+W_BTN   = 0
+W_CHK1  = 1
+W_CHK2  = 2
+W_RAD0  = 3
+W_RAD1  = 4
+W_RAD2  = 5
+W_SCRA  = 6                    ; the 1..10 slider
+W_SCRB  = 7                    ; the 1..5 slider
+W_FLD   = 8
+
 .segment "LOADADDR"
     .word $0801
 .segment "CODE"
@@ -58,6 +69,8 @@ main
     lda #1                      ; the arrow (sprite 1)
     jsr cx_mouse_show
 
+    jsr draw_sliders            ; the slider captions and their values
+
     lda #<handlers
     ldx #>handlers
     jsr cx_ev_handlers
@@ -79,9 +92,120 @@ on_widget                       ; P1 = index, P2 = value
     lda X16_P1
     cmp #W_BTN
     beq @btn
+    cmp #W_SCRA                 ; a slider moved: repaint its number
+    beq @sa
+    cmp #W_SCRB
+    beq @sb
     rts
 @btn                            ; the OK button: leave
     jmp cx_exit
+@sa
+    jsr set_a_pos
+    lda X16_P2
+    jmp showval
+@sb
+    jsr set_b_pos
+    lda X16_P2
+    jmp showval
+
+; ---------------------------------------------------------------------
+; the sliders' captions (drawn once) and their live numbers.
+; ---------------------------------------------------------------------
+draw_sliders
+    lda #<s_sla
+    ldx #>s_sla
+    ldy #100
+    jsr text360
+    lda #<s_slb
+    ldx #>s_slb
+    ldy #160
+    jsr text360
+    jsr set_a_pos               ; the starting numbers, from the records
+    lda widgets + 1 + W_SCRA*16 + 9
+    jsr showval
+    jsr set_b_pos
+    lda widgets + 1 + W_SCRB*16 + 9
+    jmp showval
+
+set_a_pos
+    lda #<490
+    sta valx
+    lda #>490
+    sta valx+1
+    lda #100
+    sta valy
+    stz valy+1
+    rts
+set_b_pos
+    lda #<490
+    sta valx
+    lda #>490
+    sta valx+1
+    lda #160
+    sta valy
+    stz valy+1
+    rts
+
+; showval -- A = a slider's 0-based value; draws (A+1), 1..10, at
+; (valx, valy) after wiping a small patch.
+showval
+    clc
+    adc #1
+    cmp #10
+    bcc @one
+    lda #'1'                    ; "10", the max
+    sta valbuf
+    lda #'0'
+    sta valbuf+1
+    stz valbuf+2
+    bra @draw
+@one
+    clc
+    adc #'0'                    ; a single digit (A is 1..9 here)
+    sta valbuf
+    stz valbuf+1
+@draw
+    lda valx
+    sta X16_P0
+    lda valx+1
+    sta X16_P1
+    lda valy
+    sta X16_P2
+    lda valy+1
+    sta X16_P3
+    lda #24
+    sta X16_P4
+    stz X16_P5
+    lda #10
+    sta X16_P6
+    stz X16_P7
+    lda #0
+    jsr cx_gfx_rect
+    lda valx
+    sta X16_P0
+    lda valx+1
+    sta X16_P1
+    lda valy
+    sta X16_P2
+    lda valy+1
+    sta X16_P3
+    lda #<valbuf
+    ldx #>valbuf
+    jmp cx_font_draw
+
+; text360 -- A/X = string, Y = row; drawn at column 360
+text360
+    sta X16_T0
+    stx X16_T1
+    sty X16_P2
+    stz X16_P3
+    lda #<360
+    sta X16_P0
+    lda #>360
+    sta X16_P1
+    lda X16_T0
+    ldx X16_T1
+    jmp cx_font_draw
 on_menu
     lda X16_P2                  ; menu 1 = Themes
     cmp #1
@@ -141,17 +265,8 @@ m1_items
 ; the widget list: count, then 16-byte records
 ;   type flags x.w y.w w.w h val grp label.w  + 3 pad
 ; ---------------------------------------------------------------------
-W_BTN   = 0
-W_CHK1  = 1
-W_CHK2  = 2
-W_RAD0  = 3
-W_RAD1  = 4
-W_RAD2  = 5
-W_SCR   = 6
-W_FLD   = 7
-
 widgets
-    .byte 8
+    .byte 9
 
     ; a push button "OK"
     .byte WG_BUTTON, 0
@@ -192,10 +307,17 @@ widgets
     .addr s_r2
     .byte 0, 0, 0
 
-    ; a horizontal scrollbar, 0..100, at 30
+    ; a slider valued 1..10 (WG_VAL 0..9, shown as +1), starting at 3
     .byte WG_SCROLL, 0
-    .word 40, 250, 300
-    .byte 16, 30, 100
+    .word 360, 116, 200
+    .byte 16, 2, 9            ; val 2 (=3), max 9 (=10)
+    .addr s_none
+    .byte 0, 0, 0
+
+    ; a slider valued 1..5, starting at 1
+    .byte WG_SCROLL, 0
+    .word 360, 176, 200
+    .byte 16, 0, 4            ; val 0 (=1), max 4 (=5)
     .addr s_none
     .byte 0, 0, 0
 
@@ -221,7 +343,13 @@ s_c2     .byte "show the ruler", 0
 s_r0     .byte "left", 0
 s_r1     .byte "centre", 0
 s_r2     .byte "right", 0
+s_sla    .byte "slider 1-10:", 0
+s_slb    .byte "slider 1-5:", 0
 s_none   .byte 0
+
+valbuf   .byte 0, 0, 0
+valx     .word 0
+valy     .word 0
 
 theme_day
     .byte $FF, $0F,  $AA, $0A,  $55, $05,  $00, $00

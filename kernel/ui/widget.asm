@@ -1168,7 +1168,8 @@ WK_DOWN  = $11
 WK_UP    = $91
 WK_LEFT  = $9D
 WK_RIGHT = $1D
-WK_STEP  = 5                    ; scrollbar keys move this much
+WK_STEP  = 1                    ; scrollbar arrows move one step; a click
+                                ; jumps anywhere, so fine and coarse both
 
 wg_key
     ldx wg_n

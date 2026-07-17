@@ -28,14 +28,13 @@
 #define CW 56
 #define CH 28
 #define GAP 8
-#define ROWS 5
+#define CLEARW (4 * CW + 3 * GAP)  /* the wide clear button spans the row */
 
-static const char keys[20] = {
+static const char keys[16] = {
     '7', '8', '9', '/',
     '4', '5', '6', '*',
     '1', '2', '3', '-',
     '0', '.', '=', '+',
-    'C', 'C', 'C', 'C',
 };
 
 static float acc, cur;
@@ -186,12 +185,17 @@ static void feed(char c) {
             frac = 0.1f;           /* a second point is ignored */
         typing = 1;
     } else if (c == '+' || c == '-' || c == '*' || c == '/') {
-        if (typing || op == 0)
+        /* fold a just-typed number into acc; after '=', acc IS the
+         * running total, so leave it there and only set the new op */
+        if (typing)
             apply();
         if (!err)
             op = c;
     } else if (c == '=' || c == '\r') {
-        apply();
+        /* nothing pending: keep the result, so pressing '=' twice or
+         * an operator after it does not zero the running total */
+        if (op || typing)
+            apply();
         op = 0;
     } else if (c == 'C' || c == 'c') {
         acc = cur = 0.0f;
@@ -215,13 +219,16 @@ static void draw(void) {
         120, 60);
 
     frame(GX, 110, 248, 28, 3);
-    for (i = 0; i < 20; i++) {
+    for (i = 0; i < 16; i++) {
         unsigned x = GX + (i & 3) * (CW + GAP);
         unsigned y = GY + (i >> 2) * (CH + GAP);
         frame(x, y, CW, CH, 3);
         lab[0] = keys[i];
         say(lab, x + 24, y + 8);
     }
+    /* one wide clear button under the grid, not four "C"s */
+    frame(GX, GY + 4 * (CH + GAP), CLEARW, CH, 3);
+    say("clear", GX + 100, GY + 4 * (CH + GAP) + 8);
     show();
 }
 
@@ -248,10 +255,15 @@ int main(void) {
             if (x >= GX && y >= GY) {
                 unsigned char col = (x - GX) / (CW + GAP);
                 unsigned char row = (y - GY) / (CH + GAP);
-                if (col < 4 && row < ROWS &&
-                    (x - GX) % (CW + GAP) < CW &&
-                    (y - GY) % (CH + GAP) < CH)
+                if (row == 4) {           /* the wide clear button */
+                    if (x < GX + CLEARW &&
+                        (y - GY) % (CH + GAP) < CH)
+                        feed('C');
+                } else if (col < 4 && row < 4 &&
+                           (x - GX) % (CW + GAP) < CW &&
+                           (y - GY) % (CH + GAP) < CH) {
                     feed(keys[row * 4 + col]);
+                }
             }
         }
     }
