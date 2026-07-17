@@ -183,6 +183,11 @@ readdir
     lda (poolp),y
     beq @loop                   ; ".."
 @keep
+    lda ftype                   ; folders always show; a system artifact
+    bne @store                  ; (.X16 .BIN .PRG .CXF) is hidden, so the
+    jsr hidden_ext              ; list is the programs and folders only
+    bcs @loop
+@store
     ldx fcount                  ; fptrs[count] = poolp
     txa
     asl
@@ -232,6 +237,62 @@ readdir
 refresh                         ; the directory again, repainted
     jsr readdir
     jmp cx_wg_draw
+
+; ---------------------------------------------------------------------
+; hidden_ext -- carry set if the name at (poolp) ends in a system-file
+; extension the desktop hides (.X16 .BIN .PRG .CXF), so the list reads
+; as the programs available (.CXA apps, .CXD accessories) and folders,
+; not the boot artifacts beside them.
+; ---------------------------------------------------------------------
+HIDDEN_N = 4
+hidden_ext
+    ldy #0                      ; Y = strlen(name)
+@fn
+    lda (poolp),y
+    beq @got
+    iny
+    cpy #NAMEMAX
+    bcc @fn
+@got
+    cpy #4                      ; shorter than a ".EXT": keep it
+    bcc @no
+    tya                         ; copy the last four bytes into ext4
+    sec
+    sbc #4
+    tay
+    ldx #0
+@cp
+    lda (poolp),y
+    sta ext4,x
+    iny
+    inx
+    cpx #4
+    bne @cp
+    stz he_i                    ; ext4 against each hidden suffix
+@try
+    lda he_i
+    cmp #HIDDEN_N
+    bcs @no
+    asl                         ; entry base = he_i * 4
+    asl
+    tax
+    ldy #0
+@cmp
+    lda hidden_tab,x
+    cmp ext4,y
+    bne @miss
+    inx
+    iny
+    cpy #4
+    bne @cmp
+    sec                         ; all four matched: hide it
+    rts
+@miss
+    inc he_i
+    bra @try
+@no
+    clc
+    rts
 
 ; ---------------------------------------------------------------------
 ; selname -- obuf = the selected entry's name with any trailing slash
@@ -1071,6 +1132,9 @@ s_sr      .byte ",S,R", 0
 s_copied  .byte "copied.                       ", 0
 s_cpbad   .byte "copy failed.                  ", 0
 pat       .byte "$"
+hidden_tab .byte ".X16", ".BIN", ".PRG", ".CXF"
+ext4       .res 4, 0
+he_i       .byte 0
 
 fcount    .byte 0
 ftype     .byte 0
