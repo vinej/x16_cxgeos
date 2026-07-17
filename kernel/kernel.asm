@@ -47,6 +47,7 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/resident/core.asm"
 .include "kernel/resident/farcall.asm"
 .include "kernel/resident/vrows.asm"
+.include "kernel/resident/clip.asm"
 .include "kernel/fs/loader.asm"
 .include "kernel/fs/dir.asm"
 .include "kernel/gfx2/dirty.asm"

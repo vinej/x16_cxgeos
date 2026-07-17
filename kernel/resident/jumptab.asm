@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 49                    ; slots
+    .word 52                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -107,6 +107,11 @@ cx_jumptab
 
 ; --- dialogs, continued ------------------------------------------
     jmp cx_do_dlg_prompt ; 48  A/X = message, P0/P1 = a NUL-terminated buffer (may be seeded), P2 = its capacity; SYNCHRONOUS one-line editor with ok/cancel -> A = the length, carry set if cancelled. RETURN is ok, ESC is cancel
+
+; --- the clipboard -----------------------------------------------
+    jmp cx_do_clip_put   ; 49  A = type (1 = TEXT; 0 or length 0 empties), P0/P1 = source, P2/P3 = length -> carry set if too big (~32KB fits)
+    jmp cx_do_clip_get   ; 50  P0/P1 = destination, P2/P3 = its capacity -> A = the type (0 = empty), P2/P3 = the length copied (what is held or what fits, whichever is less)
+    jmp cx_do_clip_type  ; 51  -> A = the type waiting (0 = empty), P2/P3 = its length; nothing is consumed
 
 .popseg
 

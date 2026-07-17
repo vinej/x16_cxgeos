@@ -57,12 +57,18 @@ CX_D_BUF   = CX_ZP + 20         ; $46/$47  the caller's name buffer
 
 CX_D_ZP_TOP = CX_ZP + 22        ; = $48
 
-; --- free: $48-$5F ---------------------------------------------------
+; --- clipboard (kernel/resident/clip.asm) ----------------------------
+CX_C_APP   = CX_ZP + 22         ; $48/$49  the app side of a copy
+CX_C_BNK   = CX_ZP + 24         ; $4A/$4B  the banked side
+
+CX_C_ZP_TOP = CX_ZP + 26        ; = $4C
+
+; --- free: $4C-$5F ---------------------------------------------------
 
 .if CX_ZP < $32
     .error "CX_ZP must be >= $32: below that is x16lib's block"
 .endif
-.if CX_D_ZP_TOP > CX_ZP_END
+.if CX_C_ZP_TOP > CX_ZP_END
     .error "kernel zero page overflows into the application's $60-$7F"
 .endif
 

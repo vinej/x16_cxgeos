@@ -68,3 +68,6 @@ cx_dir_close    = cx_dir_close
 cx_dos_cmd      = cx_do_dos_cmd
 cx_dos_msg      = cx_do_dos_msg
 cx_dlg_prompt   = cx_do_dlg_prompt
+cx_clip_put     = cx_do_clip_put
+cx_clip_get     = cx_do_clip_get
+cx_clip_type    = cx_do_clip_type

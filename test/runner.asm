@@ -80,6 +80,8 @@ main
     jsr test_app_badmagic
     jsr test_app_toonew
     jsr test_dir
+    jsr test_clip
+    jsr test_clip_span
 
     jsr t_summary
     rts
@@ -1220,7 +1222,7 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #49                     ; 31 shipped with the table; the rest --
+    cmp #52                     ; 31 shipped with the table; the rest --
     bne @report                 ; loader, events, menus, pointer, themes,
                                 ; dialogs, widgets, keyboard nav, dir,
                                 ; DOS, the prompt -- grew it
@@ -1865,6 +1867,126 @@ test_dir
 @nb    .res 17, 0
 
 ; ---------------------------------------------------------------------
+; the clipboard -- put, ask, get back, truncate, empty, and a payload
+; long enough to roll from bank 10 into bank 11.
+; ---------------------------------------------------------------------
+test_clip
+    lda #<@msg                  ; put 5 bytes of TEXT
+    sta X16_P0
+    lda #>@msg
+    sta X16_P1
+    lda #5
+    sta X16_P2
+    stz X16_P3
+    lda #1
+    jsr cx_do_clip_put
+    bcs @fail
+
+    jsr cx_do_clip_type         ; type 1, length 5 waiting
+    cmp #1
+    bne @fail
+    lda X16_P2
+    cmp #5
+    bne @fail
+    lda X16_P3
+    bne @fail
+
+    lda #<@buf                  ; get it back whole
+    sta X16_P0
+    lda #>@buf
+    sta X16_P1
+    lda #16
+    sta X16_P2
+    stz X16_P3
+    jsr cx_do_clip_get
+    cmp #1
+    bne @fail
+    lda X16_P2
+    cmp #5
+    bne @fail
+    ldy #4
+@cmp
+    lda @buf,y
+    cmp @msg,y
+    bne @fail
+    dey
+    bpl @cmp
+
+    lda #<@buf                  ; a 3-byte pocket: truncated to fit
+    sta X16_P0
+    lda #>@buf
+    sta X16_P1
+    lda #3
+    sta X16_P2
+    stz X16_P3
+    jsr cx_do_clip_get
+    lda X16_P2
+    cmp #3
+    bne @fail
+
+    ldy #0
+    bra @report
+@fail
+    ldy #1
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "CLIP", 0
+@msg  .byte "HELLO"
+@buf  .res 16, 0
+
+; the long haul: a payload that rolls from bank 10 into bank 11, and
+; the empty-put that clears it all away
+test_clip_span
+    lda #<$0801                 ; $2010 bytes from $0801: byte $2005 of
+    sta X16_P0                  ; the source must land at bank 11's $A005
+    lda #>$0801
+    sta X16_P1
+    lda #<$2010
+    sta X16_P2
+    lda #>$2010
+    sta X16_P3
+    lda #1
+    jsr cx_do_clip_put
+    bcs @fail
+    lda RAM_BANK
+    pha
+    lda #11
+    sta RAM_BANK
+    lda $A005
+    sta @got
+    pla
+    sta RAM_BANK
+    lda $0801 + $2005
+    cmp @got
+    bne @fail
+
+    lda #1                      ; and length 0 empties it
+    sta X16_P0                  ; (pointer irrelevant)
+    stz X16_P2
+    stz X16_P3
+    lda #1
+    jsr cx_do_clip_put
+    jsr cx_do_clip_type
+    bne @fail
+    lda X16_P2
+    bne @fail
+
+    ldy #0
+    bra @report
+@fail
+    ldy #1
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "CLIPSPAN", 0
+@got  .byte 0
+
+; ---------------------------------------------------------------------
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/ui/region.asm"
@@ -1880,6 +2002,7 @@ test_dir
 .include "kernel/resident/core.asm"
 .include "kernel/resident/farcall.asm"
 .include "kernel/resident/vrows.asm"
+.include "kernel/resident/clip.asm"
 .include "kernel/fs/loader.asm"
 .include "kernel/fs/dir.asm"
 .include "kernel/resident/jumptab.asm"
