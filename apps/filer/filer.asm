@@ -45,23 +45,25 @@ main
     bne @mk
 @go
     jsr cx_gfx_init
-    lda #0
-    jsr cx_gfx_clear
 
-    lda #<s_title
-    ldx #>s_title
-    ldy #20
-    jsr say
-
+    ; The disk work goes FIRST, before the screen is cleared. gfx2_init
+    ; leaves the framebuffer alone, so the outgoing app's picture stays up
+    ; through the directory read; then the clear and the whole desktop are
+    ; painted in one burst instead of a bare screen sitting through the I/O
+    ; -- the jarring part when an app closes.
     lda #<s_home                ; home is the root: an app launched from
     ldx #>s_home                ; a folder leaves us there on reload, so
     ldy #s_home_len             ; the desktop always resets. depth stays 0
     jsr cx_dos_cmd
-
-    jsr seed_clock              ; start the RTC if it is at the frozen
-                                ; emulator default
-
+    jsr seed_clock              ; start the RTC if at the emulator default
     jsr readdir                 ; fill the list from the directory
+
+    lda #0                      ; now clear and paint the desktop at once
+    jsr cx_gfx_clear
+    lda #<s_title
+    ldx #>s_title
+    ldy #20
+    jsr say
 
     jsr cx_ev_init
     lda #<bar
@@ -930,14 +932,25 @@ on_timer
     sta tbuf+15
     stz tbuf+16
 
-    lda #<470                   ; the patch, inside the bar. Height 10,
-    sta X16_P0                  ; not 11: row 11 is the bar's rule line
-    lda #>470                   ; (CX_MENU_H-1), and a wide patch that ate
-    sta X16_P1                  ; it left a gap under the date
+    lda #<tbuf                  ; measure the date first, to right-align it
+    ldx #>tbuf                  ; with an 8px margin (632 = 640-8), the same
+    jsr cx_font_measure         ; margin the menu titles get on the left
+    sec                         ; clkx = 632 - width
+    lda #<632
+    sbc X16_P0
+    sta clkx
+    lda #>632
+    sbc X16_P1
+    sta clkx+1
+
+    lda #<470                   ; the patch, inside the bar. Height 10, not
+    sta X16_P0                  ; 11: row 11 is the bar's rule line. Wide
+    lda #>470                   ; enough to cover any right-aligned date
+    sta X16_P1
     lda #1
     sta X16_P2
     stz X16_P3
-    lda #<150                   ; sixteen glyphs' worth
+    lda #<164
     sta X16_P4
     stz X16_P5
     lda #10
@@ -946,9 +959,9 @@ on_timer
     lda #0
     jsr cx_gfx_rect
 
-    lda #<472
+    lda clkx                    ; the date, right-aligned, row 2
     sta X16_P0
-    lda #>472
+    lda clkx+1
     sta X16_P1
     lda #2
     sta X16_P2
@@ -1145,6 +1158,7 @@ inmenu    .byte 0               ; 0 = browsing, 1 = a menu is open
 oblen     .byte 0
 cbuf_i    .byte 0               ; build_name/append_suffix write index
 tbuf      .res 17, 0            ; "YYYY-MM-DD HH:MM"
+clkx      .word 0               ; the date's right-aligned x, recomputed each tick
 srcn      .res NAMEMAX, 0       ; the copy's source name, kept across ask
 obuf      .res NAMEMAX, 0       ; the selected name, slash stripped
 pbuf      .res 20, 0            ; what the prompt collects

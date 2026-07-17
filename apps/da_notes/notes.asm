@@ -122,20 +122,32 @@ redraw                          ; the writing line, repainted
     lda #3
     jmp cx_gfx_rect
 
-say                             ; A/X = string, Y = row; column 152
+say                             ; A/X = string, Y = row; centred in the
+                                ; window (DA_X0 140 + DA_W/2 180 = x 320)
     sta t_str
     stx t_str+1
-    sty X16_P2
-    stz X16_P3
-    lda #<152
+    sty t_row
+    lda t_str                   ; measure it: P0/P1 = the pixel width
+    ldx t_str+1
+    jsr cx_font_measure
+    lsr X16_P1                  ; width / 2
+    ror X16_P0
+    sec                         ; x = 320 - width/2
+    lda #<320
+    sbc X16_P0
     sta X16_P0
-    lda #>152
+    lda #>320
+    sbc X16_P1
     sta X16_P1
+    lda t_row
+    sta X16_P2
+    stz X16_P3
     lda t_str
     ldx t_str+1
     jmp cx_font_draw
 
 t_str .word 0
+t_row .byte 0
 
 s_title .byte "notes -- a desk accessory, floating over the desktop", 0
 s_help  .byte "type; DEL trims; ESC closes and the desktop is intact", 0
