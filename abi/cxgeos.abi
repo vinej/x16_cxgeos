@@ -132,3 +132,10 @@ version = 1
 #= desk accessories
 52  cx_da_open      1   A/X = a .CXD's name, Y = length: load it into bank 9 and open its window over the running app. Carry set = would not load / not a DA. One at a time; no dialogs while one is up (they share banks 14-15)
 53  cx_da_close     1   put the handlers, the region and the pixels back; the DA usually calls this itself on its exit key
+
+#= events, continued
+# The toolkit-app poll: routes mouse events into the widget/menu regions
+# (which post EV_WIDGET / EV_MENU) and hands back the first non-mouse
+# record for a C app to read. A pure-C app cannot take the asm callback
+# cx_ev_dispatch invokes, so it polls this instead of cx_ev_get.
+54  cx_ev_next      1   -> P0..P7 = the next non-mouse event; mouse events are routed to the toolkit first; carry set if the queue emptied with none to return

@@ -312,6 +312,46 @@ ev_mainloop
     jsr ev_dispatch
     bra ev_mainloop
 
+; ---------------------------------------------------------------------
+; ev_next -- the toolkit app's poll. Pull records; ROUTE every mouse
+; event (types 1-4) through the region stack, exactly as ev_dispatch
+; does, so a click on a widget or a menu reaches its handler and the
+; handler posts EV_WIDGET / EV_MENU. Return the first NON-mouse record
+; (a key, a timer, or one of those posted events) in X16_P0..P7 with
+; carry clear. Carry set once the queue drains with nothing to hand
+; back.
+;
+; It is what a C app polls in place of ev_get. ev_get is raw -- an app
+; that hit-tests its own pixels (the calculator) wants that -- but a
+; toolkit app needs the mouse routed, and cannot take the asm callback
+; ev_dispatch hands non-mouse events to (the record lands in $22, which
+; is llvm-mos's soft-stack pointer). ev_next routes the mouse for it and
+; returns everything else to be polled.
+; ---------------------------------------------------------------------
+ev_next
+    jsr ev_get
+    bcs @none                   ; the queue is empty: nothing to hand back
+    lda X16_P0
+    cmp #EV_MOUSE_MOVE          ; below 1 (EV_NULL): hand it back, harmless
+    bcc @return
+    cmp #EV_DBLCLICK+1          ; 5 and up (key/timer/menu/widget): hand back
+    bcs @return
+    jsr rg_route                ; a mouse event: whose region holds the point?
+    bcs ev_next                 ; nobody's: drop it, keep pulling
+    lda rg_vec                  ; a region's: call its handler (it may post an
+    sta @vec+1                  ; event), then keep pulling for a non-mouse one
+    lda rg_vec+1
+    sta @vec+2
+@vec
+    jsr $FFFF                   ; patched just above
+    bra ev_next
+@return
+    clc
+    rts
+@none
+    sec
+    rts
+
 ev_null_table
     .word 0, 0, 0, 0, 0, 0, 0, 0, 0 ; EV_COUNT vectors, all ignored
 

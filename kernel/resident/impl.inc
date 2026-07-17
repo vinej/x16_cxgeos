@@ -73,3 +73,4 @@ cx_clip_get     = cx_do_clip_get
 cx_clip_type    = cx_do_clip_type
 cx_da_open      = cx_do_da_open
 cx_da_close     = cx_do_da_close
+cx_ev_next      = ev_next

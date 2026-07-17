@@ -1224,10 +1224,10 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #54                     ; 31 shipped with the table; the rest --
+    cmp #55                     ; 31 shipped with the table; the rest --
     bne @report                 ; loader, events, menus, pointer, themes,
-                                ; dialogs, widgets, keyboard nav, dir,
-                                ; DOS, the prompt -- grew it
+                                ; dialogs, widgets, keyboard nav, dir, DOS,
+                                ; the prompt, and cx_ev_next -- grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
