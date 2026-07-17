@@ -320,6 +320,20 @@ on_widget                       ; the list was activated: open the entry
 @ok
     rts
 @app
+    lda oblen                   ; SHELL.CXA is this desktop itself --
+    cmp #9                      ; launching it just reloads the same
+    bne @load                   ; screen, so say what it is instead
+    ldy #8
+@shcmp
+    lda obuf,y
+    cmp s_shname,y
+    bne @load
+    dey
+    bpl @shcmp
+    lda #<s_isdesk
+    ldx #>s_isdesk
+    jmp note
+@load
     ; a file: only a CXAP comes back from this
     lda #<obuf
     ldx #>obuf
@@ -1037,6 +1051,8 @@ s_about   .byte "CXGEOS -- a GEOS-inspired desktop for the X16.", 0
 s_ok      .byte "ok", 0
 s_bad     .byte "that is not a CXGEOS app.", 0
 s_noda    .byte "that desk accessory would not open.", 0
+s_shname  .byte "SHELL.CXA"
+s_isdesk  .byte "this is the desktop -- you are already in it.", 0
 s_mkq     .byte "name the new folder:", 0
 s_nfq     .byte "name the new file:", 0
 s_rnq     .byte "rename to:", 0
