@@ -122,13 +122,13 @@ function Invoke-Emulator([string[]]$emuArgs, [int]$timeout, [string]$until, [str
 }
 
 # --- the apps: assemble a PRG, wrap it as a CXAP ------------------------
-function Build-Prg([string]$src, [string]$prgName) {
+function Build-Prg([string]$src, [string]$prgName, [string]$cfg = "prg.cfg") {
     $o = Join-Path $build "$prgName.o"
     $p = Join-Path $build "$prgName.PRG"
     Write-Host "ca65  $src -> $p"
     & $ca65 --cpu 65C02 -I $lib -I $root -o $o (Join-Path $root $src)
     if ($LASTEXITCODE -ne 0) { Fail "ca65 failed on $src" }
-    & $ld65 -C (Join-Path $root "prg.cfg") -o $p $o
+    & $ld65 -C (Join-Path $root $cfg) -o $p $o
     if ($LASTEXITCODE -ne 0) { Fail "ld65 failed on $src" }
     return $p
 }
@@ -151,6 +151,11 @@ function Build-Apps {
         & $py $mkcxap $p (Join-Path $build "$($app.prg).CXA") --name $app.name
         if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on $($app.prg)" }
     }
+
+    # the notes desk accessory: a bare PRG at $A000, no CXAP wrapper --
+    # the DA manager loads it raw into bank 9
+    $da = Build-Prg "apps\da_notes\notes.asm" "NOTES" "da.cfg"
+    Copy-Item $da (Join-Path $build "NOTES.CXD") -Force
 
     # hello_c wants llvm-mos; a machine without it still builds the rest
     $mosbin = $null
@@ -202,6 +207,7 @@ function Stage-SdRoot {
     if (Test-Path (Join-Path $build "CALC.CXA")) {
         Copy-Item (Join-Path $build "CALC.CXA") $sdroot
     }
+    Copy-Item (Join-Path $build "NOTES.CXD")     $sdroot
     return $sdroot
 }
 

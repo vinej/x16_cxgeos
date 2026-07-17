@@ -537,6 +537,36 @@ main
     jmp fail
 @p2
 
+    ; ---- the desk accessory ----------------------------------------
+    ; open the notes DA, type one key through the dispatcher (it lands
+    ; in bank 9 via the swapped table), ESC it closed the same way --
+    ; then open it AGAIN: the second open only works if the close put
+    ; the manager's state back.
+    lda #<c_nda
+    ldx #>c_nda
+    ldy #9
+    jsr cx_da_open
+    bcs @dabad
+    lda #'A'
+    jsr pkey
+    jsr cx_ev_dispatch
+    lda #$1B
+    jsr pkey
+    jsr cx_ev_dispatch
+    lda #<c_nda
+    ldx #>c_nda
+    ldy #9
+    jsr cx_da_open
+    bcs @dabad
+    lda #$1B
+    jsr pkey
+    jsr cx_ev_dispatch
+    bra @daok
+@dabad
+    lda #'D'
+    jmp fail
+@daok
+
 menu_ok
     lda #<s_ok
     ldx #>s_ok
@@ -740,6 +770,7 @@ s_dok  .byte "ok", 0
 c_bad .byte "S:NOSUCH.XYZ"       ; 12
 c_md  .byte "MD:TDOSDIR"         ; 10
 c_rd  .byte "RD:TDOSDIR"         ; 10
+c_nda .byte "NOTES.CXD"          ; 9
 s_pm  .byte "type Hi and RETURN (a robot is doing this)", 0
 mbuf  .res 64, 0
 pbuf  .res 16, 0

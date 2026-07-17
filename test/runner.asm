@@ -1222,7 +1222,7 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #52                     ; 31 shipped with the table; the rest --
+    cmp #54                     ; 31 shipped with the table; the rest --
     bne @report                 ; loader, events, menus, pointer, themes,
                                 ; dialogs, widgets, keyboard nav, dir,
                                 ; DOS, the prompt -- grew it
@@ -1997,6 +1997,7 @@ test_clip_span
 .include "kernel/ui/theme.asm"
 .include "kernel/ui/dialog.asm"
 .include "kernel/ui/widget.asm"
+.include "kernel/ui/da.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
 .include "kernel/resident/core.asm"

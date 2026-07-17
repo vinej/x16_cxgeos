@@ -263,6 +263,32 @@ dop
 on_widget                       ; the list was activated: open the entry
     jsr selname
     bne @dir
+    ldy oblen                   ; a ".CXD" opens OVER the desktop
+    cpy #5
+    bcc @app
+    lda obuf-4,y
+    cmp #'.'
+    bne @app
+    lda obuf-3,y
+    cmp #'C'
+    bne @app
+    lda obuf-2,y
+    cmp #'X'
+    bne @app
+    lda obuf-1,y
+    cmp #'D'
+    bne @app
+    lda #<obuf                  ; a desk accessory: the desktop stays
+    ldx #>obuf
+    ldy oblen
+    jsr cx_da_open
+    bcc @ok
+    lda #<s_noda
+    ldx #>s_noda
+    jmp note
+@ok
+    rts
+@app
     ; a file: only a CXAP comes back from this
     lda #<obuf
     ldx #>obuf
@@ -712,6 +738,7 @@ s_day     .byte "daylight", 0
 s_night   .byte "midnight", 0
 s_about   .byte "CXGEOS -- the directory is live off the SD card.", 0
 s_bad     .byte "that is not a CXGEOS app.", 0
+s_noda    .byte "that desk accessory would not open.", 0
 s_mkq     .byte "name the new folder:", 0
 s_rnq     .byte "rename to:", 0
 s_cpq     .byte "copy to:", 0
