@@ -13,3 +13,6 @@
 
 # scratch
 /test/fsroot/
+
+# local project brief for Claude -- kept local, never published
+/CLAUDE.md
