@@ -388,8 +388,8 @@ dg_field
     sta X16_P0
     lda #>(DG_X0+16)
     sta X16_P1
-    lda #<(DG_FLD_Y+3)
-    sta X16_P2
+    lda #<(DG_FLD_Y+5)          ; +5 centres the 8px glyphs in the 18px
+    sta X16_P2                  ; field, not sat against its top
     stz X16_P3
     lda dg_buf
     ldx dg_buf+1
@@ -399,13 +399,13 @@ dg_field
     bne @nc
     inc X16_P1
 @nc
-    lda #<(DG_FLD_Y+3)
+    lda #<(DG_FLD_Y+4)
     sta X16_P2
     stz X16_P3
     lda #2
     sta X16_P4
     stz X16_P5
-    lda #12
+    lda #10
     sta X16_P6
     stz X16_P7
     lda th_frame

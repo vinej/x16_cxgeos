@@ -477,7 +477,7 @@ wg_p_field
     lda th_frame
     jsr gfx2_frame
 
-    clc                         ; the text pen: x+4, y+3
+    clc                         ; the text pen: x+4, y centred
     ldy #WG_X
     lda (CX_M_PTR),y
     adc #4
@@ -486,10 +486,16 @@ wg_p_field
     lda (CX_M_PTR),y
     adc #0
     sta X16_P1
+    ldy #WG_H                   ; centre the 8px glyphs: y + (h-8)/2
+    lda (CX_M_PTR),y
+    sec
+    sbc #8
+    lsr
+    sta wg_ch                   ; scratch: the vertical inset
     clc
     ldy #WG_Y
     lda (CX_M_PTR),y
-    adc #3
+    adc wg_ch
     sta X16_P2
     ldy #WG_Y+1
     lda (CX_M_PTR),y
@@ -1153,6 +1159,7 @@ wg_post_val
 ; follows. Carry set if the key was ours.
 ; =====================================================================
 WK_TAB   = $09
+WK_BTAB  = $18                  ; Shift+TAB: focus backward
 WK_SPACE = $20
 WK_ENTER = $0D
 WK_DOWN  = $11
@@ -1166,7 +1173,8 @@ wg_key
     beq @no                     ; no list: not ours
     cmp #WK_TAB                 ; TAB is focus, whatever has it. NOT
     beq @fwd                    ; DOWN -- that opens the menu bar, which
-                                ; a list only sees once focused
+    cmp #WK_BTAB                ; a list only sees once focused. Shift+TAB
+    beq @back                   ; steps focus the other way
 
     ldx wg_focus
     bmi @no                     ; nothing focused: pass the key
@@ -1218,6 +1226,10 @@ wg_key
 
 @fwd
     lda #1
+    jsr wg_focus_move
+    bra @yes
+@back
+    lda #$FF
     jsr wg_focus_move
 @yes
     sec

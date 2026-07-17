@@ -568,46 +568,138 @@ do_rename
     rts
 
 ; ---- copy ------------------------------------------------------------
+; CMDR-DOS "C:new=old" is a syntax error on hostfs, so the copy is done
+; by hand: open the source for read and the new name for write and
+; stream the bytes across. Interrupts are masked around the transfer
+; (the event IRQ must not re-enter the KERNAL mid-I/O, the loader
+; lesson).
 do_copy
     jsr selname
     jsr no_dots
     bcs @out
-    stz pbuf                    ; the copy needs a fresh name
+    ldy #0                      ; the source name is safe in obuf; ask
+@save                           ; overwrites nothing of it, but keep a copy
+    lda obuf,y                  ; in srcn so a later selname cannot disturb
+    sta srcn,y
+    beq @asked
+    iny
+    bne @save
+@asked
+    stz pbuf                    ; a fresh name for the copy
     lda #<s_cpq
     ldx #>s_cpq
     jsr ask
     bcs @out
-    ldy #0                      ; "C:" + new + "=" + old
+
+    lda #<srcn                  ; open the source, ",S,R"
+    ldx #>srcn
+    jsr name_open_r
+    bcs @noread
+
+    lda #<pbuf                  ; open the destination, ",S,W"
+    ldx #>pbuf
+    jsr name_open_w
+    bcs @nowrite
+
+    sei                         ; stream source -> dest
+@loop
+    ldx #2
+    jsr CHKIN
+    jsr CHRIN
+    sta ftype                   ; the byte (ftype is free here)
+    jsr READST
+    sta deldir                  ; the status
+    ldx #3
+    jsr CHKOUT
+    lda ftype
+    jsr CHROUT
+    lda deldir
+    and #$40                    ; EOF on the read?
+    beq @loop
+    jsr CLRCHN
+    lda #2
+    jsr CLOSE
+    lda #3
+    jsr CLOSE
+    cli
+    lda #<s_copied
+    ldx #>s_copied
+    jsr note
+    jmp refresh
+@nowrite
+    lda #2                      ; the source is still open
+    jsr CLOSE
+@noread
+    lda #<s_cpbad
+    ldx #>s_cpbad
+    jmp note
+@out
+    rts
+
+; name_open_r -- A/X = a bare name; build "name,S,R" in cbuf and OPEN it
+; as LFN 2. Carry set if OPEN refused.
+name_open_r
+    jsr build_name
+    lda #<s_sr
+    ldx #>s_sr
+    jsr append_suffix           ; X = the full length
+    txa
+    ldx #<cbuf
+    ldy #>cbuf
+    jsr SETNAM
+    lda #2
+    ldx #8
+    ldy #2
+    jsr SETLFS
+    jmp OPEN
+
+; name_open_w -- A/X = a bare name; build "name,S,W" and OPEN it as LFN 3.
+name_open_w
+    jsr build_name
+    lda #<s_sw
+    ldx #>s_sw
+    jsr append_suffix
+    txa
+    ldx #<cbuf
+    ldy #>cbuf
+    jsr SETNAM
+    lda #3
+    ldx #8
+    ldy #3
+    jsr SETLFS
+    jmp OPEN
+
+; build_name -- A/X = a NUL name; copy it into cbuf, cbuf_i = its length.
+build_name
+    sta poolp
+    stx poolp+1
+    ldy #0
 @c
-    lda s_c,y
-    beq @n
+    lda (poolp),y
+    beq @d
     sta cbuf,y
     iny
     bne @c
-@n
-    ldx #0
-@c2
-    lda pbuf,x
-    beq @eq
-    sta cbuf,y
-    iny
+@d
+    sty cbuf_i
+    rts
+
+; append_suffix -- A/X = a NUL suffix; append it (and its NUL) at cbuf_i.
+; Returns X = the total length (the NUL's position).
+append_suffix
+    sta poolp
+    stx poolp+1
+    ldy #0
+    ldx cbuf_i
+@c
+    lda (poolp),y
+    sta cbuf,x
+    beq @d
     inx
-    bne @c2
-@eq
-    lda #'='
-    sta cbuf,y
     iny
-    ldx #0
-@c3
-    lda obuf,x
-    sta cbuf,y
-    beq @send
-    iny
-    inx
-    bne @c3
-@send
-    jmp dop
-@out
+    bne @c
+@d
+    stx cbuf_i
     rts
 
 ; ---- delete ----------------------------------------------------------
@@ -958,8 +1050,10 @@ s_home    .byte "CD://"
 s_home_len = * - s_home
 s_md      .byte "MD:", 0
 s_r       .byte "R:", 0
-s_c       .byte "C:", 0
 s_sw      .byte ",S,W", 0
+s_sr      .byte ",S,R", 0
+s_copied  .byte "copied.                       ", 0
+s_cpbad   .byte "copy failed.                  ", 0
 pat       .byte "$"
 
 fcount    .byte 0
@@ -969,7 +1063,9 @@ depth     .byte 0               ; folders deep from the root; 0 = home
 ddelta    .byte 0               ; a pending CD's step: +1 down, -1 up
 inmenu    .byte 0               ; 0 = browsing, 1 = a menu is open
 oblen     .byte 0
+cbuf_i    .byte 0               ; build_name/append_suffix write index
 tbuf      .res 17, 0            ; "YYYY-MM-DD HH:MM"
+srcn      .res NAMEMAX, 0       ; the copy's source name, kept across ask
 obuf      .res NAMEMAX, 0       ; the selected name, slash stripped
 pbuf      .res 20, 0            ; what the prompt collects
 qbuf      .res 32, 0            ; the delete question
