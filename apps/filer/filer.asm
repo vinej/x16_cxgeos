@@ -53,6 +53,11 @@ main
     ldy #20
     jsr say
 
+    lda #<s_home                ; home is the root: an app launched from
+    ldx #>s_home                ; a folder leaves us there on reload, so
+    ldy #s_home_len             ; the desktop always resets. depth stays 0
+    jsr cx_dos_cmd
+
     jsr readdir                 ; fill the list from the directory
 
     jsr cx_ev_init
@@ -110,12 +115,22 @@ note                            ; A/X = string onto a cleared note row
     jmp say
 
 ; ---------------------------------------------------------------------
-; readdir -- walk the directory into the pool: "../" first, then each
-; entry, directories wearing a trailing '/'. fptrs[i] points at name i,
-; and the list record's count and selection are refreshed.
+; readdir -- walk the directory into the pool. Inside a folder (depth >
+; 0) row 0 is "../", the way up; at the root there is nowhere up, so no
+; such row -- CD:.. above the root is a DOS "file not found", which is
+; the loop the owner hit. The listing's own "." and ".." are skipped:
+; the one go-back row is ours. Directories wear a trailing '/'.
 ; ---------------------------------------------------------------------
 readdir
-    lda #<pool                  ; row 0 is always the way up
+    stz fcount
+    lda #<pool                  ; the pool grows from the start...
+    sta poolp
+    lda #>pool
+    sta poolp+1
+
+    lda depth                   ; ...after a "../" go-back row, but only
+    beq @open                   ; when we are down inside a folder
+    lda #<pool
     sta fptrs
     lda #>pool
     sta fptrs+1
@@ -131,7 +146,7 @@ readdir
     sta poolp
     lda #>(pool+4)
     sta poolp+1
-
+@open
     lda #<pat
     ldx #>pat
     ldy #1
@@ -152,6 +167,19 @@ readdir
     bcs @done
     sta ftype                   ; 0 file / 1 dir
 
+    ldy #0                      ; skip the listing's own "." and ".." --
+    lda (poolp),y               ; our "../" row is the only go-back
+    cmp #'.'
+    bne @keep
+    iny
+    lda (poolp),y
+    beq @loop                   ; "." alone
+    cmp #'.'
+    bne @keep
+    iny
+    lda (poolp),y
+    beq @loop                   ; ".."
+@keep
     ldx fcount                  ; fptrs[count] = poolp
     txa
     asl
@@ -298,13 +326,27 @@ on_widget                       ; the list was activated: open the entry
     ldx #>s_bad
     jmp note
 @dir                            ; a folder: go there and re-read
-    ldy #0                      ; "CD:" + name
+    lda #1                      ; the depth step: a name goes down, ".."
+    sta ddelta                  ; comes back up
+    lda oblen
+    cmp #2
+    bne @cd
+    lda obuf
+    cmp #'.'
+    bne @cd
+    lda obuf+1
+    cmp #'.'
+    bne @cd
+    lda #$FF
+    sta ddelta
 @cd
+    ldy #0                      ; "CD:" + name
+@cdc
     lda s_cd,y
     beq @cdn
     sta cbuf,y
     iny
-    bne @cd
+    bne @cdc
 @cdn
     ldx #0
 @cd2
@@ -315,7 +357,26 @@ on_widget                       ; the list was activated: open the entry
     inx
     bne @cd2
 @go
-    jmp dop
+    lda #<cbuf                  ; send it, and only on success does the
+    ldx #>cbuf                  ; depth move -- a refused CD leaves us put
+    jsr cx_dos_cmd
+    php
+    lda #<mbuf
+    sta X16_P0
+    lda #>mbuf
+    sta X16_P1
+    jsr cx_dos_msg
+    lda #<mbuf
+    ldx #>mbuf
+    jsr note
+    plp
+    bcs @refresh
+    lda depth
+    clc
+    adc ddelta
+    sta depth
+@refresh
+    jmp refresh
 
 on_menu
     lda X16_P2
@@ -747,6 +808,8 @@ s_delp    .byte "delete "
 s_keep    .byte "keep", 0
 s_dodel   .byte "delete", 0
 s_cd      .byte "CD:", 0
+s_home    .byte "CD://"
+s_home_len = * - s_home
 s_md      .byte "MD:", 0
 s_r       .byte "R:", 0
 s_c       .byte "C:", 0
@@ -755,6 +818,8 @@ pat       .byte "$"
 fcount    .byte 0
 ftype     .byte 0
 deldir    .byte 0
+depth     .byte 0               ; folders deep from the root; 0 = home
+ddelta    .byte 0               ; a pending CD's step: +1 down, -1 up
 inmenu    .byte 0               ; 0 = browsing, 1 = a menu is open
 oblen     .byte 0
 tbuf      .res 6, 0             ; "HH:MM"
