@@ -361,10 +361,13 @@ font_measure
     stx CX_F_STR+1
     lda RAM_BANK                ; f_advance reads the font's bank, so the
     pha                         ; caller's comes back like font_draw's
+    sta f_sbank                 ; ...and the string is read under it too
     stz X16_P0
     stz X16_P1
     stz f_idx
 @loop
+    lda f_sbank                 ; the string may live in a bank
+    sta RAM_BANK
     ldy f_idx
     lda (CX_F_STR),y
     beq @done
@@ -404,9 +407,12 @@ font_draw
 
     lda RAM_BANK
     pha
-    stz f_idx
+    sta f_sbank                 ; the string is read under the caller's
+    stz f_idx                   ; bank; drawing a glyph moves RAM_BANK off
 
 @loop
+    lda f_sbank                 ; back to the string's bank each char
+    sta RAM_BANK
     ldy f_idx
     lda (CX_F_STR),y
     beq @done
@@ -558,6 +564,11 @@ f_style   .byte 0               ; FONT_BOLD | FONT_UNDER
 
 f_bank    .byte 0               ; where the CXF lives, from font_set
 f_cbank   .byte 0               ; the cache bank of the glyph in hand
+f_sbank   .byte 0               ; the bank the STRING is read under (the
+                                ; caller's) -- restored before every char,
+                                ; since drawing a glyph leaves RAM_BANK on
+                                ; the font/cache bank. Lets a caller pass a
+                                ; string in a bank (dialog labels in bank 2)
 
 f_gi      .byte 0               ; the glyph being cached / drawn
 f_phase   .byte 0

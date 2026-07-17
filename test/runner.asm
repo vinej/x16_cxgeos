@@ -82,6 +82,7 @@ main
     jsr test_dir
     jsr test_clip
     jsr test_clip_span
+    jsr test_font_bank
 
     jsr t_summary
     rts
@@ -1985,6 +1986,66 @@ test_clip_span
     jmp t_result
 @name .byte "CLIPSPAN", 0
 @got  .byte 0
+
+; ---------------------------------------------------------------------
+; font_measure must read a string that lives in a bank correctly -- the
+; same width as its low-RAM twin. Before the fix, drawing/measuring
+; left RAM_BANK on the font's bank between characters, so every char
+; after the first was read from the wrong bank (this is what drew the
+; dialog's bank-2 button labels as garbage).
+; ---------------------------------------------------------------------
+test_font_bank
+    lda RAM_BANK
+    pha
+    lda #16                     ; copy "WIDE" into bank 16 at $A000
+    sta RAM_BANK
+    ldy #0
+@cp
+    lda @s,y
+    sta $A000,y
+    beq @measured_ref
+    iny
+    bne @cp
+@measured_ref
+    pla                         ; the reference width, from low RAM
+    pha
+    sta RAM_BANK
+    lda #<@s
+    ldx #>@s
+    jsr font_measure
+    lda X16_P0
+    sta @refw
+    lda X16_P1
+    sta @refw+1
+
+    lda #16                     ; the same string, from the bank
+    sta RAM_BANK
+    lda #<$A000
+    ldx #>$A000
+    jsr font_measure
+    pla
+    sta RAM_BANK
+    lda X16_P0                  ; must match, byte for byte
+    cmp @refw
+    bne @fail
+    lda X16_P1
+    cmp @refw+1
+    bne @fail
+    lda X16_P0                  ; and be nonzero -- a real measurement
+    ora X16_P1
+    beq @fail
+    ldy #0
+    bra @report
+@fail
+    ldy #1
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONTBANK", 0
+@s    .byte "WIDE", 0
+@refw .word 0
 
 ; ---------------------------------------------------------------------
 .include "kernel/gfx2/dirty.asm"
