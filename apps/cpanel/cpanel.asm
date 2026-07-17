@@ -54,9 +54,38 @@ main
     ldx #>s_clock
     ldy #150
     jsr text_at
-    lda #<s_fields              ; the field labels
-    ldx #>s_fields
-    ldy #170
+
+    lda #172                    ; a label left-aligned over each field
+    sta coly
+    lda #40
+    sta colx
+    lda #<s_yr
+    ldx #>s_yr
+    jsr lbl
+    lda #100
+    sta colx
+    lda #<s_mo
+    ldx #>s_mo
+    jsr lbl
+    lda #144
+    sta colx
+    lda #<s_dd
+    ldx #>s_dd
+    jsr lbl
+    lda #188
+    sta colx
+    lda #<s_hh
+    ldx #>s_hh
+    jsr lbl
+    lda #232
+    sta colx
+    lda #<s_mm
+    ldx #>s_mm
+    jsr lbl
+
+    lda #<s_hint                ; ...and the how-to below the fields
+    ldx #>s_hint
+    ldy #212
     jsr text_at
 
     jsr CLOCK_GET_DATE_TIME     ; seed the fields with the date/time now
@@ -140,6 +169,17 @@ text_at                         ; A/X = string, Y = row; column 40
     ldy #40
     sty X16_P0
     stz X16_P1
+    jmp cx_font_draw
+
+lbl                             ; A/X = string; drawn at (colx, coly)
+    pha
+    lda colx
+    sta X16_P0
+    stz X16_P1
+    lda coly
+    sta X16_P2
+    stz X16_P3
+    pla
     jmp cx_font_draw
 
 two_digits                      ; A = 0-59 -> X = tens char, A = units
@@ -506,7 +546,12 @@ s_marker .byte "CPANEL UP", $0D, 0
 s_title  .byte "control panel -- TAB walks, ESC leaves", 0
 s_theme  .byte "theme", 0
 s_clock  .byte "clock -- now:", 0
-s_fields .byte "  year   mo  dd  hh  mm  (TAB or click a field, then set)", 0
+s_yr     .byte "year", 0
+s_mo     .byte "mo", 0
+s_dd     .byte "dd", 0
+s_hh     .byte "hh", 0
+s_mm     .byte "mm", 0
+s_hint   .byte "TAB or click a field, then set clock", 0
 s_day    .byte "daylight", 0
 s_night  .byte "midnight", 0
 s_set    .byte "set clock", 0
@@ -525,3 +570,5 @@ newh     .byte 0
 newm     .byte 0
 p4d      .byte 0
 p4t      .word 0
+colx     .byte 0               ; lbl's column and row
+coly     .byte 0
