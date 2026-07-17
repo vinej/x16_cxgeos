@@ -76,14 +76,15 @@ static void marker(const char *s) {
     cbm_k_chrout('\r');
 }
 
-/* fmt -- v into out, four decimals, trailing zeros (and a bare point)
- * trimmed. Handles the sign and guards the range where a u32 integer
- * part would overflow. */
+/* fmt -- v into out, seven decimals (a 32-bit float's worth, so 1/3
+ * reads 0.3333333), trailing zeros (and a bare point) trimmed. Handles
+ * the sign and guards the range where a u32 integer part would
+ * overflow. */
 static void fmt(float v, char *out) {
     char tmp[12];
     char *p = out;
     unsigned long ip;
-    unsigned f;
+    unsigned long f;
     signed char nd;
 
     if (v < 0) {
@@ -96,9 +97,9 @@ static void fmt(float v, char *out) {
     }
 
     ip = (unsigned long)v;
-    f = (unsigned)((v - (float)ip) * 10000.0f + 0.5f);
-    if (f >= 10000u) {             /* the round carried into the ones */
-        f -= 10000u;
+    f = (unsigned long)((v - (float)ip) * 10000000.0f + 0.5f);
+    if (f >= 10000000UL) {         /* the round carried into the ones */
+        f -= 10000000UL;
         ip++;
     }
 
@@ -110,18 +111,19 @@ static void fmt(float v, char *out) {
     while (nd)
         *p++ = tmp[--nd];
 
-    if (f) {                       /* four decimals, trailing zeros gone */
-        char dg[4];
+    if (f) {                       /* seven decimals, trailing zeros gone */
+        char dg[7];
         char len;
-        dg[0] = '0' + (char)(f / 1000 % 10);
-        dg[1] = '0' + (char)(f / 100 % 10);
-        dg[2] = '0' + (char)(f / 10 % 10);
-        dg[3] = '0' + (char)(f % 10);
-        len = 4;
+        unsigned long d = 1000000UL;
+        char i;
+        for (i = 0; i < 7; i++) {
+            dg[i] = '0' + (char)(f / d % 10);
+            d /= 10;
+        }
+        len = 7;
         while (len > 0 && dg[len - 1] == '0')
             len--;
         if (len) {
-            char i;
             *p++ = '.';
             for (i = 0; i < len; i++)
                 *p++ = dg[i];
@@ -131,7 +133,7 @@ static void fmt(float v, char *out) {
 }
 
 static void show(void) {
-    static char buf[16];
+    static char buf[24];
 
     if (err)
         buf[0] = 0;
@@ -140,8 +142,10 @@ static void show(void) {
 
     rect(GX + 2, 112, 244, 24, 0);
     say(err ? "" : buf, GX + 12, 118);
-    rect(GX, 300, 320, 14, 0);
-    say(note, GX, 300);
+    /* the note goes ABOVE the display -- at y=300 it sat on the bottom
+     * button row and wiped out the C labels */
+    rect(40, 88, 420, 14, 0);
+    say(note, 40, 90);
     note = "";
 }
 
