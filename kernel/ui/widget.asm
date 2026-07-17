@@ -580,8 +580,10 @@ wg_field_key
     sec
     sbc #1
     sta (CX_M_PTR),y           ; length--
-    tay
-    jsr wg_bufptr
+    jsr wg_bufptr              ; FIRST -- it uses Y, so the new length
+    ldy #WG_VAL                ; must be reloaded into Y after it, or the
+    lda (CX_M_PTR),y           ; NUL lands at WG_LBL+1 and the text on
+    tay                        ; screen never shortens (the owner's bug)
     lda #0
     sta (X16_T0),y             ; buffer[len] = 0
 @redraw

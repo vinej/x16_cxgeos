@@ -419,6 +419,25 @@ main
     lda #'4'
     jmp fail
 @wf4
+    ; backspace must truncate the buffer, not just drop the length --
+    ; the NUL has to land at the new end (the owner's on-screen bug).
+    lda #$14                    ; DEL
+    jsr cx_wg_key
+    lda wg_list + 1 + 4*16 + 9  ; length now 1
+    cmp #1
+    beq @wf5
+    lda #'6'
+    jmp fail
+@wf5
+    lda wl_buf                  ; "H" still there
+    cmp #'H'
+    bne @wbad
+    lda wl_buf+1                ; and the NUL at index 1, so "i" is gone
+    beq @wf6
+@wbad
+    lda #'7'
+    jmp fail
+@wf6
 
     ; ---- list view selection --------------------------------------
     ; focus is on the field (record 4); TAB once to the list (record 5),
