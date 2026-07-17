@@ -49,7 +49,8 @@ cxl_refuse
     jsr CLRCHN
     lda #CXL_LFN
     jsr CLOSE
-    pla
+    cli                         ; the load masked interrupts (below); a
+    pla                         ; refused caller gets its event loop back
     sec
     rts
 
@@ -66,6 +67,13 @@ cxl_load
     ldx #CXL_DEV
     ldy #2                      ; a raw byte stream: OPEN hands over the
     jsr SETLFS                  ; PRG load address too, LOAD would eat it
+    ; INTERRUPTS OFF for the whole load. CHKIN below makes LFN 1 the
+    ; current input channel, and the caller's still-live event IRQ drains
+    ; the keyboard with GETIN -- which reads the current channel and would
+    ; steal bytes out of the app being loaded, corrupting it into a crash
+    ; (the same trap as kernel/fs/dir.asm, but here it wrecks code). Every
+    ; exit restores them: cxl_refuse, @done via cli, cxl_fatal halts.
+    sei
     jsr OPEN
     bcs cxl_bad
     ldx #CXL_LFN
@@ -181,6 +189,7 @@ cxl_load
     jsr CLOSE
     jsr ev_stop                 ; every app starts in the same machine:
     jsr mouse_hide              ; events off, mouse hidden, a clean ZP,
+    cli                         ; interrupts back (the load masked them),
     ldx #$FF                    ; an empty stack. The old program is
     txs                         ; gone, and so is every return address
     ldx #$1F                    ; it ever pushed.
