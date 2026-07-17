@@ -188,8 +188,9 @@ cxl_load
     lda #CXL_LFN
     jsr CLOSE
     jsr ev_stop                 ; every app starts in the same machine:
-    jsr mouse_hide              ; events off, mouse hidden, a clean ZP,
-    cli                         ; interrupts back (the load masked them),
+    jsr mouse_hide              ; events off, mouse hidden, app sprites
+    jsr sprites_reset           ; cleared (so none linger under the next),
+    cli                         ; a clean ZP; interrupts back (load masked
     ldx #$FF                    ; an empty stack. The old program is
     txs                         ; gone, and so is every return address
     ldx #$1F                    ; it ever pushed.

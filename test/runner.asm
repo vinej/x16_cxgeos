@@ -1224,10 +1224,10 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #55                     ; 31 shipped with the table; the rest --
-    bne @report                 ; loader, events, menus, pointer, themes,
-                                ; dialogs, widgets, keyboard nav, dir, DOS,
-                                ; the prompt, and cx_ev_next -- grew it
+    cmp #74                     ; 31 shipped with the table; loader, events,
+    bne @report                 ; menus, pointer, themes, dialogs, widgets,
+                                ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
+                                ; PSG/YM audio, sprites, PCM -- grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
@@ -2098,8 +2098,11 @@ test_font_bank
 .include "kernel/ui/dialog.asm"
 .include "kernel/ui/widget.asm"
 .include "kernel/ui/da.asm"
+.include "kernel/audio/audio.asm"
+.include "kernel/video/sprite.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
+.include "kernel/audio/pcm.asm"
 .include "kernel/resident/core.asm"
 .include "kernel/resident/farcall.asm"
 .include "kernel/resident/vrows.asm"

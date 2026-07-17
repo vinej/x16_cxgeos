@@ -72,6 +72,38 @@
 #define CX_K_RIGHT    0x1D
 #define CX_K_SPACE    0x20
 
+/* --- audio: PSG waveforms and panning ------------------------------- */
+#define CX_WAVE_PULSE 0x00
+#define CX_WAVE_SAW   0x40
+#define CX_WAVE_TRI   0x80
+#define CX_WAVE_NOISE 0xC0
+#define CX_PAN_LEFT   0x40
+#define CX_PAN_RIGHT  0x80
+#define CX_PAN_BOTH   0xC0
+/* pack an octave (0-7) and a note (1-12) into a cx_ym_note code */
+#define CX_YM(octave, note)  (((octave) << 4) | (note))
+
+/* --- PCM format bits (cx_pcm_ctrl); low nibble is volume 0-15 -------- */
+#define CX_PCM_16BIT  0x20
+#define CX_PCM_STEREO 0x10
+
+/* --- sprites -------------------------------------------------------- */
+#define CX_SPR_4BPP   0x00       /* image colour depth (cx_sprite_image) */
+#define CX_SPR_8BPP   0x80
+#define CX_SPR_8      0          /* size codes (cx_sprite_size)          */
+#define CX_SPR_16     1
+#define CX_SPR_32     2
+#define CX_SPR_64     3
+#define CX_SPR_HIDE   0x00       /* Z-depths (cx_sprite_z / _flags)      */
+#define CX_SPR_BEHIND 0x04
+#define CX_SPR_MIDDLE 0x08
+#define CX_SPR_FRONT  0x0C
+#define CX_SPR_HFLIP  0x01
+#define CX_SPR_VFLIP  0x02
+/* the VRAM region the desktop reserves for app sprite images (4 KB).
+ * Sprite 0 is the KERNAL mouse; apps drive sprites 1-127. */
+#define CX_SPR_VRAM   0x1E000UL
+
 /* small helpers that pack a 16-bit value into two mirror bytes */
 #define CX__W(i, v)   (cx_p[i] = (unsigned char)(v), \
                        cx_p[(i) + 1] = (unsigned char)((unsigned)(v) >> 8))
@@ -324,6 +356,107 @@ static int cx_prompt(const char *msg, char *buf, unsigned char cap) {
 }
 
 /* =====================================================================
+ * audio -- the VERA PSG (16 voices) and the YM2151 FM chip
+ * ===================================================================== */
+/* PSG: silence every voice */
+static void cx_psg_init(void) { cx_call(CX_PSG_INIT); }
+/* set a voice's pitch. freq = Hz * 2.68435 (A4 = 440 Hz is 1181) */
+static void cx_psg_freq(unsigned char voice, unsigned freq) {
+    cx_x = voice; CX__W(0, freq);
+    cx_call(CX_PSG_FREQ);
+}
+/* set a voice's volume (0-63) and pan (CX_PAN_LEFT/RIGHT/BOTH) */
+static void cx_psg_vol(unsigned char voice, unsigned char vol, unsigned char pan) {
+    cx_y = pan;
+    cx_call_ax(CX_PSG_VOL, vol, voice);
+}
+/* set a voice's waveform (CX_WAVE_*) and pulse width / XOR (0-63) */
+static void cx_psg_wave(unsigned char voice, unsigned char wave, unsigned char pw) {
+    cx_y = pw;
+    cx_call_ax(CX_PSG_WAVE, wave, voice);
+}
+/* silence a voice (keeps its panning) */
+static void cx_psg_off(unsigned char voice) {
+    cx_x = voice;
+    cx_call(CX_PSG_OFF);
+}
+/* a one-call tone: a pulse wave at freq/vol on a voice, both channels.
+ * The app decides how long to hold it before cx_psg_off. */
+static void cx_tone(unsigned char voice, unsigned freq, unsigned char vol) {
+    cx_psg_wave(voice, CX_WAVE_PULSE, 32);
+    cx_psg_freq(voice, freq);
+    cx_psg_vol(voice, vol, CX_PAN_BOTH);
+}
+
+/* YM2151 (FM): reset the chip and load the default patches. Call once. */
+static void cx_ym_init(void) { cx_call(CX_YM_INIT); }
+/* play a note on a channel (0-7); code is CX_YM(octave, note), 0 releases */
+static void cx_ym_note(unsigned char chan, unsigned char code) {
+    cx_call_ax(CX_YM_NOTE, chan, code);
+}
+/* release the note on a channel */
+static void cx_ym_off(unsigned char chan) { cx_call_a(CX_YM_OFF, chan); }
+/* set a channel's attenuation (0 = the patch's volume, larger = quieter) */
+static void cx_ym_vol(unsigned char chan, unsigned char atten) {
+    cx_call_ax(CX_YM_VOL, chan, atten);
+}
+/* load a ROM instrument patch (0-162) on a channel */
+static void cx_ym_patch(unsigned char chan, unsigned char idx) {
+    cx_call_ax(CX_YM_PATCH, chan, idx);
+}
+
+/* PCM (the 4KB FIFO, topped up each frame off the event IRQ). Needs
+ * cx_ev_init running; the sample is signed bytes in low RAM. Set the
+ * format/volume once with cx_pcm_ctrl (e.g. 0x0F = 8-bit mono, full
+ * volume) before cx_pcm_play. */
+static void cx_pcm_ctrl(unsigned char ctrl) { cx_call_a(CX_PCM_CTRL, ctrl); }
+/* play `len` sample bytes from `src` at `rate` (1-128; 128 = 48 kHz) */
+static void cx_pcm_play(const void *src, unsigned len, unsigned char rate) {
+    CX__W(0, (unsigned)src); CX__W(2, len);
+    cx_call_a(CX_PCM_PLAY, rate);
+}
+static void          cx_pcm_stop(void) { cx_call(CX_PCM_STOP); }
+static unsigned char cx_pcm_active(void) { return cx_ret(CX_PCM_ACTIVE); }
+
+/* =====================================================================
+ * sprites (VERA hardware sprites)
+ * =====================================================================
+ * Sprite 0 is the mouse; drive sprites 1-127. Put image data in VRAM at
+ * CX_SPR_VRAM (32-byte aligned) with cx_vram_write, point the sprite at
+ * it, give it a size and position, then a Z-depth to show it. Set the
+ * flags once (cx_sprite_flags) before using cx_sprite_z. */
+
+/* point sprite s at its image (VRAM addr, 32-byte aligned; CX_SPR_4BPP/8BPP) */
+static void cx_sprite_image(unsigned char s, unsigned long addr,
+                            unsigned char mode) {
+    cx_x = s;
+    cx_p[0] = (unsigned char)addr;
+    cx_p[1] = (unsigned char)(addr >> 8);
+    cx_p[2] = (unsigned char)(addr >> 16);
+    cx_call_a(CX_SPRITE_IMAGE, mode);
+}
+/* move sprite s to (x, y) */
+static void cx_sprite_pos(unsigned char s, unsigned x, unsigned y) {
+    cx_x = s; CX__W(0, x); CX__W(2, y);
+    cx_call(CX_SPRITE_POS);
+}
+/* set sprite s's size (CX_SPR_8/16/32/64 each axis) and palette offset */
+static void cx_sprite_size(unsigned char s, unsigned char w, unsigned char h,
+                           unsigned char pal) {
+    cx_x = s; cx_y = h; cx_p[0] = pal;
+    cx_call_a(CX_SPRITE_SIZE, w);
+}
+/* set sprite s's flags: collision<<4 | Z | CX_SPR_VFLIP | CX_SPR_HFLIP.
+ * A full write -- do this once before cx_sprite_z. */
+static void cx_sprite_flags(unsigned char s, unsigned char flags) {
+    cx_x = s; cx_call_a(CX_SPRITE_FLAGS, flags);
+}
+/* change only sprite s's Z-depth: CX_SPR_HIDE/BEHIND/MIDDLE/FRONT */
+static void cx_sprite_z(unsigned char s, unsigned char z) {
+    cx_x = s; cx_call_a(CX_SPRITE_Z, z);
+}
+
+/* =====================================================================
  * loader and desk accessories
  * ===================================================================== */
 static unsigned char cx__strlen(const char *s) {
@@ -514,6 +647,20 @@ static unsigned cx_pic_load(const char *name, unsigned x, unsigned y,
     cbm_k_close(2);
     __asm__ volatile ("cli" ::: "memory");
     return rows;
+}
+
+/* copy `len` bytes from RAM `src` into VRAM at `addr`, through VERA's
+ * auto-incrementing data port -- for uploading sprite images (to
+ * CX_SPR_VRAM), tiles, or any raw VRAM. */
+static void cx_vram_write(unsigned long addr, const void *src, unsigned len) {
+    const unsigned char *p = (const unsigned char *)src;
+    unsigned i;
+    CX__V_CTRL   = 0;
+    CX__V_ADDR_L = (unsigned char)addr;
+    CX__V_ADDR_M = (unsigned char)(addr >> 8);
+    CX__V_ADDR_H = ((unsigned char)(addr >> 16) & 0x0F) | 0x10;
+    for (i = 0; i < len; i++)
+        CX__V_DATA0 = p[i];
 }
 
 #pragma GCC diagnostic pop

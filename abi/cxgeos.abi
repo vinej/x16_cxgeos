@@ -139,3 +139,37 @@ version = 1
 # record for a C app to read. A pure-C app cannot take the asm callback
 # cx_ev_dispatch invokes, so it polls this instead of cx_ev_get.
 54  cx_ev_next      1   -> P0..P7 = the next non-mouse event; mouse events are routed to the toolkit first; carry set if the queue emptied with none to return
+
+#= audio: the VERA PSG (16 voices)
+# The voice registers are write-only, so a set is fire-and-forget. A
+# frequency word is Hz * 2.68435 (A4 = 440 Hz is 1181).
+55  cx_psg_init     1   silence all 16 voices
+56  cx_psg_freq     1   X = voice (0-15), P0/P1 = frequency word
+57  cx_psg_vol      1   X = voice, A = volume (0-63), Y = pan (0x40 left / 0x80 right / 0xC0 both)
+58  cx_psg_wave     1   X = voice, A = waveform (0x00 pulse / 0x40 saw / 0x80 triangle / 0xC0 noise), Y = pulse width (0-63)
+59  cx_psg_off      1   X = voice; volume to zero, panning kept
+
+#= audio: the YM2151 FM chip (through the ROM audio driver, bank-switched)
+60  cx_ym_init      1   reset the chip and load the default instrument patches
+61  cx_ym_note      1   A = channel (0-7), X = (octave << 4) | note (1-12); X=0 releases. Retriggers the envelope
+62  cx_ym_off       1   A = channel; release the note
+63  cx_ym_vol       1   A = channel, X = attenuation (0 = the patch's own volume, larger = quieter)
+64  cx_ym_patch     1   A = channel, X = a ROM patch index (0-162)
+
+#= sprites (VERA hardware sprites)
+# Sprite 0 is the KERNAL mouse; apps drive sprites 1-127 with image data
+# in the $1E000 VRAM region (docs/memory-map.md). Image data is 32-byte
+# aligned; the low 5 address bits are dropped.
+65  cx_sprite_image 1   X = sprite (1-127), P0 = addr low, P1 = addr mid, P2 = addr bit 16, A = mode (0 = 4bpp, 0x80 = 8bpp)
+66  cx_sprite_pos   1   X = sprite, P0/P1 = x (0-1023), P2/P3 = y
+67  cx_sprite_size  1   X = sprite, A = width code (0=8, 1=16, 2=32, 3=64), Y = height code, P0 = palette offset (0-15)
+68  cx_sprite_flags 1   X = sprite, A = collision<<4 | Z(0/4/8/0xC) | vflip<<1 | hflip; a full write (needed once before cx_sprite_z)
+69  cx_sprite_z     1   X = sprite, A = Z-depth only (0 hides, 4 behind, 8 middle, 0xC front); read-modify-write, so write the flags once first
+
+#= PCM audio (the VERA 4KB FIFO, refilled each frame from the event IRQ)
+# Needs cx_ev_init running -- the refiller rides its per-frame hook. The
+# sample source is low RAM ($0801-$7FFF); samples are signed bytes.
+70  cx_pcm_ctrl     1   A = control byte: volume 0-15 | 0x20 16-bit | 0x10 stereo
+71  cx_pcm_play     1   P0/P1 = sample source, P2/P3 = byte count, A = rate (1-128, 128 = 48 kHz); resets the FIFO, primes it, starts playback
+72  cx_pcm_stop     1   silence and forget the current sample
+73  cx_pcm_active   1   -> A = 1 while a sample is still playing, else 0

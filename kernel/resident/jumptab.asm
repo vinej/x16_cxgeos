@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 55                    ; slots
+    .word 74                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -119,6 +119,33 @@ cx_jumptab
 
 ; --- events, continued -------------------------------------------
     jmp ev_next          ; 54  -> P0..P7 = the next non-mouse event; mouse events are routed to the toolkit first; carry set if the queue emptied with none to return
+
+; --- audio: the VERA PSG (16 voices) -----------------------------
+    jmp cx_do_psg_init   ; 55  silence all 16 voices
+    jmp cx_do_psg_freq   ; 56  X = voice (0-15), P0/P1 = frequency word
+    jmp cx_do_psg_vol    ; 57  X = voice, A = volume (0-63), Y = pan (0x40 left / 0x80 right / 0xC0 both)
+    jmp cx_do_psg_wave   ; 58  X = voice, A = waveform (0x00 pulse / 0x40 saw / 0x80 triangle / 0xC0 noise), Y = pulse width (0-63)
+    jmp cx_do_psg_off    ; 59  X = voice; volume to zero, panning kept
+
+; --- audio: the YM2151 FM chip (through the ROM audio driver, bank-switched) 
+    jmp cx_do_ym_init    ; 60  reset the chip and load the default instrument patches
+    jmp cx_do_ym_note    ; 61  A = channel (0-7), X = (octave << 4) | note (1-12); X=0 releases. Retriggers the envelope
+    jmp cx_do_ym_off     ; 62  A = channel; release the note
+    jmp cx_do_ym_vol     ; 63  A = channel, X = attenuation (0 = the patch's own volume, larger = quieter)
+    jmp cx_do_ym_patch   ; 64  A = channel, X = a ROM patch index (0-162)
+
+; --- sprites (VERA hardware sprites) -----------------------------
+    jmp cx_do_sprite_image ; 65  X = sprite (1-127), P0 = addr low, P1 = addr mid, P2 = addr bit 16, A = mode (0 = 4bpp, 0x80 = 8bpp)
+    jmp cx_do_sprite_pos ; 66  X = sprite, P0/P1 = x (0-1023), P2/P3 = y
+    jmp cx_do_sprite_size ; 67  X = sprite, A = width code (0=8, 1=16, 2=32, 3=64), Y = height code, P0 = palette offset (0-15)
+    jmp cx_do_sprite_flags ; 68  X = sprite, A = collision<<4 | Z(0/4/8/0xC) | vflip<<1 | hflip; a full write (needed once before cx_sprite_z)
+    jmp cx_do_sprite_z   ; 69  X = sprite, A = Z-depth only (0 hides, 4 behind, 8 middle, 0xC front); read-modify-write, so write the flags once first
+
+; --- PCM audio (the VERA 4KB FIFO, refilled each frame from the event IRQ) 
+    jmp cx_do_pcm_ctrl   ; 70  A = control byte: volume 0-15 | 0x20 16-bit | 0x10 stereo
+    jmp cx_do_pcm_play   ; 71  P0/P1 = sample source, P2/P3 = byte count, A = rate (1-128, 128 = 48 kHz); resets the FIFO, primes it, starts playback
+    jmp cx_do_pcm_stop   ; 72  silence and forget the current sample
+    jmp cx_do_pcm_active ; 73  -> A = 1 while a sample is still playing, else 0
 
 .popseg
 

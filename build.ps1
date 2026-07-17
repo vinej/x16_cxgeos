@@ -176,7 +176,9 @@ function Build-Apps {
             @{ src = "apps\hello_c\hello.c"; prg = "HELLO2"; name = "Hello (C)" },
             @{ src = "apps\calc\calc.c";     prg = "CALC";   name = "Calculator" },
             @{ src = "apps\cdemo\cdemo.c";   prg = "CDEMO";  name = "C Demo" },
-            @{ src = "apps\paint\paint.c";   prg = "PAINT";  name = "Paint" }
+            @{ src = "apps\paint\paint.c";   prg = "PAINT";  name = "Paint" },
+            @{ src = "apps\beep\beep.c";     prg = "BEEP";   name = "Beep" },
+            @{ src = "apps\sprite\sprite.c"; prg = "SPRITE"; name = "Sprite" }
         )) {
             $prg = Join-Path $build "$($capp.prg).PRG"
             Write-Host "llvm  $($capp.src) -> $prg"
@@ -214,6 +216,12 @@ function Stage-SdRoot {
     }
     if (Test-Path (Join-Path $build "PAINT.CXA")) {
         Copy-Item (Join-Path $build "PAINT.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "BEEP.CXA")) {
+        Copy-Item (Join-Path $build "BEEP.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "SPRITE.CXA")) {
+        Copy-Item (Join-Path $build "SPRITE.CXA") $sdroot
     }
     Copy-Item (Join-Path $build "NOTES.CXD")     $sdroot
     return $sdroot

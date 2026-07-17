@@ -363,7 +363,8 @@ ev_irq
     jsr ev_do_mouse
     jsr ev_do_keys
     jsr ev_do_timer
-    jsr irq_restore_regs
+    jsr pcm_refill              ; top up the PCM FIFO from the sample buffer
+    jsr irq_restore_regs        ; (a no-op unless a sample is playing)
     rts
 
 ; --- the pointer -----------------------------------------------------

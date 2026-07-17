@@ -61,8 +61,11 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/ui/dialog.asm"
 .include "kernel/ui/widget.asm"
 .include "kernel/ui/da.asm"
+.include "kernel/audio/audio.asm"
+.include "kernel/video/sprite.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
+.include "kernel/audio/pcm.asm"
 
 ; The system font is NOT here. It ships as PXL8.CXF on the SD card, and
 ; the boot loader puts it at CX_SYSFONT_BANK:$A000 before calling
