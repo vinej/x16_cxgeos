@@ -448,6 +448,95 @@ main
     jmp fail
 @l3
 
+    ; ---- the DOS command channel -----------------------------------
+    ; scratching a file that is not there must come back as the error
+    ; class with readable text; making and unmaking a folder must both
+    ; succeed. TDOSDIR lives only between the two commands, and only in
+    ; the staged sdroot.
+    lda #<c_bad
+    ldx #>c_bad
+    ldy #12
+    jsr cx_dos_cmd
+    bcc @dosbad                 ; no error? that IS the error
+    cmp #20
+    bcc @dosbad
+    lda #<mbuf                  ; the reply text opens with the code's
+    sta X16_P0                  ; first digit
+    lda #>mbuf
+    sta X16_P1
+    jsr cx_dos_msg
+    lda mbuf
+    cmp #'0'
+    bcc @dosbad
+    cmp #'9'+1
+    bcc @dos1
+@dosbad
+    lda #'8'
+    jmp fail
+@dos1
+    lda #<c_md
+    ldx #>c_md
+    ldy #10
+    jsr cx_dos_cmd
+    bcs @dosbad2
+    lda #<c_rd
+    ldx #>c_rd
+    ldy #10
+    jsr cx_dos_cmd
+    bcc @dos2
+@dosbad2
+    lda #'9'
+    jmp fail
+@dos2
+
+    ; ---- the prompt dialog -----------------------------------------
+    ; keys queued before the call, the alert pattern: type "Hi", accept.
+    lda #'H'
+    jsr pkey
+    lda #'i'
+    jsr pkey
+    lda #$0D
+    jsr pkey
+    lda #<pbuf
+    sta X16_P0
+    lda #>pbuf
+    sta X16_P1
+    lda #16
+    sta X16_P2
+    lda #<s_pm
+    ldx #>s_pm
+    jsr cx_dlg_prompt
+    bcs @pbad                   ; accepted, length 2, the text in place
+    cmp #2
+    bne @pbad
+    lda pbuf
+    cmp #'H'
+    bne @pbad
+    lda pbuf+1
+    cmp #'i'
+    bne @pbad
+    lda pbuf+2
+    beq @p1
+@pbad
+    lda #'P'
+    jmp fail
+@p1
+    lda #$1B                    ; and ESC must cancel with the carry
+    jsr pkey
+    lda #<pbuf
+    sta X16_P0
+    lda #>pbuf
+    sta X16_P1
+    lda #16
+    sta X16_P2
+    lda #<s_pm
+    ldx #>s_pm
+    jsr cx_dlg_prompt
+    bcs @p2
+    lda #'Q'
+    jmp fail
+@p2
+
 menu_ok
     lda #<s_ok
     ldx #>s_ok
@@ -512,6 +601,20 @@ click
     sty X16_P4
     stz X16_P1
     stz X16_P3
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jmp cx_ev_post
+
+; pkey -- A = a key: queue it as an EV_KEY for a synchronous dialog to
+; find, the way the RETURN-for-button-0 test posts its key.
+pkey
+    sta X16_P1
+    lda #EV_KEY
+    sta X16_P0
+    stz X16_P2
+    stz X16_P3
+    stz X16_P4
     stz X16_P5
     stz X16_P6
     stz X16_P7
@@ -633,6 +736,13 @@ s_dmsg .byte "a question with two answers", 0
 s_dno  .byte "no", 0
 s_dyes .byte "yes", 0
 s_dok  .byte "ok", 0
+
+c_bad .byte "S:NOSUCH.XYZ"       ; 12
+c_md  .byte "MD:TDOSDIR"         ; 10
+c_rd  .byte "RD:TDOSDIR"         ; 10
+s_pm  .byte "type Hi and RETURN (a robot is doing this)", 0
+mbuf  .res 64, 0
+pbuf  .res 16, 0
 
 s_ok  .byte "MENUTEST OK", $0D, 0
 s_bad   .byte "MENUTEST FAILED "

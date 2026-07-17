@@ -65,3 +65,6 @@ cx_wg_key       = cx_do_wg_key
 cx_dir_open     = cx_dir_open
 cx_dir_next     = cx_dir_next
 cx_dir_close    = cx_dir_close
+cx_dos_cmd      = cx_do_dos_cmd
+cx_dos_msg      = cx_do_dos_msg
+cx_dlg_prompt   = cx_do_dlg_prompt

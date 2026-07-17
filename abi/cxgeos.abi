@@ -116,3 +116,10 @@ version = 1
 43  cx_dir_open     1   A/X = a pattern like "$", Y = length; opens the directory channel. Carry set on a DOS error
 44  cx_dir_next     1   P0/P1 = a >=17-byte buffer; fills the entry's name, A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header
 45  cx_dir_close    1   close the directory channel
+
+#= the DOS command channel
+46  cx_dos_cmd      1   A/X = a CMDR-DOS command ("S:F", "R:NEW=OLD", "MD:D", "CD:D"...), Y = length -> A = status code, carry set when it is an error (>= 20); the reply text waits for cx_dos_msg
+47  cx_dos_msg      1   P0/P1 = a >=64-byte buffer; copies the last DOS reply ("62,FILE NOT FOUND,00,00"), NUL-terminated -> A = its length
+
+#= dialogs, continued
+48  cx_dlg_prompt   1   A/X = message, P0/P1 = a NUL-terminated buffer (may be seeded), P2 = its capacity; SYNCHRONOUS one-line editor with ok/cancel -> A = the length, carry set if cancelled. RETURN is ok, ESC is cancel

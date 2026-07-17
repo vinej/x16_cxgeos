@@ -79,10 +79,13 @@ cx_do_menu_key
 ;   0 mn_set   1 mn_off   2 mn_bar   3 mn_drop     (menu.asm)
 ;   4 th_set                                        (theme.asm)
 ;   5 dg_alert 6 dg_hit                             (dialog.asm)
+;   7 dos_cmd                                       (fs/dosglue.asm)
 ;   8 wg_set   9 wg_draw  10 wg_hit                 (widget.asm)
 ;   11 mn_key                                       (menu.asm, keyboard)
 ;   12 wg_key                                       (widget.asm, keyboard)
-;   7, 13..15 reserved
+;   13 b2_dos_msg                                   (fs/dosglue.asm)
+;   14 dg_prompt                                    (dialog.asm)
+;   15 reserved
 b2_table
     jmp mn_set                  ; 0
     jmp mn_off                  ; 1
@@ -91,14 +94,14 @@ b2_table
     jmp th_set                  ; 4
     jmp dg_alert                ; 5
     jmp dg_hit                  ; 6
-    jmp mn_off                  ; 7  reserved
+    jmp dos_cmd                 ; 7  kernel/fs/dosglue.asm
     jmp wg_set                  ; 8
     jmp wg_draw                 ; 9
     jmp wg_hit                  ; 10
     jmp mn_key                  ; 11 kernel/ui/menu.asm (keyboard)
     jmp wg_key                  ; 12 kernel/ui/widget.asm (keyboard)
-    jmp mn_off                  ; 13 reserved
-    jmp mn_off                  ; 14 reserved
+    jmp b2_dos_msg              ; 13 kernel/fs/dosglue.asm
+    jmp dg_prompt               ; 14 kernel/ui/dialog.asm (the line editor)
     jmp mn_off                  ; 15 reserved
 
 ; The state block, at a FIXED spot behind the 48-byte table ($A030), so

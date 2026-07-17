@@ -59,6 +59,7 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/ui/theme.asm"
 .include "kernel/ui/dialog.asm"
 .include "kernel/ui/widget.asm"
+.include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
 
 ; The system font is NOT here. It ships as PXL8.CXF on the SD card, and

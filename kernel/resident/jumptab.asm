@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 46                    ; slots
+    .word 49                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -100,6 +100,13 @@ cx_jumptab
     jmp cx_dir_open      ; 43  A/X = a pattern like "$", Y = length; opens the directory channel. Carry set on a DOS error
     jmp cx_dir_next      ; 44  P0/P1 = a >=17-byte buffer; fills the entry's name, A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header
     jmp cx_dir_close     ; 45  close the directory channel
+
+; --- the DOS command channel -------------------------------------
+    jmp cx_do_dos_cmd    ; 46  A/X = a CMDR-DOS command ("S:F", "R:NEW=OLD", "MD:D", "CD:D"...), Y = length -> A = status code, carry set when it is an error (>= 20); the reply text waits for cx_dos_msg
+    jmp cx_do_dos_msg    ; 47  P0/P1 = a >=64-byte buffer; copies the last DOS reply ("62,FILE NOT FOUND,00,00"), NUL-terminated -> A = its length
+
+; --- dialogs, continued ------------------------------------------
+    jmp cx_do_dlg_prompt ; 48  A/X = message, P0/P1 = a NUL-terminated buffer (may be seeded), P2 = its capacity; SYNCHRONOUS one-line editor with ok/cancel -> A = the length, carry set if cancelled. RETURN is ok, ESC is cancel
 
 .popseg
 
