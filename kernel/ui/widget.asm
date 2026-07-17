@@ -990,9 +990,26 @@ wg_hit
     beq @press
     cmp #EV_DBLCLICK            ; a double-click hits too: a list row
     beq @press                  ; selects on DOWN but acts on DBL
+    cmp #EV_MOUSE_MOVE          ; a move drags a held scrollbar thumb
+    beq @drag
+    cmp #EV_MOUSE_UP            ; ...until the button lets go
+    beq @release
     rts
+@release
+    lda #$FF
+    sta wg_drag
+    rts
+@drag
+    lda wg_drag                 ; a scrollbar being dragged? (else $FF)
+    bmi @none
+    sta wg_i
+    jsr wg_rec
+    jsr wg_scroll_to           ; the thumb follows the mouse x, clamped
+    jmp wg_post_val            ; A = value; EV_WIDGET(index, value)
 @press
     sta wg_evt                  ; which press this was, for wg_act
+    lda #$FF                    ; a fresh press ends any stale drag (an UP
+    sta wg_drag                 ; released outside the region is not seen)
     ; which widget? walk the list, first whose box contains the point.
     stz wg_i
 @find
@@ -1010,6 +1027,13 @@ wg_hit
     inc wg_i
     bra @find
 @got
+    ldy #WG_TYPE               ; a press on a scrollbar begins a drag:
+    lda (CX_M_PTR),y           ; the thumb tracks the mouse until UP
+    cmp #WG_SCROLL
+    bne @act
+    lda wg_i
+    sta wg_drag
+@act
     jmp wg_act
 @none
     rts
@@ -1555,6 +1579,7 @@ wg_rem   .byte 0
 wg_res   .word 0
 wg_acc   .word 0
 wg_focus .byte $FF               ; the keyboard-focused widget; $FF none
+wg_drag  .byte $FF               ; the scrollbar being dragged; $FF none
 wg_cand  .byte 0                  ; focus_move's candidate walker
 wg_step  .byte 0
 wg_ch    .byte 0                  ; the character being typed into a field

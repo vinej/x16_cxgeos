@@ -112,6 +112,21 @@ on_widget                       ; P1 = index, P2 = value
 ; the sliders' captions (drawn once) and their live numbers.
 ; ---------------------------------------------------------------------
 draw_sliders
+    lda #<s_fldl               ; a caption over the text field, at (40, 274)
+    sta X16_T0
+    lda #>s_fldl
+    sta X16_T1
+    lda #40
+    sta X16_P0
+    stz X16_P1
+    lda #<274
+    sta X16_P2
+    lda #>274
+    sta X16_P3
+    lda X16_T0
+    ldx X16_T1
+    jsr cx_font_draw
+
     lda #<s_sla
     ldx #>s_sla
     ldy #100
@@ -345,6 +360,7 @@ s_r1     .byte "centre", 0
 s_r2     .byte "right", 0
 s_sla    .byte "slider 1-10:", 0
 s_slb    .byte "slider 1-5:", 0
+s_fldl   .byte "text field (TAB or click, then type):", 0
 s_none   .byte 0
 
 valbuf   .byte 0, 0, 0
