@@ -129,3 +129,10 @@ the resident budget and is why the image fits.
   `apps/hello_c` (llvm-mos, through the sdk's `cx_run()` veneer — see
   `docs/formats.md` for why C must not touch `$22` on that compiler)
   each boot, run, and come back to the shell.
+
+## License
+
+[MIT](LICENSE) © Jean-Yves Vinet. The vendored `x16lib/` tree keeps its own
+upstream [x16_library](https://github.com/vinej/x16_library) license; the
+stock ROM and the emulator are third-party and not distributed here (see
+Building).
