@@ -1,6 +1,6 @@
 # CXGEOS csdk Guide — the friendly C wrapper
 
-**Release 0.1.0** · header: `csdk/cxsdk.h`
+**Release 0.2.0** · header: `csdk/cxsdk.h`
 
 The csdk turns the low-level [ABI](sdkguide.md) into clean, named `cx_*`
 functions, a typed event record, the shared constants, immediate-mode widget
@@ -72,6 +72,21 @@ drawing with these recolours automatically. Index 2 has no role name.
 
 `CX_FONT_H`=8 (glyph height), `CX_BOX`=12 (checkbox marker), `CX_THUMB`=16
 (slider thumb width), `CX_SLIDER_H`=16 (slider height).
+
+### Audio *(0.2.0)*
+
+PSG waveforms: `CX_WAVE_PULSE`=`$00`, `CX_WAVE_SAW`=`$40`, `CX_WAVE_TRI`=`$80`,
+`CX_WAVE_NOISE`=`$C0`. Panning: `CX_PAN_LEFT`=`$40`, `CX_PAN_RIGHT`=`$80`,
+`CX_PAN_BOTH`=`$C0`. `CX_YM(octave, note)` packs a YM note code. PCM format:
+`CX_PCM_16BIT`=`$20`, `CX_PCM_STEREO`=`$10` (low nibble is volume 0–15).
+
+### Sprites *(0.2.0)*
+
+Depth: `CX_SPR_4BPP`=`$00`, `CX_SPR_8BPP`=`$80`. Size codes: `CX_SPR_8`=0,
+`CX_SPR_16`=1, `CX_SPR_32`=2, `CX_SPR_64`=3. Z-depth: `CX_SPR_HIDE`=`$00`,
+`CX_SPR_BEHIND`=`$04`, `CX_SPR_MIDDLE`=`$08`, `CX_SPR_FRONT`=`$0C`. Flips:
+`CX_SPR_HFLIP`=`$01`, `CX_SPR_VFLIP`=`$02`. `CX_SPR_VRAM`=`$1E000` is the
+reserved app sprite-image region (sprite 0 is the mouse; apps use 1–127).
 
 ---
 
@@ -384,6 +399,64 @@ char buf[32]; unsigned char ty;
 unsigned n = cx_clip_get(buf, sizeof buf, &ty);
 ```
 
+## Audio *(0.2.0)*
+
+The VERA PSG (16 voices), the YM2151 FM chip, and streamed PCM. All three
+live in a kernel bank, reached through the ABI like everything else. See
+`apps/beep`.
+
+**PSG** — `void cx_psg_init(void)` silences all voices;
+`void cx_psg_freq(voice, freq)` sets pitch (`freq` = Hz × 2.68435, A4 = 1181);
+`void cx_psg_vol(voice, vol, pan)` sets volume 0–63 and `CX_PAN_*`;
+`void cx_psg_wave(voice, wave, pw)` sets a `CX_WAVE_*` and pulse width;
+`void cx_psg_off(voice)` silences one voice.
+`void cx_tone(voice, freq, vol)` is a one-call pulse tone.
+```c
+cx_psg_init();
+cx_tone(0, 1181, 50);            /* A4 on voice 0 */
+/* ...hold for a while... */  cx_psg_off(0);
+```
+
+**YM (FM)** — `void cx_ym_init(void)` (once); `void cx_ym_note(chan, code)`
+plays `CX_YM(octave, note)` on a channel 0–7 (0 releases);
+`void cx_ym_off(chan)`; `void cx_ym_vol(chan, atten)`;
+`void cx_ym_patch(chan, idx)` loads ROM instrument 0–162.
+```c
+cx_ym_init();
+cx_ym_patch(0, 1);
+cx_ym_note(0, CX_YM(4, 1));      /* C, octave 4 */
+```
+
+**PCM** — needs `cx_ev_init` running (the FIFO is topped up each frame off
+the event IRQ). `void cx_pcm_ctrl(ctrl)` sets format/volume (e.g. `0x0F` =
+8-bit mono, full volume); `void cx_pcm_play(src, len, rate)` streams signed
+sample bytes from low RAM at `rate` 1–128; `void cx_pcm_stop(void)`;
+`unsigned char cx_pcm_active(void)` is 1 while playing.
+```c
+cx_pcm_ctrl(0x0F);
+cx_pcm_play(sample, sizeof sample, 64);
+```
+
+## Sprites *(0.2.0)*
+
+VERA hardware sprites. Sprite 0 is the mouse; drive sprites 1–127. Put image
+data in VRAM at `CX_SPR_VRAM` (32-byte aligned) with `cx_vram_write`, point
+the sprite at it, size and position it, then set flags to show it. See
+`apps/sprite`.
+
+- `void cx_sprite_image(s, addr, mode)` — VRAM image address, `CX_SPR_4BPP`/`8BPP`.
+- `void cx_sprite_pos(s, x, y)` — move it.
+- `void cx_sprite_size(s, w, h, pal)` — `CX_SPR_8/16/32/64` per axis, palette offset.
+- `void cx_sprite_flags(s, flags)` — collision<<4 \| Z \| `CX_SPR_VFLIP` \| `CX_SPR_HFLIP` (a full write; do once before `cx_sprite_z`).
+- `void cx_sprite_z(s, z)` — change only Z-depth: `CX_SPR_HIDE`/`BEHIND`/`MIDDLE`/`FRONT`.
+```c
+cx_vram_write(CX_SPR_VRAM, img, sizeof img);   /* upload the pixels */
+cx_sprite_image(1, CX_SPR_VRAM, CX_SPR_4BPP);
+cx_sprite_size(1, CX_SPR_16, CX_SPR_16, 0);
+cx_sprite_pos(1, 300, 220);
+cx_sprite_flags(1, CX_SPR_FRONT);              /* show it */
+```
+
 ## Dirty rectangles
 
 **`void cx_dirty_reset(void)`** — clear the dirty list.
@@ -427,6 +500,11 @@ existing one).
 cx_pic_save("PAINT.DAT", 120, 72, 400, 288);
 if (!cx_pic_load("PAINT.DAT", 120, 72, 400, 288)) show("nothing saved yet");
 ```
+
+**`void cx_vram_write(unsigned long addr, const void *src, unsigned len)`**
+*(0.2.0)* — copy `len` bytes from RAM into VRAM at `addr`, through VERA's
+auto-incrementing data port. For uploading sprite images (to `CX_SPR_VRAM`),
+tiles, or any raw VRAM.
 
 ---
 
@@ -539,6 +617,8 @@ Each palette colour is two little-endian bytes: byte0 = `GGGGBBBB`, byte1 =
   set, a dialog and two themes, driven by `cx_next`.
 - `apps/paint/paint.c` — mouse-drag drawing (`cx_line`/`cx_pset`/`cx_rect`) and
   `cx_pic_save`/`cx_pic_load` persistence.
+- `apps/beep/beep.c` *(0.2.0)* — audio: a PSG scale, a YM note, and a PCM blip.
+- `apps/sprite/sprite.c` *(0.2.0)* — a hardware sprite that follows the mouse.
 
 ## See also
 

@@ -189,6 +189,13 @@ python tools\mkcxap.py build\MYAPP.PRG build\MYAPP.CXA --name "My App"
   to a SEQ file through the KERNAL (`cx_pget`/`cx_pset` pack the pixels,
   interrupts masked around the stream). The immediate-mode + file-I/O
   example.
+- `apps/beep/beep.c` — audio: a PSG scale, a YM (FM) note, and a PCM blip
+  (`cx_psg_*`, `cx_ym_*`, `cx_pcm_*`).
+- `apps/sprite/sprite.c` — a hardware sprite following the mouse
+  (`cx_sprite_*`, `cx_vram_write`).
+
+> **0.2.0** adds audio (PSG/YM/PCM) and hardware sprites — see the full
+> reference in [docs/csdkguide.md](../docs/csdkguide.md).
 
 ## Scope
 

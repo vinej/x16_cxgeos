@@ -1,6 +1,6 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.1.0** · ABI version 1 · 55 slots
+**Release 0.2.0** · ABI version 1 · 74 slots
 
 This documents `sdk/include_<compiler>/cxgeos.h` — the **generated**, low-level
 binding to the kernel. It is what every CXGEOS app ultimately calls. C
@@ -104,7 +104,7 @@ python tools/mkcxap.py build/MYAPP.PRG build/MYAPP.CXA --name "My App"
 | name | value | meaning |
 |---|---|---|
 | `CX_ABI_VERSION` | `1` | the ABI version these bindings were cut from |
-| `CX_ABI_SLOTS` | `55` | the number of slots defined (indices 0–54) |
+| `CX_ABI_SLOTS` | `74` | the number of slots defined (indices 0–73) |
 
 Query the *running* kernel's version with `cx_version` (slot 0); the loader
 refuses an app whose min-ABI exceeds it.
@@ -244,6 +244,56 @@ menu item), `P2/P3`=x, `P4/P5`=y, `P6`=frame stamp, `P7`=0.
 |---|---|---|---|---|
 | 52 | `CX_DA_OPEN` | `$80AC` | A/X=`.CXD` name, Y=length → carry if it would not load | open a desk accessory over the running app |
 | 53 | `CX_DA_CLOSE` | `$80AF` | — | close it, restoring the host's screen and handlers |
+
+### Audio — the VERA PSG (16 voices)
+
+Voice registers are write-only; a set is fire-and-forget. A frequency word
+is Hz × 2.68435 (A4 = 440 Hz is 1181). *(Added in 0.2.0.)*
+
+| slot | name | addr | args → result | purpose |
+|---|---|---|---|---|
+| 55 | `CX_PSG_INIT` | `$80B5` | — | silence all 16 voices |
+| 56 | `CX_PSG_FREQ` | `$80B8` | X=voice (0–15), P0/P1=frequency word | set a voice's pitch |
+| 57 | `CX_PSG_VOL` | `$80BB` | X=voice, A=volume (0–63), Y=pan (`$40` left/`$80` right/`$C0` both) | set volume + pan |
+| 58 | `CX_PSG_WAVE` | `$80BE` | X=voice, A=waveform (`$00` pulse/`$40` saw/`$80` tri/`$C0` noise), Y=pulse width (0–63) | set waveform |
+| 59 | `CX_PSG_OFF` | `$80C1` | X=voice | volume to zero (panning kept) |
+
+### Audio — the YM2151 FM chip
+
+Through the ROM audio driver (bank-switched). *(Added in 0.2.0.)*
+
+| slot | name | addr | args → result | purpose |
+|---|---|---|---|---|
+| 60 | `CX_YM_INIT` | `$80C4` | — | reset the chip, load the default patches |
+| 61 | `CX_YM_NOTE` | `$80C7` | A=channel (0–7), X=(octave<<4)\|note (1–12); X=0 releases | play a note (retriggers) |
+| 62 | `CX_YM_OFF` | `$80CA` | A=channel | release the note |
+| 63 | `CX_YM_VOL` | `$80CD` | A=channel, X=attenuation (0 = patch volume, larger = quieter) | set volume |
+| 64 | `CX_YM_PATCH` | `$80D0` | A=channel, X=ROM patch index (0–162) | load an instrument |
+
+### Sprites — VERA hardware sprites
+
+Sprite 0 is the KERNAL mouse; apps drive 1–127 with image data in the
+`$1E000` VRAM region. Image data is 32-byte aligned. *(Added in 0.2.0.)*
+
+| slot | name | addr | args → result | purpose |
+|---|---|---|---|---|
+| 65 | `CX_SPRITE_IMAGE` | `$80D3` | X=sprite (1–127), P0=addr low, P1=mid, P2=bit 16, A=mode (0=4bpp, `$80`=8bpp) | point a sprite at its image |
+| 66 | `CX_SPRITE_POS` | `$80D6` | X=sprite, P0/P1=x (0–1023), P2/P3=y | move a sprite |
+| 67 | `CX_SPRITE_SIZE` | `$80D9` | X=sprite, A=width code (0=8,1=16,2=32,3=64), Y=height code, P0=palette offset | size + palette |
+| 68 | `CX_SPRITE_FLAGS` | `$80DC` | X=sprite, A=collision<<4\|Z(0/4/8/`$C`)\|vflip<<1\|hflip | full write (do once before `CX_SPRITE_Z`) |
+| 69 | `CX_SPRITE_Z` | `$80DF` | X=sprite, A=Z-depth only (0 hides, 4 behind, 8 middle, `$C` front) | show/hide (RMW) |
+
+### PCM audio — the VERA 4 KB FIFO
+
+Refilled each frame off the event IRQ, so `CX_EV_INIT` must be running.
+The sample source is low RAM; samples are signed bytes. *(Added in 0.2.0.)*
+
+| slot | name | addr | args → result | purpose |
+|---|---|---|---|---|
+| 70 | `CX_PCM_CTRL` | `$80E2` | A=control (volume 0–15 \| `$20` 16-bit \| `$10` stereo) | set format + volume |
+| 71 | `CX_PCM_PLAY` | `$80E5` | P0/P1=source, P2/P3=byte count, A=rate (1–128, 128=48 kHz) | reset FIFO, prime, start |
+| 72 | `CX_PCM_STOP` | `$80E8` | — | silence and forget the sample |
+| 73 | `CX_PCM_ACTIVE` | `$80EB` | → A=1 while playing, else 0 | is a sample still playing |
 
 ---
 
