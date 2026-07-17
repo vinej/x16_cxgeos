@@ -228,6 +228,8 @@ cxl_dead  .byte $0D, "CXGEOS: A LOAD DIED MID-STREAM.", $0D
 
 ; The shell's name lives with the loader because cx_exit is a load: an
 ; app that is done is replaced by the shell, from disk, every time.
-cxl_shell     .byte "SHELL.CXA"
+; Root-anchored ("//" is CMDR-DOS for the root), because the desktop
+; can CD into a folder -- an app quit down there must still find home.
+cxl_shell     .byte "//:SHELL.CXA"
 CXL_SHELL_LEN = * - cxl_shell
 cxl_noshell   .byte $0D, "CXGEOS: NO SHELL.CXA ON THIS DISK.", $0D, 0
