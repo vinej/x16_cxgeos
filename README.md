@@ -7,7 +7,23 @@ to the X16 and proved the concept — and its ceiling: 320×200, proprietary app
 binaries, a patched KERNAL ROM. CXGEOS is the clean break:
 
 - **640×480 @ 4 colors** (VERA layer 0, 2bpp bitmap) — crisp, proportional
-  fonts everywhere, color-schemable UI.
+  fonts everywhere, color-schemable UI. Since 0.3.0 the desktop is one of
+  **four video modes** behind a pluggable graphics port (`cx_mode`, see
+  [docs/graphics-port.md](docs/graphics-port.md)) — the same drawing
+  calls, reinterpreted per canvas:
+  - **mode 0** `CX_MODE_GUI` — the 640×480 4-colour desktop above;
+  - **mode 1** `CX_MODE_BMP8` — a 320×240 **256-colour** bitmap with the
+    full primitive set (pset/read, spans, rects, lines, patterns, blits)
+    and the palette yours to program;
+  - **mode 2** `CX_MODE_TILE` — two 64×32 VERA **tile layers** with
+    hardware scrolling (`cx_tile_*`), the game personality;
+  - **mode 3** `CX_MODE_TEXT` — **80×60 text cells** "like BASIC":
+    colour fills, PETSCII **box-glyph frames** (┌─┐│└┘), ruled
+    `cx_hline`/`cx_vline`/`cx_line`, and mixed-case `cx_say`.
+
+  Sprites, audio, events, joysticks, files and the **shapes**
+  (circle/disc/flood) work in every mode; the widget toolkit, fonts and
+  dialogs are desktop-only and refuse politely elsewhere.
 - **Stock ROM (R49+)**: boots from the SD card via `AUTOBOOT.X16`, no ROM
   patches, no cartridge required (a cartridge build comes later).
 - **Native CMDR-DOS FAT32 files** — no .d64 images, no disk swapping.
@@ -17,11 +33,8 @@ binaries, a patched KERNAL ROM. CXGEOS is the clean break:
 - **A documented SDK**: a friendly header-only C wrapper (`csdk/`) over the
   ABI — graphics, text, events, widgets, dialogs, themes, files, clipboard,
   (0.2.0) **audio** (VERA PSG, the YM2151 FM chip, streamed PCM) and
-  **hardware sprites**, and (0.3.0) **joysticks** and **pluggable video
-  modes** behind a graphics port -- the 640x480 GUI, a 320x240
-  256-colour bitmap, a two-layer tile engine with hardware scrolling,
-  and an 80x60 text mode -- plus mode-agnostic **circle/disc/flood**.
-  Guides in
+  **hardware sprites**, and (0.3.0) **joysticks**, the four video modes
+  above, and the mode-agnostic **shapes**. Guides in
   [docs/sdkguide.md](docs/sdkguide.md), [docs/csdkguide.md](docs/csdkguide.md)
   and [docs/graphics-port.md](docs/graphics-port.md).
 - Foundationed on [x16lib](https://github.com/vinej/x16_library): the kernel
