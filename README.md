@@ -80,9 +80,11 @@ then each hello, which draws, waits three seconds, and leaves through
 
 ## Vendored x16lib
 
-`x16lib/` is a snapshot of `x16_library/src_ca65/` at **acbae2f** (v0.4.1
+`x16lib/` is a snapshot of `x16_library/src_ca65/` at **069c8aa** (v0.4.1
 plus the bitmap parity pass: 8bpp read/pattern/blit/blitm, the
-engine-agnostic `gfx/shapes.asm`, and the `X16_BITMAP_MIN` gate)
+engine-agnostic `gfx/shapes.asm`, the `X16_BITMAP_MIN` gate, and the
+de-duplication that moved circle/disc/flood out of `bitmap.asm` into
+`shapes.asm` for good)
 ("VERAFX: split into parts, so a fast fill need not carry a rotozoom").
 Update it by re-copying the tree and noting the new version here.
 
