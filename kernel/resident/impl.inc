@@ -17,11 +17,11 @@
 cx_version      = cx_do_version
 cx_exit         = cx_do_exit
 
-cx_gfx_init     = cxov_init     ; the graphics PORT (kernel/video/ovl.inc):
-cx_gfx_clear    = cxov_clear    ; the slots target the overlay's fixed
-cx_gfx_pset     = cxov_pset     ; entry vector, and the engine behind it
-cx_gfx_read     = cxov_read     ; is whichever image cx_ov_boot (or, one
-cx_gfx_hline    = cxov_hline    ; day, cx_gfx_mode) copied in
+cx_gfx_init     = cx_do_gfx_init ; forces mode 0 (the graphics PORT --
+cx_gfx_clear    = cxov_clear    ; kernel/video/ovl.inc): the slots target
+cx_gfx_pset     = cxov_pset     ; the overlay's fixed entry vector; the
+cx_gfx_read     = cxov_read     ; engine behind it is whichever image
+cx_gfx_hline    = cxov_hline    ; cx_ov_boot or cx_gfx_mode copied in
 cx_gfx_vline    = cxov_vline
 cx_gfx_rect     = cxov_rect
 cx_gfx_frame    = cxov_frame
@@ -45,10 +45,10 @@ cx_ev_count     = ev_count
 cx_ev_timer     = ev_timer
 cx_ev_frames    = ev_frames
 
-cx_dirty_reset  = dr_reset
-cx_dirty_add    = dr_add
-cx_dirty_count  = dr_count
-cx_dirty_get    = dr_get
+cx_dirty_reset  = cx_do_dirty_reset
+cx_dirty_add    = cx_do_dirty_add
+cx_dirty_count  = cx_do_dirty_count
+cx_dirty_get    = cx_do_dirty_get
 
 cx_app_load     = cxl_load
 cx_ev_init      = ev_init
@@ -96,3 +96,5 @@ cx_pcm_stop     = cx_do_pcm_stop
 cx_pcm_active   = cx_do_pcm_active
 cx_joy_get      = cx_do_joy_get
 cx_joy_enable   = ev_joy_enable
+cx_gfx_mode     = cx_do_gfx_mode
+cx_gfx_info     = cx_do_gfx_info

@@ -30,6 +30,27 @@
 
 DR_MAX = 8
 
+; Cold, app-facing bookkeeping with no claim to the resident budget:
+; the list rides bank 2 behind far-call stubs, like the toolkit.
+cx_do_dirty_reset
+    jsr cxb_call
+    .byte 2
+    .addr dr_reset
+cx_do_dirty_add
+    jsr cxb_call
+    .byte 2
+    .addr dr_add
+cx_do_dirty_count
+    jsr cxb_call
+    .byte 2
+    .addr dr_count
+cx_do_dirty_get
+    jsr cxb_call
+    .byte 2
+    .addr dr_get
+
+.segment "B2CODE"
+
 dr_reset
     stz dr_n
     rts
@@ -311,3 +332,5 @@ dr_x1l  .res DR_MAX, 0
 dr_x1h  .res DR_MAX, 0
 dr_y1l  .res DR_MAX, 0
 dr_y1h  .res DR_MAX, 0
+
+.segment "CODE"

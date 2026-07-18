@@ -56,7 +56,6 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/resident/vrows.asm"
 .include "kernel/resident/clip.asm"
 .include "kernel/fs/loader.asm"
-.include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/ui/region.asm"
 .include "kernel/ui/menu.asm"
@@ -70,9 +69,11 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/audio/audio.asm"
 .include "kernel/video/sprite.asm"
 .include "kernel/video/engine0.asm"
-; dir.asm AFTER menu.asm's B2CODE (its banked body must not shove the
-; local jump table off $A000)
+.include "kernel/video/engine1.asm"
+; dir.asm and dirty.asm AFTER menu.asm's B2CODE (their banked bodies
+; must not shove the local jump table off $A000)
 .include "kernel/fs/dir.asm"
+.include "kernel/gfx2/dirty.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
 .include "kernel/audio/pcm.asm"

@@ -180,3 +180,12 @@ version = 1
 # A X L R in bits 7:4. An absent pad reads as no buttons.
 74  cx_joy_get      1   A = pad (0-4) -> A = buttons low, X = buttons high; carry set if the pad is absent. Pad 0's presence tracks a PHYSICAL pad -- its keyboard-driven data is valid even when carry says absent
 75  cx_joy_enable   1   A = a mask of pads (bit n = pad n, 0-3; 0 = off): scan each frame and post EV_JOY (type 9, detail = pad, P2/P3 = buttons, P4/P5 = changed bits) whenever a pad's state changes
+
+#= the graphics port
+# The gfx slots (2-14) always target the port's entry vector; which
+# engine answers is the MODE. Mode 0 = 640x480 @2bpp (the GUI; the
+# toolkit, fonts and dialogs live here), mode 1 = 320x240 @8bpp (256
+# colours; pattern/blit refuse with carry). cx_gfx_init always lands in
+# mode 0, so cx_exit -> shell restores the desktop from any mode.
+76  cx_gfx_mode     1   A = the mode -> carry set if unknown; swaps the engine and runs its init (VERA is reprogrammed, the screen is the new mode's)
+77  cx_gfx_info     1   -> A = mode, P0/P1 = width, P2/P3 = height, P4 = bpp, P5/P6 = bytes per row

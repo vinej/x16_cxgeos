@@ -1229,7 +1229,7 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #76                     ; 31 shipped with the table; loader, events,
+    cmp #78                     ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks -- grew it
@@ -2092,7 +2092,6 @@ test_font_bank
 @refw .word 0
 
 ; ---------------------------------------------------------------------
-.include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/ui/region.asm"
 .include "kernel/ui/menu.asm"
@@ -2115,6 +2114,7 @@ test_font_bank
 .include "kernel/resident/clip.asm"
 .include "kernel/fs/loader.asm"
 .include "kernel/fs/dir.asm"
+.include "kernel/gfx2/dirty.asm"
 .include "kernel/resident/jumptab.asm"
 
 ; The system font, linked in so the suite needs no SD card. The kernel

@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 76                    ; slots
+    .word 78                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -32,7 +32,7 @@ cx_jumptab
     jmp cx_do_exit       ;  1  never returns: back to the shell
 
 ; --- screen (gfx2, 640x480 @2bpp) --------------------------------
-    jmp cxov_init        ;  2  -
+    jmp cx_do_gfx_init   ;  2  -
     jmp cxov_clear       ;  3  A = colour 0-3
     jmp cxov_pset        ;  4  P0/P1 = x, P2/P3 = y, A = colour (clipped)
     jmp cxov_read        ;  5  P0/P1 = x, P2/P3 = y -> A = colour, $FF off screen
@@ -63,10 +63,10 @@ cx_jumptab
     jmp ev_frames        ; 26  -> A = the frame counter
 
 ; --- dirty rectangles --------------------------------------------
-    jmp dr_reset         ; 27  -
-    jmp dr_add           ; 28  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h
-    jmp dr_count         ; 29  -> A = rects
-    jmp dr_get           ; 30  A = index -> P0/P1 = x0, P2/P3 = y0, P4/P5 = x1, P6/P7 = y1
+    jmp cx_do_dirty_reset ; 27  -
+    jmp cx_do_dirty_add  ; 28  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h
+    jmp cx_do_dirty_count ; 29  -> A = rects
+    jmp cx_do_dirty_get  ; 30  A = index -> P0/P1 = x0, P2/P3 = y0, P4/P5 = x1, P6/P7 = y1
 
 ; --- the loader --------------------------------------------------
     jmp cxl_load         ; 31  A/X = filename, Y = length; returns only on failure: carry, A = 1 not an app / 2 needs a newer kernel
@@ -150,6 +150,10 @@ cx_jumptab
 ; --- joysticks (SNES pads; pad 0 is the keyboard joystick) -------
     jmp cx_do_joy_get    ; 74  A = pad (0-4) -> A = buttons low, X = buttons high; carry set if the pad is absent. Pad 0's presence tracks a PHYSICAL pad -- its keyboard-driven data is valid even when carry says absent
     jmp ev_joy_enable    ; 75  A = a mask of pads (bit n = pad n, 0-3; 0 = off): scan each frame and post EV_JOY (type 9, detail = pad, P2/P3 = buttons, P4/P5 = changed bits) whenever a pad's state changes
+
+; --- the graphics port -------------------------------------------
+    jmp cx_do_gfx_mode   ; 76  A = the mode -> carry set if unknown; swaps the engine and runs its init (VERA is reprogrammed, the screen is the new mode's)
+    jmp cx_do_gfx_info   ; 77  -> A = mode, P0/P1 = width, P2/P3 = height, P4 = bpp, P5/P6 = bytes per row
 
 .popseg
 

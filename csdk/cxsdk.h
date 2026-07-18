@@ -140,9 +140,39 @@ static unsigned cx_version(void)       { return cx_ret16(CX_VERSION); }
 
 /* =====================================================================
  * screen / graphics
- * ===================================================================== */
-static void cx_gfx_init(void) { cx_call(CX_GFX_INIT); }
+ * =====================================================================
+ * The same 13 drawing calls work in EVERY graphics mode -- the kernel's
+ * port routes them to the current engine. What changes per mode is the
+ * canvas (cx_screen_info) and the colour range. The toolkit, fonts and
+ * dialogs are CX_MODE_GUI-only; cx_exit always restores the desktop. */
+#define CX_MODE_GUI   0          /* 640x480, 4 colours -- the desktop  */
+#define CX_MODE_BMP8  1          /* 320x240, 256 colours               */
+
+static void cx_gfx_init(void) { cx_call(CX_GFX_INIT); }  /* = mode GUI */
 static void cx_clear(unsigned char color) { cx_call_a(CX_GFX_CLEAR, color); }
+
+/* switch the graphics mode: 0 ok, nonzero unknown. VERA is reprogrammed
+ * and the screen shows the new mode's canvas -- draw everything fresh.
+ * In CX_MODE_BMP8, pattern/blit calls refuse (carry) and colours are
+ * 0-255 (set the palette with cx_vram_write at 0x1FA00, 2 bytes/entry). */
+static char cx_mode(unsigned char m) { cx_call_a(CX_GFX_MODE, m); return cx_c; }
+
+typedef struct {
+    unsigned char mode;
+    unsigned      w, h;          /* the canvas, in pixels  */
+    unsigned char bpp;
+    unsigned      stride;        /* framebuffer bytes/row  */
+} cx_screen;
+
+/* what canvas is this? (mode, size, depth, stride) */
+static void cx_screen_info(cx_screen *s) {
+    cx_call(CX_GFX_INFO);
+    s->mode   = cx_a;
+    s->w      = CX__R(0);
+    s->h      = CX__R(2);
+    s->bpp    = cx_p[4];
+    s->stride = CX__R(5);
+}
 
 static void cx_pset(unsigned x, unsigned y, unsigned char color) {
     CX__W(0, x); CX__W(2, y);
@@ -605,9 +635,21 @@ static void cx_print(const char *s) {
 static unsigned char cx__row[160];       /* one framebuffer row segment */
 static char          cx__fn[28];         /* the built "name,S,x" filename */
 
+/* the current mode's row stride and pixels-per-byte shift, cached by
+ * cx_pic_save/load at entry so the picture calls work in ANY mode */
+static unsigned      cx__vstride = 160;
+static unsigned char cx__vshift  = 2;    /* 2bpp: 4 px/byte; 8bpp: 1 */
+
+static void cx__vgeom(void) {
+    cx_screen s;
+    cx_screen_info(&s);
+    cx__vstride = s.stride;
+    cx__vshift  = (s.bpp == 2) ? 2 : (s.bpp == 4) ? 1 : 0;
+}
+
 /* point DATA0 at pixel (x, y) in the framebuffer, +1 auto-increment */
 static void cx__vseek(unsigned x, unsigned y) {
-    unsigned long off = (unsigned long)y * 160ul + (x >> 2);
+    unsigned long off = (unsigned long)y * cx__vstride + (x >> cx__vshift);
     CX__V_CTRL   = 0;                                  /* ADDRSEL 0 -> DATA0 */
     CX__V_ADDR_L = (unsigned char)off;
     CX__V_ADDR_M = (unsigned char)(off >> 8);
@@ -627,7 +669,9 @@ static void cx__mkname(const char *pre, const char *name, const char *suf) {
 /* save the w x h framebuffer rectangle at (x, y) to SEQ file `name` */
 static void cx_pic_save(const char *name, unsigned x, unsigned y,
                         unsigned w, unsigned h) {
-    unsigned row, bx, wb = w >> 2;
+    unsigned row, bx, wb;
+    cx__vgeom();
+    wb = w >> cx__vshift;
     cx__mkname("S:", name, "");           /* drop any old file first */
     cx_dos(cx__fn);
     cx__mkname("", name, ",S,W");
@@ -650,9 +694,11 @@ static void cx_pic_save(const char *name, unsigned x, unsigned y,
  * number of rows restored (0 = no file / empty) */
 static unsigned cx_pic_load(const char *name, unsigned x, unsigned y,
                             unsigned w, unsigned h) {
-    unsigned row, bx, wb = w >> 2, rows = 0;
+    unsigned row, bx, wb, rows = 0;
     unsigned char st = 0;
     char done = 0;
+    cx__vgeom();
+    wb = w >> cx__vshift;
     cx__mkname("", name, ",S,R");
     cbm_k_setnam(cx__fn);
     cbm_k_setlfs(2, 8, 2);

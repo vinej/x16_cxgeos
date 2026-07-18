@@ -429,6 +429,12 @@ bitmap_plot
     sta X16_P3
     jmp gfx_pset
 
+; --- X16_BITMAP_MIN: core-only build ---------------------------------
+; Define X16_BITMAP_MIN to stop here: init/clear/pset/lines/rect/frame
+; only. CXGEOS's 8bpp overlay image uses it to fit its fixed region;
+; a full build is unchanged. (Local addition; proposed upstream.)
+.ifndef X16_BITMAP_MIN
+
 ; ---------------------------------------------------------------------
 ; gfx_circle -- midpoint circle outline
 ;   in:  X16_P0/P1 = centre x, X16_P2 = centre y, X16_P3 = colour,
@@ -1289,6 +1295,9 @@ bitmap_f_addr1
 ; Module variables. Kept out of zero page: these are only touched by
 ; the routine that owns them, never across a call boundary.
 ; ---------------------------------------------------------------------
+.endif                          ; X16_BITMAP_MIN -- the core data below
+                                ; belongs to rect/frame/line, not the extras
+
 gb_x    .word 0
 gb_y    .byte 0
 gb_w    .word 0
@@ -1309,3 +1318,4 @@ gl_sy    .byte 0
 gl_tmp   .byte 0
 
 ; (end zone)
+

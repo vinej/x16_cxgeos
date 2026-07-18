@@ -223,6 +223,9 @@ function Stage-SdRoot {
     if (Test-Path (Join-Path $build "SPRITE.CXA")) {
         Copy-Item (Join-Path $build "SPRITE.CXA") $sdroot
     }
+    if (Test-Path (Join-Path $build "GFX8.CXA")) {
+        Copy-Item (Join-Path $build "GFX8.CXA") $sdroot
+    }
     Copy-Item (Join-Path $build "NOTES.CXD")     $sdroot
     return $sdroot
 }

@@ -22,18 +22,24 @@
 
 .ifndef CX_NO_OVERLAY
 
-; --- the boot copy (CODE, resident) ----------------------------------
-; Copy mode 0's image from bank 3 into the port region. Whole pages,
+; --- the port manager (CODE, resident) --------------------------------
+; cx_ov_load copies an engine image from its bank into the port region:
 ; interrupts masked (nothing must draw mid-copy), the caller's bank
-; restored.
+; restored. Engine n lives in bank CX_OV0_BANK + n.
 CX_OV0_BANK = 3
+CX_MODES    = 2                 ; how many engines ride the banks today
 
-cx_ov_boot
+cx_ov_boot                      ; boot: engine 0 in, mode noted
+    stz cx_vmode
+    lda #CX_OV0_BANK
+    ; falls into cx_ov_load
+cx_ov_load                      ; A = the engine's bank
     php
     sei
+    tax
     lda RAM_BANK
     pha
-    lda #CX_OV0_BANK
+    txa
     sta RAM_BANK
     lda #<$A000                 ; src walker in T0/T1, dst in T2/T3
     sta X16_T0
@@ -69,6 +75,38 @@ cx_ov_boot
     plp
     rts
 
+; --- cx_gfx_init (slot 2) -- ALWAYS lands in mode 0 -------------------
+; The shell (and the panic path, and every 0.x app) calls this to own
+; the GUI screen. If an app left another engine in the port, put mode
+; 0's back first: whatever happens in a mode, cx_exit -> shell -> here
+; restores the desktop.
+cx_do_gfx_init
+    lda cx_vmode
+    beq @go
+    jsr cx_ov_boot
+@go
+    jmp cxov_init
+
+; --- cx_gfx_mode (slot 76) -- A = the mode; carry set if unknown ------
+cx_do_gfx_mode
+    cmp #CX_MODES
+    bcs @bad
+    cmp cx_vmode
+    beq @done                   ; already there
+    pha
+    clc
+    adc #CX_OV0_BANK            ; engine n rides bank CX_OV0_BANK + n
+    jsr cx_ov_load
+    pla
+    sta cx_vmode
+    jsr cxov_init               ; the fresh engine programs VERA
+@done
+    clc
+    rts
+@bad
+    sec
+    rts
+
 ; --- the engine image (OV0CODE: run = OVL, load = bank 3) ------------
 .segment "OV0CODE"
 
@@ -95,8 +133,50 @@ ov0_vector                      ; the port's entry vector, slot order
 
 .else
 ; the runner links flat: the engine is already in CODE via x16_code's
-; X16_USE_BITMAP2 gate, the port names alias it (ovl.inc), and there is
-; nothing to copy.
+; X16_USE_BITMAP2 gate, the port names alias it (ovl.inc), there is
+; nothing to copy, and mode 0 is the only mode.
 cx_ov_boot
     rts
+cx_do_gfx_init
+    jmp gfx2_init
+cx_do_gfx_mode
+    cmp #1
+    bcs @bad
+    clc
+    rts
+@bad
+    sec
+    rts
 .endif
+
+; --- cx_gfx_info (slot 77) -- what canvas is this? --------------------
+; A = the mode; P0/P1 = width, P2/P3 = height, P4 = bpp, P5/P6 = bytes
+; per row. The one call that lets client code (cx_pic_*, a screenshot
+; tool, a future mode) adapt to any engine without knowing its name.
+cx_do_gfx_info
+    lda cx_vmode
+    asl                         ; 8-byte rows in the table
+    asl
+    asl
+    tax
+    ldy #0
+@copy
+    lda cx_minfo,x
+    sta X16_P0,y
+    inx
+    iny
+    cpy #7
+    bne @copy
+    lda cx_vmode
+    rts
+
+cx_vmode .byte 0                ; the engine in the port right now
+cx_minfo                        ; w.w, h.w, bpp, stride.w (+1 pad) per mode
+    .word 640, 480
+    .byte 2
+    .word 160
+    .byte 0
+    .word 320, 240
+    .byte 8
+    .word 320
+    .byte 0
