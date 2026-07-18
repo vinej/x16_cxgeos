@@ -31,7 +31,26 @@
 
 CX_DIR_LFN = 2
 
-cx_dir_open
+; The walk is cold code with no claim to the resident budget: it rides
+; bank 2 behind far-call stubs, like the toolkit. cxb_call restores the
+; flags exactly as the banked routine left them, so dir_open's sei and
+; dir_close's cli still reach the caller.
+cx_do_dir_open
+    jsr cxb_call
+    .byte 2
+    .addr dir_open
+cx_do_dir_next
+    jsr cxb_call
+    .byte 2
+    .addr dir_next
+cx_do_dir_close
+    jsr cxb_call
+    .byte 2
+    .addr dir_close
+
+.segment "B2CODE"
+
+dir_open
     sta X16_T0                  ; SETNAM wants length in A, name in X/Y
     stx X16_T1
     tya
@@ -55,7 +74,7 @@ cx_dir_open
 @err
     rts                         ; carry from OPEN/CHKIN
 
-cx_dir_close
+dir_close
     jsr CLRCHN                  ; default input back...
     cli                         ; ...then the IRQ may read the keyboard
     lda #CX_DIR_LFN
@@ -65,7 +84,7 @@ cx_dir_close
 ; cx_dir_next -- P0/P1 = the name buffer. One entry, or carry set at
 ; the end. A = 1 for a directory, 0 for a file.
 ; ---------------------------------------------------------------------
-cx_dir_next
+dir_next
     lda X16_P0
     sta CX_D_BUF
     lda X16_P1
@@ -149,3 +168,5 @@ dgetc
 cx_d_t    .byte 0
 cx_d_type .byte 0
 cx_d_eof  .byte 0
+
+.segment "CODE"

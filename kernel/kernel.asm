@@ -30,10 +30,17 @@
 ; loader that will want LOAD does not exist yet, and font.asm writes
 ; RAM_BANK itself rather than going through BANK. Add them back when
 ; something calls them, not before.
-X16_USE_BITMAP2 = 1             ; the screen; asks VERAFX for _FILL alone
+; NOT X16_USE_BITMAP2: the 2bpp engine no longer lives in the resident
+; image -- kernel/video/engine0.asm compiles it into the bank-3 overlay
+; image behind the graphics port (kernel/video/ovl.inc). Its resident
+; helpers stay gated in:
+X16_USE_VERA        = 1         ; vera_fill (engine clears)
+X16_USE_VERAFX_FILL = 1         ; fx_fill (engine rects)
 X16_USE_VERAFX_COPY = 1         ; menu save-under: fx_copy moves the rows
 X16_USE_IRQ     = 1             ; the event system's raster hook
 X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
+
+.include "kernel/video/ovl.inc"
 
 .segment "LOADADDR"
     .word $8000
@@ -49,7 +56,6 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/resident/vrows.asm"
 .include "kernel/resident/clip.asm"
 .include "kernel/fs/loader.asm"
-.include "kernel/fs/dir.asm"
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/font/font.asm"
 .include "kernel/ui/region.asm"
@@ -63,6 +69,10 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/ui/da.asm"
 .include "kernel/audio/audio.asm"
 .include "kernel/video/sprite.asm"
+.include "kernel/video/engine0.asm"
+; dir.asm AFTER menu.asm's B2CODE (its banked body must not shove the
+; local jump table off $A000)
+.include "kernel/fs/dir.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
 .include "kernel/audio/pcm.asm"

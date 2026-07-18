@@ -32,19 +32,19 @@ cx_jumptab
     jmp cx_do_exit       ;  1  never returns: back to the shell
 
 ; --- screen (gfx2, 640x480 @2bpp) --------------------------------
-    jmp gfx2_init        ;  2  -
-    jmp gfx2_clear       ;  3  A = colour 0-3
-    jmp gfx2_pset        ;  4  P0/P1 = x, P2/P3 = y, A = colour (clipped)
-    jmp gfx2_read        ;  5  P0/P1 = x, P2/P3 = y -> A = colour, $FF off screen
-    jmp gfx2_hline       ;  6  P0/P1 = x, P2/P3 = y, P4/P5 = len, A = colour
-    jmp gfx2_vline       ;  7  P0/P1 = x, P2/P3 = y, P4/P5 = len, A = colour
-    jmp gfx2_rect        ;  8  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h, A = colour
-    jmp gfx2_frame       ;  9  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h, A = colour
-    jmp gfx2_line        ; 10  P0/P1 = x0, P2/P3 = y0, P4/P5 = x1, P6/P7 = y1, A = colour
-    jmp gfx2_pattern_set ; 11  A/X = 8x8 pattern, Y = (bg << 2) | fg
-    jmp gfx2_pattern_rect ; 12  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h
-    jmp gfx2_blit        ; 13  P0/P1 = x, P2/P3 = y, P4 = wbytes, P5 = h, P6/P7 = src, A = op
-    jmp gfx2_blitm       ; 14  P0/P1 = x, P2/P3 = y, P4 = h, P5 = cols, P6/P7 = src
+    jmp cxov_init        ;  2  -
+    jmp cxov_clear       ;  3  A = colour 0-3
+    jmp cxov_pset        ;  4  P0/P1 = x, P2/P3 = y, A = colour (clipped)
+    jmp cxov_read        ;  5  P0/P1 = x, P2/P3 = y -> A = colour, $FF off screen
+    jmp cxov_hline       ;  6  P0/P1 = x, P2/P3 = y, P4/P5 = len, A = colour
+    jmp cxov_vline       ;  7  P0/P1 = x, P2/P3 = y, P4/P5 = len, A = colour
+    jmp cxov_rect        ;  8  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h, A = colour
+    jmp cxov_frame       ;  9  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h, A = colour
+    jmp cxov_line        ; 10  P0/P1 = x0, P2/P3 = y0, P4/P5 = x1, P6/P7 = y1, A = colour
+    jmp cxov_pattern     ; 11  A/X = 8x8 pattern, Y = (bg << 2) | fg
+    jmp cxov_patrect     ; 12  P0/P1 = x, P2/P3 = y, P4/P5 = w, P6/P7 = h
+    jmp cxov_blit        ; 13  P0/P1 = x, P2/P3 = y, P4 = wbytes, P5 = h, P6/P7 = src, A = op
+    jmp cxov_blitm       ; 14  P0/P1 = x, P2/P3 = y, P4 = h, P5 = cols, P6/P7 = src
 
 ; --- text --------------------------------------------------------
     jmp font_set         ; 15  A/X = CXF image -> carry set if bad
@@ -97,9 +97,9 @@ cx_jumptab
     jmp cx_do_wg_key     ; 42  A = a key; TAB/UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar, printable keys type into a focused field. Carry set if it was a widget key; clobbers X and Y. Call from EV_KEY
 
 ; --- the directory -----------------------------------------------
-    jmp cx_dir_open      ; 43  A/X = a pattern like "$", Y = length; opens the directory channel. Carry set on a DOS error
-    jmp cx_dir_next      ; 44  P0/P1 = a >=17-byte buffer; fills the entry's name, A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header
-    jmp cx_dir_close     ; 45  close the directory channel
+    jmp cx_do_dir_open   ; 43  A/X = a pattern like "$", Y = length; opens the directory channel. Carry set on a DOS error
+    jmp cx_do_dir_next   ; 44  P0/P1 = a >=17-byte buffer; fills the entry's name, A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header
+    jmp cx_do_dir_close  ; 45  close the directory channel
 
 ; --- the DOS command channel -------------------------------------
     jmp cx_do_dos_cmd    ; 46  A/X = a CMDR-DOS command ("S:F", "R:NEW=OLD", "MD:D", "CD:D"...), Y = length -> A = status code, carry set when it is an error (>= 20); the reply text waits for cx_dos_msg

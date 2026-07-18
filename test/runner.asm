@@ -22,6 +22,11 @@ X16_USE_VERAFX_COPY = 1         ; the menu engine's save-under
 X16_USE_IRQ     = 1             ; the event system's raster hook
 X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 
+CX_NO_OVERLAY   = 1             ; the runner links flat: the 2bpp engine
+                                ; sits in CODE (the gate above) and the
+                                ; graphics-port names alias it directly
+.include "kernel/video/ovl.inc"
+
 FB_STRIDE   = 160
 
 ; framebuffer byte addresses the tests probe
@@ -1813,7 +1818,7 @@ test_dir
     lda #<@pat
     ldx #>@pat
     ldy #1
-    jsr cx_dir_open
+    jsr cx_do_dir_open
     ldy #1
     bcs @report                 ; open failed
 
@@ -1823,14 +1828,14 @@ test_dir
     sta X16_P0
     lda #>@nb
     sta X16_P1
-    jsr cx_dir_next
+    jsr cx_do_dir_next
     bcs @close                  ; a listing with no header at all
 @loop
     lda #<@nb
     sta X16_P0
     lda #>@nb
     sta X16_P1
-    jsr cx_dir_next
+    jsr cx_do_dir_next
     bcs @done
     inc @count
     ldy #6                      ; is it a fixture? both "BADAPP.CXA" and
@@ -1843,7 +1848,7 @@ test_dir
     inc @found
     bra @loop
 @done
-    jsr cx_dir_close
+    jsr cx_do_dir_close
     lda @count                  ; at least the two fixtures
     cmp #2
     bcc @fail
@@ -1853,7 +1858,7 @@ test_dir
     ldy #0
     bra @report
 @close
-    jsr cx_dir_close
+    jsr cx_do_dir_close
 @fail
     ldy #1
 @report
@@ -1880,13 +1885,13 @@ test_dir_irq
     lda #<@pat
     ldx #>@pat
     ldy #1
-    jsr cx_dir_open
+    jsr cx_do_dir_open
     bcs @fail
     php                         ; open must have masked them
     pla
     and #$04                    ; the I flag
     beq @failclose
-    jsr cx_dir_close
+    jsr cx_do_dir_close
     php                         ; close must have restored them
     pla
     and #$04
@@ -1894,7 +1899,7 @@ test_dir_irq
     ldy #0
     bra @report
 @failclose
-    jsr cx_dir_close
+    jsr cx_do_dir_close
 @fail
     cli                         ; leave interrupts as we found them
     ldy #1
@@ -2100,6 +2105,7 @@ test_font_bank
 .include "kernel/ui/da.asm"
 .include "kernel/audio/audio.asm"
 .include "kernel/video/sprite.asm"
+.include "kernel/video/engine0.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
 .include "kernel/audio/pcm.asm"

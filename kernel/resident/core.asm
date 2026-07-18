@@ -32,6 +32,9 @@ CX_SYSFONT_BANK = 1
 ; bank.
 ; ---------------------------------------------------------------------
 cx_init
+    jsr cx_ov_boot              ; the graphics port FIRST: mode 0's engine
+                                ; image into the overlay, before anything
+                                ; can draw through it
     lda #CX_SYSFONT_BANK
     sta RAM_BANK
     lda #<CX_F_WIN
