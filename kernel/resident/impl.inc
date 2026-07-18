@@ -110,3 +110,4 @@ cx_tile_cell    = cx_do_tile_cell
 cx_tile_fill    = cx_do_tile_fill
 cx_gfx_ellipse  = cx_do_gfx_ellipse
 cx_gfx_fellipse = cx_do_gfx_fellipse
+cx_ev_mask      = ev_set_mask

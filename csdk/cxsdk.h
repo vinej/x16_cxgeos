@@ -438,6 +438,15 @@ static unsigned char cx_frames(void) { return cx_ret(CX_EV_FRAMES); }
 static void          cx_mainloop(void) { cx_call(CX_EV_MAINLOOP); }
 static void          cx_handlers(const void *table) { cx_call_p(CX_EV_HANDLERS, table); }
 
+/* which sources the frame tick samples (0.3.2). The mouse's SMC
+ * round-trip and the keyboard's GETIN drain are KERNAL calls paid every
+ * frame; mask off the ones you do not use and that time comes back.
+ * cx_ev_init resets to mouse+keys; the timer (cx_timer), the pads
+ * (cx_joy_enable) and PCM keep their own switches. */
+#define CX_EVS_MOUSE 1
+#define CX_EVS_KEYS  2
+static void cx_ev_mask(unsigned char sources) { cx_call_a(CX_EV_MASK, sources); }
+
 /* =====================================================================
  * pointer, menus, widgets
  * ===================================================================== */

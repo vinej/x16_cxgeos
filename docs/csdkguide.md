@@ -279,6 +279,17 @@ cx_timer(60);                               /* one tick a second */
 **`unsigned char cx_frames(void)`** — the free-running frame counter (for
 timing/animation).
 
+**`void cx_ev_mask(unsigned char sources)`** *(0.3.2)* — choose which
+sources the frame tick samples: `CX_EVS_MOUSE` (the SMC round-trip)
+and/or `CX_EVS_KEYS` (the GETIN drain). Both are KERNAL calls paid every
+frame, so masking off the ones you do not use gives that time back —
+with both off and the pads off, the tick costs only a few cycles.
+`cx_ev_init` resets to mouse+keys; the timer, the pads (`cx_joy_enable`)
+and PCM keep their own switches.
+```c
+cx_ev_mask(CX_EVS_KEYS);       /* a game: keyboard + joypads, no mouse */
+```
+
 **`void cx_mainloop(void)`** — run the kernel dispatch loop forever (asm-handler
 apps; never returns).
 

@@ -206,3 +206,11 @@ version = 1
 #= ellipses (every mode, like slots 78-80: they draw through the port)
 85  cx_gfx_ellipse  1   P0/P1 = cx, P2/P3 = cy, P4 = rx, P5 = ry (each 0-255), A = colour: an axis-aligned outline through the port's pset, clipped where pset clips
 86  cx_gfx_fellipse 1   same arguments, filled with spans; no clipping -- keep it on screen
+
+#= event sources
+# The mouse sample (an SMC round-trip) and the keyboard drain (GETIN)
+# are KERNAL calls the IRQ pays every frame; this mask turns off the
+# ones an app does not use. The other sources keep their own switches:
+# the timer arms with cx_ev_timer, the pads with cx_joy_enable, PCM by
+# playing. cx_ev_init resets the mask to 3 (mouse + keyboard).
+87  cx_ev_mask      1   A = a bit mask of sampled sources: bit 0 = mouse, bit 1 = keyboard. With both off and the pads off, the frame tick costs only the timer/PCM gates

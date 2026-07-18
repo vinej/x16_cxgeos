@@ -70,6 +70,7 @@ main
     jsr test_ev_dispatch
     jsr test_ev_null
     jsr test_ev_joy_reset
+    jsr test_ev_mask
 
     jsr test_abi_header
     jsr test_abi_table
@@ -1235,6 +1236,34 @@ test_ev_joy_reset
     jmp t_result
 @name .byte "EV_JOY_RESET", 0
 
+; EV_MASK: the source mask defaults to mouse+keys, an app cannot inherit
+; a stripped one, and a fully masked-down frame tick samples nothing --
+; the light path runs (no zp save, no KERNAL calls) and posts nothing.
+test_ev_mask
+    lda #0                      ; strip everything, then prove ev_init
+    jsr ev_set_mask             ; hands the next app the default back
+    jsr ev_init
+    ldy #1
+    lda ev_mask
+    cmp #EVS_MOUSE|EVS_KEYS
+    bne @report
+
+    lda #0                      ; all sources off (pads are off too):
+    jsr ev_set_mask             ; the tick takes the light path
+    jsr ev_irq
+    jsr ev_count                ; ...and posted nothing
+    bne @report
+
+    lda #EVS_MOUSE|EVS_KEYS     ; leave the machine as found
+    jsr ev_set_mask
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "EV_MASK", 0
+
 
 ; =====================================================================
 ; the ABI (abi/cxgeos.abi -> kernel/resident/jumptab.asm).
@@ -1271,7 +1300,7 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #87                     ; 31 shipped with the table; loader, events,
+    cmp #88                     ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the

@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 87                    ; slots
+    .word 88                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -169,6 +169,9 @@ cx_jumptab
 ; --- ellipses (every mode, like slots 78-80: they draw through the port) 
     jmp cx_do_gfx_ellipse ; 85  P0/P1 = cx, P2/P3 = cy, P4 = rx, P5 = ry (each 0-255), A = colour: an axis-aligned outline through the port's pset, clipped where pset clips
     jmp cx_do_gfx_fellipse ; 86  same arguments, filled with spans; no clipping -- keep it on screen
+
+; --- event sources -----------------------------------------------
+    jmp ev_set_mask      ; 87  A = a bit mask of sampled sources: bit 0 = mouse, bit 1 = keyboard. With both off and the pads off, the frame tick costs only the timer/PCM gates
 
 .popseg
 

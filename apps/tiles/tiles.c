@@ -43,6 +43,8 @@ int main(void) {
             cx_tile_cell(0, x, y, CX_CELL(1, 0));
 
     cx_ev_init();
+    cx_ev_mask(CX_EVS_KEYS);           /* no mouse here: skip its SMC
+                                        * round-trip every frame */
     cx_joy_enable(1);                  /* pad 0: the keyboard joystick */
 
     for (;;) {

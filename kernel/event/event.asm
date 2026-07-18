@@ -82,6 +82,15 @@ EV_KEYS       = 4               ; keys drained per frame
 
 EV_SCANLINE   = 0               ; where the hook fires
 
+; The source mask (cx_ev_mask): which samplers the IRQ runs each frame.
+; Mouse and keyboard are the two costly ones -- each is a KERNAL call
+; (the SMC round-trip, the GETIN drain) paid every frame whether or not
+; the app cares -- so they are the two bits. The other sources already
+; have their own switches: the timer arms with cx_ev_timer, the pads
+; with cx_joy_enable, PCM by playing.
+EVS_MOUSE     = %00000001
+EVS_KEYS      = %00000010
+
 ; ---------------------------------------------------------------------
 ; ev_init -- clear the queue and hook scanline 0.
 ; ---------------------------------------------------------------------
@@ -101,6 +110,9 @@ ev_init
     stz ev_joy_prev,x           ; handler table that never expected them
     dex
     bpl @joy
+    lda #EVS_MOUSE|EVS_KEYS     ; the default sources: mouse and keyboard
+    sta ev_mask                 ; sampled, exactly the pre-mask behaviour
+                                ; (and the same no-inheritance rule)
     lda #$FF                    ; no pointer position yet, so the first
     sta ev_mx                   ; sample always reads as a move
     sta ev_mx+1
@@ -128,6 +140,13 @@ ev_stop
 ev_handlers
     sta CX_E_HND
     stx CX_E_HND+1
+    rts
+
+; ---------------------------------------------------------------------
+; ev_set_mask -- A = the source mask (EVS_*): which samplers run.
+; ---------------------------------------------------------------------
+ev_set_mask
+    sta ev_mask
     rts
 
 ev_frames
@@ -371,14 +390,36 @@ ev_null_table
 ; the interrupt
 ; =====================================================================
 ev_irq
+    ; Only the sources the app subscribed run -- the mouse's SMC
+    ; round-trip and the GETIN drain are KERNAL calls paid every frame,
+    ; so an app that plays on the joystick alone should not pay them.
+    ; And when NOTHING that touches the r0-r15/P/T blocks is on (no
+    ; mouse, no keys, no pads), the 96-byte zp save/restore is skipped
+    ; too: the timer and the PCM top-up use only A/X/Y and their own
+    ; variables, so a masked-down frame costs a handful of cycles.
+    lda ev_mask
+    and #EVS_MOUSE|EVS_KEYS
+    ora ev_joy_en
+    beq @light
     jsr irq_save_regs           ; mouse_get uses the parameter block
+    lda ev_mask
+    and #EVS_MOUSE
+    beq @nomouse
     jsr ev_do_mouse
+@nomouse
+    lda ev_mask
+    and #EVS_KEYS
+    beq @nokeys
     jsr ev_do_keys
+@nokeys
     jsr ev_do_timer
     jsr ev_do_joy              ; joysticks last: they reuse ev_rec's x/y
     jsr pcm_refill              ; top up the PCM FIFO from the sample buffer
     jsr irq_restore_regs        ; (a no-op unless a sample is playing)
     rts
+@light
+    jsr ev_do_timer
+    jmp pcm_refill
 
 ; --- the pointer -----------------------------------------------------
 ev_do_mouse
@@ -627,6 +668,7 @@ ev_do_joy
 ev_joy_en   .byte 0
 ev_joy_prev .res 8, 0
 ev_pow2     .byte 1, 2, 4, 8
+ev_mask     .byte EVS_MOUSE|EVS_KEYS ; the source mask (cx_ev_mask)
 
 ; ---------------------------------------------------------------------
 ev_q       .res EV_MAX * EV_SIZE, 0
