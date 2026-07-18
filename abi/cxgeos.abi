@@ -189,3 +189,8 @@ version = 1
 # mode 0, so cx_exit -> shell restores the desktop from any mode.
 76  cx_gfx_mode     1   A = the mode -> carry set if unknown; swaps the engine and runs its init (VERA is reprogrammed, the screen is the new mode's)
 77  cx_gfx_info     1   -> A = mode, P0/P1 = width, P2/P3 = height, P4 = bpp, P5/P6 = bytes per row
+
+#= shapes (every mode: they draw through the port itself)
+78  cx_gfx_circle   1   P0/P1 = cx, P2/P3 = cy, P4 = r (0-255), A = colour: an outline through the port's pset, clipped where pset clips
+79  cx_gfx_disc     1   same arguments, filled with spans; no clipping -- keep it on screen
+80  cx_gfx_flood    1   P0/P1 = x, P2/P3 = y, A = colour: scanline fill of the region holding the seed, fenced by differing pixels and the canvas edge; carry set if the seed stack overflowed

@@ -12,8 +12,9 @@
 ; colour in P3 and a byte y (240 rows fit one). y's high byte is
 ; ignored -- at 320x240 it is zero for every on-screen point.
 ;
-; What mode 1 cannot honour refuses with carry: the 2bpp pattern and
-; blit formats (their byte layouts are four-pixels-a-byte). Text is the
+; The full thirteen entries are real since the library's two-way parity
+; pass: pattern/blit are the 8bpp natives (bg/fg as full bytes in P4/P5,
+; blit widths in pixels, blitm's $00 a colour key). Text stays the
 ; toolkit's, and the toolkit is mode-0-only by contract.
 ;
 ; bitmap.asm's extras (circle, disc, flood, charset text) are gated out
@@ -32,16 +33,16 @@ ov1_vector                      ; the port's entry vector, slot order
     jmp ov1_init
     jmp gfx_clear               ; A = colour: the module's own shape
     jmp ov1_pset
-    jmp ov1_read
+    jmp gfx_read                ; the module's own read (no clip here)
     jmp ov1_hline
     jmp ov1_vline
     jmp ov1_rect
     jmp ov1_frame
     jmp ov1_line
-    jmp ov1_no                  ; pattern set   -- 2bpp formats
-    jmp ov1_no                  ; pattern rect
-    jmp ov1_no                  ; blit
-    jmp ov1_no                  ; masked blit
+    jmp gfx_pattern_set         ; pattern: mode 1 takes bg/fg in P4/P5
+    jmp gfx_pattern_rect        ; (full 0-255; Y's packed pair only
+    jmp gfx_blit                ; holds 2-bit colours). blit width is in
+    jmp gfx_blitm               ; PIXELS; blitm's $00 is transparent
 
 .assert ov1_vector = CX_OVL, error, "OV1CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 
@@ -97,16 +98,6 @@ ov1_line                        ; ABI x1 P4/P5, y1 P6, colour A -> the
     pla
     sta X16_P6
     jmp gfx_line
-
-ov1_read                        ; P0/P1 = x, P2 = y -> A = the pixel
-    lda #VERA_INC_0
-    jsr gfx_setptr
-    lda VERA_DATA0
-    rts
-
-ov1_no                          ; not in this mode: refuse politely
-    sec
-    rts
 
 ; gfx_init jumps here; the port never calls gfx_init, but the symbol
 ; must exist for the module to assemble without the SCREEN module.

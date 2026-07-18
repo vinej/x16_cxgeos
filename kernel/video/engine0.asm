@@ -31,6 +31,7 @@ CX_MODES    = 2                 ; how many engines ride the banks today
 
 cx_ov_boot                      ; boot: engine 0 in, mode noted
     stz cx_vmode
+    jsr cx_ov_bounds
     lda #CX_OV0_BANK
     ; falls into cx_ov_load
 cx_ov_load                      ; A = the engine's bank
@@ -99,6 +100,7 @@ cx_do_gfx_mode
     jsr cx_ov_load
     pla
     sta cx_vmode
+    jsr cx_ov_bounds
     jsr cxov_init               ; the fresh engine programs VERA
 @done
     clc
@@ -170,7 +172,28 @@ cx_do_gfx_info
     lda cx_vmode
     rts
 
+; cx_ov_bounds -- the current canvas w/h out of the mode table, into
+; the fixed words the shapes module (and anyone) reads
+cx_ov_bounds
+    lda cx_vmode
+    asl
+    asl
+    asl
+    tax
+    ldy #0
+@cp
+    lda cx_minfo,x
+    sta cx_cur_w,y
+    inx
+    iny
+    cpy #4
+    bne @cp
+    rts
+
 cx_vmode .byte 0                ; the engine in the port right now
+cx_cur_w .word 640              ; the live canvas, kept current by
+cx_cur_h .word 480              ; cx_ov_bounds (the flat runner keeps
+                                ; the mode-0 defaults)
 cx_minfo                        ; w.w, h.w, bpp, stride.w (+1 pad) per mode
     .word 640, 480
     .byte 2

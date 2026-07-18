@@ -70,6 +70,7 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/video/sprite.asm"
 .include "kernel/video/engine0.asm"
 .include "kernel/video/engine1.asm"
+.include "kernel/video/shapes.asm"
 ; dir.asm and dirty.asm AFTER menu.asm's B2CODE (their banked bodies
 ; must not shove the local jump table off $A000)
 .include "kernel/fs/dir.asm"

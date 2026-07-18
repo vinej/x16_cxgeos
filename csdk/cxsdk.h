@@ -202,8 +202,30 @@ static void cx_line(unsigned x0, unsigned y0, unsigned x1, unsigned y1, unsigned
     CX__W(0, x0); CX__W(2, y0); CX__W(4, x1); CX__W(6, y1);
     cx_call_a(CX_GFX_LINE, color);
 }
+/* a circle outline at (cx, cy), radius r -- drawn through the port, so
+ * it works in every mode and clips where pset clips */
+static void cx_circle(unsigned cxx, unsigned cy, unsigned char r, unsigned char color) {
+    CX__W(0, cxx); CX__W(2, cy); cx_p[4] = r;
+    cx_call_a(CX_GFX_CIRCLE, color);
+}
+/* a filled circle; no clipping -- keep it on screen */
+static void cx_disc(unsigned cxx, unsigned cy, unsigned char r, unsigned char color) {
+    CX__W(0, cxx); CX__W(2, cy); cx_p[4] = r;
+    cx_call_a(CX_GFX_DISC, color);
+}
+/* flood-fill the region containing (x, y); returns 0 done, 1 if the
+ * seed stack overflowed on a very tortured region */
+static char cx_flood(unsigned x, unsigned y, unsigned char color) {
+    CX__W(0, x); CX__W(2, y);
+    cx_call_a(CX_GFX_FLOOD, color);
+    return cx_c;
+}
+/* set the fill pattern. One wrapper serves every mode: Y carries the
+ * packed 2-bit pair mode 0 reads, and P4/P5 carry the full bytes mode 1
+ * reads -- each engine takes the one it understands. */
 static void cx_pattern(const void *pat8, unsigned char bg, unsigned char fg) {
-    cx_y = (unsigned char)((bg << 2) | fg);
+    cx_y = (unsigned char)(((bg & 3) << 2) | (fg & 3));
+    cx_p[4] = bg; cx_p[5] = fg;
     cx_call_p(CX_GFX_PATTERN, pat8);
 }
 static void cx_patrect(unsigned x, unsigned y, unsigned w, unsigned h) {

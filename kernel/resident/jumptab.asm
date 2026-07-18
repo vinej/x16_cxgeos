@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 78                    ; slots
+    .word 81                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -154,6 +154,11 @@ cx_jumptab
 ; --- the graphics port -------------------------------------------
     jmp cx_do_gfx_mode   ; 76  A = the mode -> carry set if unknown; swaps the engine and runs its init (VERA is reprogrammed, the screen is the new mode's)
     jmp cx_do_gfx_info   ; 77  -> A = mode, P0/P1 = width, P2/P3 = height, P4 = bpp, P5/P6 = bytes per row
+
+; --- shapes (every mode: they draw through the port itself) ------
+    jmp cx_do_gfx_circle ; 78  P0/P1 = cx, P2/P3 = cy, P4 = r (0-255), A = colour: an outline through the port's pset, clipped where pset clips
+    jmp cx_do_gfx_disc   ; 79  same arguments, filled with spans; no clipping -- keep it on screen
+    jmp cx_do_gfx_flood  ; 80  P0/P1 = x, P2/P3 = y, A = colour: scanline fill of the region holding the seed, fenced by differing pixels and the canvas edge; carry set if the seed stack overflowed
 
 .popseg
 

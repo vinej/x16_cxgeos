@@ -98,3 +98,6 @@ cx_joy_get      = cx_do_joy_get
 cx_joy_enable   = ev_joy_enable
 cx_gfx_mode     = cx_do_gfx_mode
 cx_gfx_info     = cx_do_gfx_info
+cx_gfx_circle   = cx_do_gfx_circle
+cx_gfx_disc     = cx_do_gfx_disc
+cx_gfx_flood    = cx_do_gfx_flood

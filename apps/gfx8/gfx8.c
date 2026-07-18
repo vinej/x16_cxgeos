@@ -59,6 +59,13 @@ int main(void) {
                                             * width-wide bar at the foot */
     cx_rect(0, sc.h - 4, sc.w, 4, 63);
 
+    /* the shapes ride the port, so they work here too: a disc, a ring
+     * around it, and a flood seeded in the moat between them -- fenced
+     * by the ring, the disc, and the diagonals that cross it */
+    cx_disc(250, 222, 7, 220);             /* a bright blue disc        */
+    cx_circle(250, 222, 13, 15);           /* a pale ring around it     */
+    cx_flood(250, 212, 110);               /* the moat's top arc, red   */
+
     cx_ev_init();
     for (;;) {
         if (cx_poll(&ev) && ev.type == CX_ET_KEY)
