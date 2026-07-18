@@ -22,8 +22,9 @@ binaries, a patched KERNAL ROM. CXGEOS is the clean break:
     `cx_hline`/`cx_vline`/`cx_line`, and mixed-case `cx_say`.
 
   Sprites, audio, events, joysticks, files and the **shapes**
-  (circle/disc/flood) work in every mode; the widget toolkit, fonts and
-  dialogs are desktop-only and refuse politely elsewhere.
+  (circle/disc/flood, and ellipses since 0.3.1) work in every mode; the
+  widget toolkit, fonts and dialogs are desktop-only and refuse politely
+  elsewhere.
 - **Stock ROM (R49+)**: boots from the SD card via `AUTOBOOT.X16`, no ROM
   patches, no cartridge required (a cartridge build comes later).
 - **Native CMDR-DOS FAT32 files** — no .d64 images, no disk swapping.

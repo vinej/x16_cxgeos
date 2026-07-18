@@ -33,6 +33,14 @@ cx_do_gfx_flood
     jsr cxb_call
     .byte CX_SHP_BANK
     .addr shape_flood
+cx_do_gfx_ellipse
+    jsr cxb_call
+    .byte CX_SHP_BANK
+    .addr shape_ellipse
+cx_do_gfx_fellipse
+    jsr cxb_call
+    .byte CX_SHP_BANK
+    .addr shape_fellipse
 
 .segment "B5CODE"
 .include "gfx/shapes.asm"
@@ -47,9 +55,11 @@ SHP_HLINE = cxov_hline
 SHP_W     = cx_cur_w
 SHP_H     = cx_cur_h
 
-cx_do_gfx_circle = shape_circle
-cx_do_gfx_disc   = shape_disc
-cx_do_gfx_flood  = shape_flood
+cx_do_gfx_circle   = shape_circle
+cx_do_gfx_disc     = shape_disc
+cx_do_gfx_flood    = shape_flood
+cx_do_gfx_ellipse  = shape_ellipse
+cx_do_gfx_fellipse = shape_fellipse
 
 .include "gfx/shapes.asm"
 

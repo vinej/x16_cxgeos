@@ -34,10 +34,10 @@ dispatch tax on the hot path.
 | 3 `CX_MODE_TEXT` | 80×60 text cells, 16 colours | KERNAL console (`screen.asm`), **all in the overlay** | 5 (shared, via `__OV3CODE_LOAD__`) | a CELL grid, not pixels: clear/rect fill cells with a colour (and set the "paper" later drawing sits on); **frame is a real box in the PETSCII frame glyphs** (┌ ┐ └ ┘ ─ │: codes `$B0 $AE $AD $BD $C0 $DD`); hline/vline are ruled lines; **line works for horizontal/vertical runs** and refuses diagonals; `cx_say` prints ASCII at (col,row), letters mapped to the PETSCII upper/lower charset so the case on screen is the case in the string. pset/read/pattern/blit refuse. Runs in the overlay (low RAM), not a bank, because the KERNAL screen routines do not preserve `RAM_BANK` and would corrupt banked code. Init is `CINT` (a full reset — `screen_set_mode` alone left the text layer dark) then the `CHR$(14)` switch out of ISO (the X16 default, whose charset has no box glyphs) |
 
 **Mode-agnostic by construction:** events, audio, sprites, PCM, files,
-clipboard, joysticks — and the *shapes* (slots 78–80): circle, disc and
-flood are one copy of code in bank 5 drawing **through the vector
-itself**, with bounds from `cx_cur_w/h`, so they are correct in every
-bitmap mode automatically.
+clipboard, joysticks — and the *shapes* (slots 78–80, ellipses 85–86):
+circle, disc, ellipse, filled ellipse and flood are one copy of code in
+bank 5 drawing **through the vector itself**, with bounds from
+`cx_cur_w/h`, so they are correct in every bitmap mode automatically.
 
 **Mode-0-only, enforced:** the toolkit, fonts, dialogs, menus, desk
 accessories, and the save-under machinery. Their ABI entries refuse with

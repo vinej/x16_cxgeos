@@ -486,6 +486,9 @@ restores the desktop.
 **`void cx_circle(unsigned cx, unsigned cy, unsigned char r, unsigned char color)`**
 -- an outline; clips wherever pset clips.
 **`void cx_disc(...)`** -- the same, filled; no clipping, keep it on screen.
+**`void cx_ellipse(unsigned cx, unsigned cy, unsigned char rx, unsigned char ry, unsigned char color)`**
+*(0.3.1)* -- an axis-aligned ellipse outline; clips wherever pset clips.
+**`void cx_fellipse(...)`** -- the same, filled; no clipping.
 **`char cx_flood(unsigned x, unsigned y, unsigned char color)`** --
 scanline fill of the region containing the seed; returns 1 if the seed
 stack overflowed on a very tortured region.
@@ -493,6 +496,8 @@ stack overflowed on a very tortured region.
 cx_disc(250, 222, 7, 220);
 cx_circle(250, 222, 13, 15);
 cx_flood(250, 212, 110);       /* fills the moat between them */
+cx_fellipse(70, 222, 22, 9, 175);
+cx_ellipse(70, 222, 28, 13, 15);
 ```
 
 ## Tiles *(0.3.0)* -- CX_MODE_TILE only

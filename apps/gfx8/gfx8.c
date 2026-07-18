@@ -66,6 +66,10 @@ int main(void) {
     cx_circle(250, 222, 13, 15);           /* a pale ring around it     */
     cx_flood(250, 212, 110);               /* the moat's top arc, red   */
 
+    /* ...and the 0.3.1 ellipses: a filled green one in a white outline */
+    cx_fellipse(70, 222, 22, 9, 175);
+    cx_ellipse(70, 222, 28, 13, 15);
+
     cx_ev_init();
     for (;;) {
         if (cx_poll(&ev) && ev.type == CX_ET_KEY)

@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 85                    ; slots
+    .word 87                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -165,6 +165,10 @@ cx_jumptab
     jmp cx_do_tile_scroll ; 82  A = layer, P0/P1 = hscroll, P2/P3 = vscroll (0-4095)
     jmp cx_do_tile_cell  ; 83  A = layer, X = col (0-63), Y = row (0-31), P0/P1 = the cell word (index; hi: pal<<4 | vflip<<3 | hflip<<2 | index 9:8)
     jmp cx_do_tile_fill  ; 84  A = layer, P0/P1 = the cell word, into every cell
+
+; --- ellipses (every mode, like slots 78-80: they draw through the port) 
+    jmp cx_do_gfx_ellipse ; 85  P0/P1 = cx, P2/P3 = cy, P4 = rx, P5 = ry (each 0-255), A = colour: an axis-aligned outline through the port's pset, clipped where pset clips
+    jmp cx_do_gfx_fellipse ; 86  same arguments, filled with spans; no clipping -- keep it on screen
 
 .popseg
 

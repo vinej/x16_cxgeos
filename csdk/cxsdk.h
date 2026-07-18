@@ -219,6 +219,19 @@ static void cx_disc(unsigned cxx, unsigned cy, unsigned char r, unsigned char co
     CX__W(0, cxx); CX__W(2, cy); cx_p[4] = r;
     cx_call_a(CX_GFX_DISC, color);
 }
+/* an axis-aligned ellipse outline (rx, ry each 0-255); clips wherever
+ * the mode's pset clips */
+static void cx_ellipse(unsigned cxx, unsigned cy, unsigned char rx,
+                       unsigned char ry, unsigned char color) {
+    CX__W(0, cxx); CX__W(2, cy); cx_p[4] = rx; cx_p[5] = ry;
+    cx_call_a(CX_GFX_ELLIPSE, color);
+}
+/* the same, filled; no clipping -- keep it on screen */
+static void cx_fellipse(unsigned cxx, unsigned cy, unsigned char rx,
+                        unsigned char ry, unsigned char color) {
+    CX__W(0, cxx); CX__W(2, cy); cx_p[4] = rx; cx_p[5] = ry;
+    cx_call_a(CX_GFX_FELLIPSE, color);
+}
 /* flood-fill the region containing (x, y); returns 0 done, 1 if the
  * seed stack overflowed on a very tortured region */
 static char cx_flood(unsigned x, unsigned y, unsigned char color) {

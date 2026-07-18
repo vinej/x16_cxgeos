@@ -202,3 +202,7 @@ version = 1
 82  cx_tile_scroll  1   A = layer, P0/P1 = hscroll, P2/P3 = vscroll (0-4095)
 83  cx_tile_cell    1   A = layer, X = col (0-63), Y = row (0-31), P0/P1 = the cell word (index; hi: pal<<4 | vflip<<3 | hflip<<2 | index 9:8)
 84  cx_tile_fill    1   A = layer, P0/P1 = the cell word, into every cell
+
+#= ellipses (every mode, like slots 78-80: they draw through the port)
+85  cx_gfx_ellipse  1   P0/P1 = cx, P2/P3 = cy, P4 = rx, P5 = ry (each 0-255), A = colour: an axis-aligned outline through the port's pset, clipped where pset clips
+86  cx_gfx_fellipse 1   same arguments, filled with spans; no clipping -- keep it on screen
