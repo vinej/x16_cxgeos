@@ -34,8 +34,13 @@ binaries, a patched KERNAL ROM. CXGEOS is the clean break:
 - **A documented SDK**: a friendly header-only C wrapper (`csdk/`) over the
   ABI — graphics, text, events, widgets, dialogs, themes, files, clipboard,
   (0.2.0) **audio** (VERA PSG, the YM2151 FM chip, streamed PCM) and
-  **hardware sprites**, and (0.3.0) **joysticks**, the four video modes
-  above, and the mode-agnostic **shapes**. Guides in
+  **hardware sprites**, (0.3.0) **joysticks**, the four video modes
+  above, and the mode-agnostic **shapes**, and (0.4.0) **pluggable fonts
+  and charsets**, the **asset loaders** (`cx_file_load`, and
+  `cx_vload`/`cx_bload` for the VLOAD-shaped binaries every X16 graphics
+  tool exports), **mode-1 text** with `cx_ink`, and the **event source
+  mask**. Music loads today (ZSM via `cx_bload`); a zsmkit-based player
+  is planned, not in yet. Guides in
   [docs/sdkguide.md](docs/sdkguide.md), [docs/csdkguide.md](docs/csdkguide.md)
   and [docs/graphics-port.md](docs/graphics-port.md).
 - Foundationed on [x16lib](https://github.com/vinej/x16_library): the kernel
@@ -53,7 +58,7 @@ apps/             system applications and desk accessories
 spikes/           Phase 0 throwaway risk prototypes (perf numbers in docs/perf.md)
 tools/            font converter, SD-image builder, cartridge packer
 test/             on-target regression suites (x16lib runner pattern)
-docs/             memory-map.md (the RAM/VRAM ledger), perf.md, abi.md, formats.md
+docs/             the guides: graphics-port, sdk, csdk, formats, memory-map, perf, ui
 ```
 
 ## Building
@@ -141,7 +146,7 @@ the resident budget and is why the image fits.
   coalesce so the pointer cannot lag behind the hand. Milestone:
   `demos/evmon.asm`.
 - **Phase 4 done** — the ABI, and the machine that honours it.
-  `abi/cxgeos.abi` is the manifest: 33 append-only slots, from which
+  `abi/cxgeos.abi` is the manifest: 92 append-only slots (and counting), from which
   `abi/gen_bindings.py` generates the jump table at `$8010` and
   bindings for all 12 toolchains (7 `.inc`, 5 `.h`).
   `kernel/resident/impl.inc` maps each ABI promise to the kernel

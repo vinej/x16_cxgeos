@@ -1,6 +1,6 @@
 # CXGEOS csdk Guide — the friendly C wrapper
 
-**Release 0.3.0** · header: `csdk/cxsdk.h`
+**Release 0.4.x** · header: `csdk/cxsdk.h`
 
 The csdk turns the low-level [ABI](sdkguide.md) into clean, named `cx_*`
 functions, a typed event record, the shared constants, immediate-mode widget
@@ -85,7 +85,9 @@ PSG waveforms: `CX_WAVE_PULSE`=`$00`, `CX_WAVE_SAW`=`$40`, `CX_WAVE_TRI`=`$80`,
 
 Joystick button masks (ACTIVE HIGH): `CX_J_UP/DOWN/LEFT/RIGHT`,
 `CX_J_A/B/X/Y`, `CX_J_L/R`, `CX_J_START/SELECT`. Graphics modes:
-`CX_MODE_GUI` (0), `CX_MODE_BMP8` (1), `CX_MODE_TILE` (2). Tiles:
+`CX_MODE_GUI` (0), `CX_MODE_BMP8` (1), `CX_MODE_TILE` (2),
+`CX_MODE_TEXT` (3). Event sources (0.4.0): `CX_EVS_MOUSE` (1),
+`CX_EVS_KEYS` (2), for `cx_ev_mask`. Tiles:
 `CX_TILE_IMG`, `CX_CELL(index, palette)`, `CX_CELL_HF`, `CX_CELL_VF`.
 (The functions are in the sections further down.)
 
@@ -279,7 +281,7 @@ cx_timer(60);                               /* one tick a second */
 **`unsigned char cx_frames(void)`** — the free-running frame counter (for
 timing/animation).
 
-**`void cx_ev_mask(unsigned char sources)`** *(0.3.2)* — choose which
+**`void cx_ev_mask(unsigned char sources)`** *(0.4.0)* — choose which
 sources the frame tick samples: `CX_EVS_MOUSE` (the SMC round-trip)
 and/or `CX_EVS_KEYS` (the GETIN drain). Both are KERNAL calls paid every
 frame, so masking off the ones you do not use gives that time back —
@@ -388,7 +390,7 @@ if (cx_file_load("MYCHARS.BIN", cs, 2048) == 2048)
 ```
 
 **`char cx_vload(const char *name, unsigned char vbank, unsigned addr, char raw)`**
-*(0.4.x)* — a file **straight into VRAM**, BASIC's `VLOAD`: sprite images,
+*(0.4.1)* — a file **straight into VRAM**, BASIC's `VLOAD`: sprite images,
 tile images, tile maps, palettes (to `$1FA00`), charsets (to `$1F000`),
 bitmaps. The whole X16 tool ecosystem emits exactly this shape —
 **Aloevera**, **X16PngConverter**, the **Vera Graphics Converter**,
@@ -403,7 +405,7 @@ cx_vload("PALETTE.BIN", 1, 0xFA00, 0);   /* the palette at $1FA00  */
 ```
 
 **`char cx_bload(const char *name, unsigned char bank, unsigned addr, char raw)`**
-*(0.4.x)* — a file into **banked RAM**, BASIC's `BVLOAD`: the KERNAL wraps
+*(0.4.1)* — a file into **banked RAM**, BASIC's `BVLOAD`: the KERNAL wraps
 banks at `$BFFF` on its own, so a big asset just keeps going. This is how
 **ZSM music** (composed in **Furnace**, which exports the X16-native ZSM
 format) gets into memory for a future player, and how level data and
@@ -412,6 +414,11 @@ The end address comes back in `cx_p[4]/[5]`, the end bank in `cx_p[6]`.
 ```c
 cx_bload("SONG.ZSM", 16, 0xA000, 0);     /* banks 16+ are the app's */
 ```
+
+*(Playing that song is the missing half: a **zsmkit**-based player —
+ticked from the frame IRQ, with play/stop slots — is planned but **not in
+yet**. Today `cx_bload` gets the ZSM into memory; the player comes in a
+later release.)*
 
 ## Directory & DOS
 

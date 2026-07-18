@@ -1,6 +1,6 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.3.0** · ABI version 1 · 85 slots
+**Release 0.4.x** · ABI version 1 · 92 slots (append-only)
 
 This documents `sdk/include_<compiler>/cxgeos.h` — the **generated**, low-level
 binding to the kernel. It is what every CXGEOS app ultimately calls. C
@@ -46,9 +46,16 @@ in ordinary memory and copies it across the real block inside `cx_run()`:
 | `cx_slot` | `volatile unsigned int` | the jump-table address to call; set by the macros |
 
 `cx_run()` is the crossing itself: it parks the slot address, saves `$22–$25`
-on the hardware stack, copies the mirror into the real block, loads A/X/Y,
-`jsr`s the slot, then copies the block, A, X and carry back out. An event IRQ
-landing mid-crossing is safe — the kernel's handler preserves `$02–$31`.
+**and the compiler's whole imaginary-register file at `$02–$21`** on the
+hardware stack, copies the mirror into the real block, loads A/X/Y, `jsr`s the
+slot, then copies the block, A, X and carry back out. The `$02–$21` save
+matters: llvm-mos's registers are the KERNAL's own r0–r15, and any slot that
+reaches the KERNAL (the text mode, the loaders, the DOS glue) scribbles them.
+The header also plants a constructor that moves the **C soft stack to `$8000`**
+before `main` — the cx16 target's default pins it at `$9F00`, inside the
+kernel's graphics port, where a mode switch would copy an engine image over
+live stack frames. An event IRQ landing mid-crossing is safe — the kernel's
+handler preserves `$02–$31` around itself.
 
 ### The call macros
 

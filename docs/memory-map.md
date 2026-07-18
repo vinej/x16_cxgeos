@@ -31,15 +31,15 @@ file in the same commit as the code that claims or releases a region.
 |---|---|
 | 0 | KERNAL (reserved) |
 | 1 | kernel data: desktop state, theme, font metrics, event overflow |
-| 2 | menu/dialog engine (far-called kernel code) |
-| 3 | widget toolkit |
-| 4 | desktop / file manager |
-| 5 | loader + control panel |
+| 2 | far-called kernel code (`B2CODE`): menus, dialogs, widgets, themes, DAs, the directory walk, `cx_file_load`, the `cx_vload`/`cx_bload` marshalling |
+| 3 | mode 0's engine image (`OV0CODE`: the 2bpp module + the CXF text entry) |
+| 4 | mode 1's engine image (`OV1CODE`: the 8bpp module + charset text) |
+| 5 | `B5CODE` — the mode-agnostic shapes (circle/disc/ellipse/flood) and the tile machinery — plus the mode-2 and mode-3 images (`OV2CODE`/`OV3CODE`) |
 | 6–8 | **pre-shifted glyph cache** (see below) + CXF font sources |
-| 9 | reserved kernel growth |
+| 9 | desk-accessory code (`cx_da_open` loads a .CXD here) |
 | 10–13 | clipboard (typed: text / bitmap-rect, up to 32KB) |
-| 14–15 | desk-accessory slots (code + saved state) |
-| 16+ | dynamic pool (`bank_alloc`): window backing store, app allocations, file buffers. Sized from MEMTOP at boot (512KB → 48 free banks; 2MB → 240) |
+| 14–15 | dialog save-unders / DA saved state |
+| 16+ | **the app's**: `cx_bload` targets land here (it refuses banks below 16), plus window backing store, allocations, file buffers. Sized from MEMTOP at boot (512KB → 48 free banks; 2MB → 240) |
 
 ### The graphics port and its banks *(0.3.0)*
 

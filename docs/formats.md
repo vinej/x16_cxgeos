@@ -109,7 +109,11 @@ $22/$23. A C program that wrote $22 directly would corrupt its own
 stack — it did, and the crash took an evening to bisect. So
 `sdk/include_llvm/cxgeos.h` mirrors the block: `cx_p[]`, `cx_a`,
 `cx_x`, `cx_y` are ordinary memory, and `cx_run()` carries them across
-the real block with $22–$25 saved around the call. The mirror also
+the real block with $22–$25 — and, since 0.4.0, the whole imaginary
+register file at $02–$21 — saved around the call: llvm's registers are
+the KERNAL's own r0–r15, and any slot that reaches the KERNAL scribbles
+them. The header also homes the C soft stack at $8000 before main (the
+cx16 default, $9F00, sits inside the kernel's graphics port). The mirror also
 returns the carry as `cx_c`, which raw C calls could never see. Build
 C apps with `-mreserve-zp=90` — clang's whole-program pass otherwise
 claims zero page from $26 up, all of which belongs to the kernel or to
