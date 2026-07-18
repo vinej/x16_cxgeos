@@ -26,25 +26,27 @@
 ; cx_ov_load copies an engine image from its bank into the port region:
 ; interrupts masked (nothing must draw mid-copy), the caller's bank
 ; restored. Engine n lives in bank CX_OV0_BANK + n.
-CX_OV0_BANK = 3
-CX_MODES    = 2                 ; how many engines ride the banks today
+CX_MODES    = 3                 ; how many engines ride the banks today
+
+.import __OV2CODE_LOAD__        ; mode 2's image shares bank 5 with the
+                                ; shapes; ld65 says where it landed
 
 cx_ov_boot                      ; boot: engine 0 in, mode noted
     stz cx_vmode
     jsr cx_ov_bounds
-    lda #CX_OV0_BANK
+    lda #0
     ; falls into cx_ov_load
-cx_ov_load                      ; A = the engine's bank
+cx_ov_load                      ; A = the MODE whose image to pull in
     php
     sei
-    tax
+    tay
     lda RAM_BANK
     pha
-    txa
+    lda cx_mbank,y
     sta RAM_BANK
-    lda #<$A000                 ; src walker in T0/T1, dst in T2/T3
+    lda cx_msrc_lo,y            ; src walker in T0/T1, dst in T2/T3
     sta X16_T0
-    lda #>$A000
+    lda cx_msrc_hi,y
     sta X16_T1
     lda #<CX_OVL
     sta X16_T2
@@ -95,8 +97,6 @@ cx_do_gfx_mode
     cmp cx_vmode
     beq @done                   ; already there
     pha
-    clc
-    adc #CX_OV0_BANK            ; engine n rides bank CX_OV0_BANK + n
     jsr cx_ov_load
     pla
     sta cx_vmode
@@ -108,6 +108,10 @@ cx_do_gfx_mode
 @bad
     sec
     rts
+
+cx_mbank   .byte 3, 4, 5        ; which bank holds each mode's image
+cx_msrc_lo .byte <$A000, <$A000, <__OV2CODE_LOAD__
+cx_msrc_hi .byte >$A000, >$A000, >__OV2CODE_LOAD__
 
 ; --- the engine image (OV0CODE: run = OVL, load = bank 3) ------------
 .segment "OV0CODE"
@@ -202,4 +206,8 @@ cx_minfo                        ; w.w, h.w, bpp, stride.w (+1 pad) per mode
     .word 320, 240
     .byte 8
     .word 320
+    .byte 0
+    .word 320, 240              ; mode 2: tiles -- not a bitmap, so
+    .byte 0                     ; bpp 0 and no stride; the maps are
+    .word 0                     ; the picture (cx_tile_*)
     .byte 0

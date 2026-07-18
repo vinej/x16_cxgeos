@@ -101,3 +101,7 @@ cx_gfx_info     = cx_do_gfx_info
 cx_gfx_circle   = cx_do_gfx_circle
 cx_gfx_disc     = cx_do_gfx_disc
 cx_gfx_flood    = cx_do_gfx_flood
+cx_tile_setup   = cx_do_tile_setup
+cx_tile_scroll  = cx_do_tile_scroll
+cx_tile_cell    = cx_do_tile_cell
+cx_tile_fill    = cx_do_tile_fill

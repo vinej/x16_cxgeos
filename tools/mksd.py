@@ -105,9 +105,15 @@ def build(out, files):
     fat = {}                     # cluster -> next (or 0x0FFFFFFF end)
     fat[0] = 0x0FFFFFF8
     fat[1] = 0x0FFFFFFF
-    fat[root_clus] = 0x0FFFFFFF  # root dir, one cluster
 
-    next_free = root_clus + 1
+    # The root directory takes as many clusters as its entries need --
+    # one 512-byte cluster is only SIXTEEN files, and the seventeenth
+    # used to spill into the first file's data and break the boot.
+    root_clusters = max(1, (len(files) * 32 + SPC * SECTOR - 1) // (SPC * SECTOR))
+    for i in range(root_clusters):
+        fat[root_clus + i] = (root_clus + i + 1) if i + 1 < root_clusters else 0x0FFFFFFF
+
+    next_free = root_clus + root_clusters
 
     def alloc_chain(nbytes):
         nonlocal next_free
@@ -146,7 +152,7 @@ def build(out, files):
             chunk = data[i * SPC * SECTOR:(i + 1) * SPC * SECTOR]
             img[off:off + len(chunk)] = chunk
 
-    # root directory into cluster 2
+    # root directory into its clusters (contiguous from cluster 2)
     roff = base + (data_start - PART_LBA) * SECTOR
     img[roff:roff + len(root)] = root
 

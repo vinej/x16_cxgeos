@@ -147,6 +147,7 @@ static unsigned cx_version(void)       { return cx_ret16(CX_VERSION); }
  * dialogs are CX_MODE_GUI-only; cx_exit always restores the desktop. */
 #define CX_MODE_GUI   0          /* 640x480, 4 colours -- the desktop  */
 #define CX_MODE_BMP8  1          /* 320x240, 256 colours               */
+#define CX_MODE_TILE  2          /* two tile layers + sprites (games)  */
 
 static void cx_gfx_init(void) { cx_call(CX_GFX_INIT); }  /* = mode GUI */
 static void cx_clear(unsigned char color) { cx_call_a(CX_GFX_CLEAR, color); }
@@ -219,6 +220,39 @@ static char cx_flood(unsigned x, unsigned y, unsigned char color) {
     CX__W(0, x); CX__W(2, y);
     cx_call_a(CX_GFX_FLOOD, color);
     return cx_c;
+}
+
+/* =====================================================================
+ * tiles (CX_MODE_TILE only) -- two 64x32 maps of 8x8 4bpp tiles
+ * =====================================================================
+ * Upload tile images with cx_vram_write to CX_TILE_IMG (32 bytes per
+ * tile); the maps hold 2-byte cells. Everything refuses (carry) outside
+ * mode 2. */
+#define CX_TILE_IMG   0x00000UL  /* tile pixel data (up to 1024 tiles) */
+#define CX_CELL_HF    0x0400     /* cell attribute bits                */
+#define CX_CELL_VF    0x0800
+#define CX_CELL(idx, pal)  (((unsigned)(idx) & 0x3FF) | ((unsigned)(pal) << 12))
+
+/* configure a layer (0/1) for the mode's ledger and switch it on */
+static char cx_tile_setup(unsigned char layer) {
+    cx_call_a(CX_TILE_SETUP, layer);
+    return cx_c;
+}
+/* hardware-scroll a layer (0-4095 each axis) */
+static void cx_tile_scroll(unsigned char layer, unsigned h, unsigned v) {
+    CX__W(0, h); CX__W(2, v);
+    cx_call_a(CX_TILE_SCROLL, layer);
+}
+/* write one map cell */
+static void cx_tile_cell(unsigned char layer, unsigned char col,
+                         unsigned char row, unsigned cell) {
+    CX__W(0, cell); cx_x = col; cx_y = row;
+    cx_call_a(CX_TILE_CELL, layer);
+}
+/* write every cell of a layer's map */
+static void cx_tile_fill(unsigned char layer, unsigned cell) {
+    CX__W(0, cell);
+    cx_call_a(CX_TILE_FILL, layer);
 }
 /* set the fill pattern. One wrapper serves every mode: Y carries the
  * packed 2-bit pair mode 0 reads, and P4/P5 carry the full bytes mode 1

@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 81                    ; slots
+    .word 85                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -159,6 +159,12 @@ cx_jumptab
     jmp cx_do_gfx_circle ; 78  P0/P1 = cx, P2/P3 = cy, P4 = r (0-255), A = colour: an outline through the port's pset, clipped where pset clips
     jmp cx_do_gfx_disc   ; 79  same arguments, filled with spans; no clipping -- keep it on screen
     jmp cx_do_gfx_flood  ; 80  P0/P1 = x, P2/P3 = y, A = colour: scanline fill of the region holding the seed, fenced by differing pixels and the canvas edge; carry set if the seed stack overflowed
+
+; --- tiles (mode 2 only: the tile personality's own API) ---------
+    jmp cx_do_tile_setup ; 81  A = layer (0/1): the ledger config (64x32 map, 8x8 4bpp tiles) and the layer on. Carry set outside mode 2
+    jmp cx_do_tile_scroll ; 82  A = layer, P0/P1 = hscroll, P2/P3 = vscroll (0-4095)
+    jmp cx_do_tile_cell  ; 83  A = layer, X = col (0-63), Y = row (0-31), P0/P1 = the cell word (index; hi: pal<<4 | vflip<<3 | hflip<<2 | index 9:8)
+    jmp cx_do_tile_fill  ; 84  A = layer, P0/P1 = the cell word, into every cell
 
 .popseg
 

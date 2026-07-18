@@ -1229,7 +1229,7 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #81                     ; 31 shipped with the table; loader, events,
+    cmp #85                     ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks -- grew it
@@ -2106,6 +2106,7 @@ test_font_bank
 .include "kernel/video/sprite.asm"
 .include "kernel/video/engine0.asm"
 .include "kernel/video/shapes.asm"
+.include "kernel/video/tiles.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
 .include "kernel/audio/pcm.asm"
