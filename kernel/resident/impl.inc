@@ -113,3 +113,5 @@ cx_gfx_fellipse = cx_do_gfx_fellipse
 cx_ev_mask      = ev_set_mask
 cx_file_load    = cx_do_file_load
 cx_ink          = cx_do_ink
+cx_vload        = cx_do_vload
+cx_bload        = cx_do_bload

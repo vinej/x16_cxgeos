@@ -638,6 +638,33 @@ static int cx_file_load(const char *name, void *dst, unsigned cap) {
     return (int)CX__R(4);
 }
 
+/* the asset loaders (0.4.x) -- the two shapes every X16 exporter emits.
+ * cx_vload is BASIC's VLOAD: a file straight into VRAM. Sprite images,
+ * tile images, tile maps, a palette to 0x1FA00, a charset to 0x1F000,
+ * bitmaps -- Aloevera, X16PngConverter, TilemapEd, tmx2vera and the
+ * GIMP plugins all emit VLOAD-ready binaries behind the standard 2-byte
+ * header (pass raw = 1 for a headerless file). cx_bload is BVLOAD:
+ * banked RAM at bank:addr, wrapping banks at 0xBFFF -- ZSM music, level
+ * data, collision maps. Banks below 16 are the kernel's and refuse.
+ * Both return 0 done, 1 failed (the error in cx_a; the end address in
+ * cx_p[4]/[5], cx_bload's end bank in cx_p[6]). */
+static char cx_vload(const char *name, unsigned char vbank, unsigned addr,
+                     char raw) {
+    cx_y = cx__strlen(name);
+    CX__W(0, addr); cx_p[2] = vbank; cx_p[3] = raw ? 1 : 0;
+    cx_call_p(CX_VLOAD, name);
+    return cx_c;
+}
+static char cx_bload(const char *name, unsigned char bank, unsigned addr,
+                     char raw) {
+    cx_y = cx__strlen(name);
+    cx_p[0] = bank;
+    cx_p[1] = (unsigned char)addr; cx_p[2] = (unsigned char)(addr >> 8);
+    cx_p[3] = raw ? 1 : 0;
+    cx_call_p(CX_BLOAD, name);
+    return cx_c;
+}
+
 /* =====================================================================
  * directory and DOS
  * ===================================================================== */

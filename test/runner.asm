@@ -89,6 +89,8 @@ main
     jsr test_dir
     jsr test_dir_irq
     jsr test_file_load
+    jsr test_as_vload
+    jsr test_as_bload
     jsr test_clip
     jsr test_clip_span
     jsr test_font_bank
@@ -1301,7 +1303,7 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #90                     ; 31 shipped with the table; loader, events,
+    cmp #92                     ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the
@@ -2093,6 +2095,196 @@ test_file_load
 @name_m_len = * - @name_m
 @buf    .res 40, 0
 
+; AS_VLOAD: a file straight into VRAM (bank 1, $3000 -- above the 2bpp
+; framebuffer's $12BFF). Headered semantics skip BADAPP.CXA's first two
+; bytes ("XX") and land the other 33; the raw flag lands all 35.
+AS_VDEST = $13000
+test_as_vload
+    vera_addr 0, AS_VDEST, VERA_INC_1
+    ldx #40                     ; a poisoned runway
+@poison
+    lda #$77
+    sta VERA_DATA0
+    dex
+    bne @poison
+
+    lda #<$3000                 ; headered: 33 bytes from "AP" on
+    sta X16_P0
+    lda #>$3000
+    sta X16_P1
+    lda #1                      ; VRAM bank 1
+    sta X16_P2
+    stz X16_P3                  ; the ecosystem default: skip the header
+    lda #<@vn
+    ldx #>@vn
+    ldy #@vn_len
+    jsr cx_do_vload
+    ldy #1
+    bcs @r1
+    lda X16_P4                  ; one past: $3021
+    cmp #$21
+    bne @r1
+    lda X16_P5
+    cmp #$30
+    bne @r1
+    ldy #0
+@r1
+    tya
+    ldx #<@n1
+    ldy #>@n1
+    jsr t_result
+
+    ldy #1                      ; the bytes, read in one clean burst
+    vera_addr 1, AS_VDEST, VERA_INC_1
+    lda VERA_DATA1              ; "AP", then zeros
+    cmp #'A'
+    bne @r2
+    lda VERA_DATA1
+    cmp #'P'
+    bne @r2
+    lda VERA_DATA1
+    bne @r2
+    vera_addr 1, AS_VDEST + 32, VERA_INC_1
+    lda VERA_DATA1              ; the last payload byte...
+    cmp #$EA
+    bne @r2
+    lda VERA_DATA1              ; ...and the poison right after
+    cmp #$77
+    bne @r2
+    ldy #0
+@r2
+    tya
+    ldx #<@n2
+    ldy #>@n2
+    jsr t_result
+
+    lda #<$3000                 ; raw: all 35 bytes, "XXAP" leading
+    sta X16_P0
+    lda #>$3000
+    sta X16_P1
+    lda #1
+    sta X16_P2
+    lda #1                      ; the raw flag
+    sta X16_P3
+    lda #<@vn
+    ldx #>@vn
+    ldy #@vn_len
+    jsr cx_do_vload
+    ldy #1
+    bcs @r3
+    lda X16_P4                  ; one past: $3023
+    cmp #$23
+    bne @r3
+    vera_addr 1, AS_VDEST, VERA_INC_1
+    lda VERA_DATA1
+    cmp #'X'
+    bne @r3
+    ldy #0
+@r3
+    tya
+    ldx #<@n3
+    ldy #>@n3
+    jmp t_result
+@n1   .byte "AV_END", 0
+@n2   .byte "AV_BYTES", 0
+@n3   .byte "AV_RAW", 0
+@vn   .byte "BADAPP.CXA"
+@vn_len = * - @vn
+
+; AS_BLOAD: the same file into banked RAM at 16:$A000 (the first bank
+; that is an app's to use); the kernel's own banks refuse with A = 0.
+test_as_bload
+    lda RAM_BANK
+    pha
+    lda #16                     ; poison one past the payload
+    sta RAM_BANK
+    lda #$5A
+    sta $A021
+    pla
+    sta RAM_BANK
+
+    lda #16
+    sta X16_P0
+    lda #<$A000
+    sta X16_P1
+    lda #>$A000
+    sta X16_P2
+    stz X16_P3
+    lda #<@bn
+    ldx #>@bn
+    ldy #@bn_len
+    jsr cx_do_bload
+    ldy #1
+    bcs @r1
+    lda X16_P4                  ; one past: $A021
+    cmp #$21
+    bne @r1
+    lda X16_P5
+    cmp #$A0
+    bne @r1
+    lda X16_P6                  ; ended in the bank it started in
+    cmp #16
+    bne @r1
+    ldy #0
+@r1
+    tya
+    ldx #<@n1
+    ldy #>@n1
+    jsr t_result
+
+    ldy #1
+    lda RAM_BANK
+    pha
+    lda #16
+    sta RAM_BANK
+    lda $A000                   ; "AP" leads, the poison survived
+    cmp #'A'
+    bne @unbank
+    lda $A001
+    cmp #'P'
+    bne @unbank
+    lda $A020
+    cmp #$EA
+    bne @unbank
+    lda $A021
+    cmp #$5A
+    bne @unbank
+    ldy #0
+@unbank
+    pla
+    sta RAM_BANK
+    tya
+    ldx #<@n2
+    ldy #>@n2
+    jsr t_result
+
+    lda #5                      ; a kernel bank: not on offer
+    sta X16_P0
+    lda #<$A000
+    sta X16_P1
+    lda #>$A000
+    sta X16_P2
+    stz X16_P3
+    lda #<@bn
+    ldx #>@bn
+    ldy #@bn_len
+    jsr cx_do_bload
+    ldy #1
+    bcc @r3                     ; must refuse...
+    cmp #0                      ; ...with the not-your-bank code
+    bne @r3
+    ldy #0
+@r3
+    tya
+    ldx #<@n3
+    ldy #>@n3
+    jmp t_result
+@n1   .byte "AB_END", 0
+@n2   .byte "AB_BYTES", 0
+@n3   .byte "AB_GUARD", 0
+@bn   .byte "BADAPP.CXA"
+@bn_len = * - @bn
+
 test_clip
     lda #<@msg                  ; put 5 bytes of TEXT
     sta X16_P0
@@ -2296,6 +2488,7 @@ test_font_bank
 .include "kernel/fs/loader.asm"
 .include "kernel/fs/dir.asm"
 .include "kernel/fs/fileload.asm"
+.include "kernel/fs/assets.asm"
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/resident/jumptab.asm"
 

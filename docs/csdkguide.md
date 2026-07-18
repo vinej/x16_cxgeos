@@ -387,6 +387,32 @@ if (cx_file_load("MYCHARS.BIN", cs, 2048) == 2048)
     cx_vram_write(0x1F000UL, cs, 2048);
 ```
 
+**`char cx_vload(const char *name, unsigned char vbank, unsigned addr, char raw)`**
+*(0.4.x)* — a file **straight into VRAM**, BASIC's `VLOAD`: sprite images,
+tile images, tile maps, palettes (to `$1FA00`), charsets (to `$1F000`),
+bitmaps. The whole X16 tool ecosystem emits exactly this shape —
+**Aloevera**, **X16PngConverter**, the **Vera Graphics Converter**,
+**TilemapEd**, **Tiled + tmx2vera**, the **GIMP export plugins** — raw
+VERA data behind the standard 2-byte header (`raw = 1` for a headerless
+file). Returns 0 done / 1 failed; the end address lands in `cx_p[4]/[5]`.
+```c
+cx_mode(CX_MODE_TILE);
+cx_vload("TILES.BIN",   0, 0x0000, 0);   /* tile images at $00000  */
+cx_vload("MAP.BIN",     0, 0x8000, 0);   /* layer-0 map at $08000  */
+cx_vload("PALETTE.BIN", 1, 0xFA00, 0);   /* the palette at $1FA00  */
+```
+
+**`char cx_bload(const char *name, unsigned char bank, unsigned addr, char raw)`**
+*(0.4.x)* — a file into **banked RAM**, BASIC's `BVLOAD`: the KERNAL wraps
+banks at `$BFFF` on its own, so a big asset just keeps going. This is how
+**ZSM music** (composed in **Furnace**, which exports the X16-native ZSM
+format) gets into memory for a future player, and how level data and
+collision maps load. Banks below 16 belong to the kernel and refuse.
+The end address comes back in `cx_p[4]/[5]`, the end bank in `cx_p[6]`.
+```c
+cx_bload("SONG.ZSM", 16, 0xA000, 0);     /* banks 16+ are the app's */
+```
+
 ## Directory & DOS
 
 **`char cx_dir_open(const char *pattern)`** — open the directory channel

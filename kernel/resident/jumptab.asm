@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 90                    ; slots
+    .word 92                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -176,6 +176,10 @@ cx_jumptab
 ; --- pluggable assets --------------------------------------------
     jmp cx_do_file_load  ; 88  A/X = filename, Y = length, P0/P1 = destination, P2/P3 = capacity -> carry clear, P4/P5 = bytes read; carry set, A = 1 not there / 2 read error / 3 bigger than the capacity (the first P4/P5 bytes are in)
     jmp cx_do_ink        ; 89  A = the text ink for the CURRENT mode: a palette index in mode 1, an attribute (0-15) in mode 3; mode 0's text ink belongs to the theme and ignores it
+
+; --- asset loaders (the shapes every X16 exporter already emits) -
+    jmp cx_do_vload      ; 90  A/X = filename, Y = length, P0/P1 = VRAM address, P2 = VRAM bank (0/1), P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte; carry set, A = the KERNAL error
+    jmp cx_do_bload      ; 91  A/X = filename, Y = length, P0 = RAM bank (16+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error
 
 .popseg
 

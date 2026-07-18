@@ -80,6 +80,7 @@ X16_USE_SCREEN  = 1             ; the KERNAL console: mode 3 (text) draws
 ; must not shove the local jump table off $A000)
 .include "kernel/fs/dir.asm"
 .include "kernel/fs/fileload.asm"
+.include "kernel/fs/assets.asm"
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
