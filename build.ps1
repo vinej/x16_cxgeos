@@ -169,9 +169,16 @@ function Build-Apps {
         # -mreserve-zp=90 keeps clang's whole-program pass out of $26-$7F,
         # all of which belongs to the kernel or to the app ZP convention;
         # the sdk header's cx_run() handles the $22-$25 collision with the
-        # compiler's own soft stack pointer. (The soft stack itself sits at
-        # $9F00 growing down with ~1.9KB of free zone before kernel code --
-        # a proper linker cap on RAM is SDK-packaging work, noted there.)
+        # compiler's own soft stack pointer.
+        #
+        # The C soft stack: the cx16 target's link script pins __stack at
+        # $9F00 growing DOWN -- through the kernel's graphics port at
+        # $9600-$9EFF -- and a --defsym cannot override its plain
+        # assignment. The sdk header plants a constructor that moves the
+        # stack pointer to $8000 before main, so an app's frames live in
+        # the $0801-$7FFF it actually owns (the text demo's fifth cx_say
+        # printed a clobbered pointer's garbage; that was a mode switch
+        # copying an engine image over a stack frame at $96xx).
         foreach ($capp in @(
             @{ src = "apps\hello_c\hello.c"; prg = "HELLO2"; name = "Hello (C)" },
             @{ src = "apps\calc\calc.c";     prg = "CALC";   name = "Calculator" },

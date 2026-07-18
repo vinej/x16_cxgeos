@@ -70,6 +70,11 @@ int main(void) {
     cx_fellipse(70, 222, 22, 9, 175);
     cx_ellipse(70, 222, 28, 13, 15);
 
+    /* text works here too (0.4.0): 8x8 charset glyphs from VRAM $1F000,
+     * in the cx_ink colour -- upload 2KB there to change the face */
+    cx_ink(15);
+    cx_say("256 colours, and text to label them", 20, 16);
+
     cx_ev_init();
     for (;;) {
         if (cx_poll(&ev) && ev.type == CX_ET_KEY)

@@ -25,8 +25,6 @@
 
 .ifndef CX_NO_OVERLAY
 
-X16_BITMAP_MIN = 1              ; core only: the extras would not fit the port
-
 .segment "OV1CODE"
 
 ov1_vector                      ; the port's entry vector, slot order
@@ -43,14 +41,34 @@ ov1_vector                      ; the port's entry vector, slot order
     jmp gfx_pattern_rect        ; (full 0-255; Y's packed pair only
     jmp gfx_blit                ; holds 2-bit colours). blit width is in
     jmp gfx_blitm               ; PIXELS; blitm's $00 is transparent
-    jmp ov1_no                  ; text -- the CXF font is 2bpp-only
+    jmp ov1_text                ; text: 8x8 charset glyphs from $1F000
+    .byte 1                     ; cxov_ink -- the text ink, a palette
+                                ; index; each entry resets it to white
 
 .assert ov1_vector = CX_OVL, error, "OV1CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 
 ; --- init: program VERA for 320x240 bitmap, 8bpp, layer 0 -------------
 ; The module's own gfx_init goes through the KERNAL screen editor; the
 ; port programs VERA directly, exactly as gfx2_init does for mode 0.
+;
+; The CHARSET first: mode 1's text draws 8x8 glyphs from VRAM $1F000 in
+; SCREEN-CODE order, but what sits there depends on history -- ISO after
+; boot (ASCII-indexed: mode-1 text would render garbage), PETSCII only
+; if mode 3 ran. So entry normalizes it exactly the way mode 3 does --
+; CINT then the CHR$(14) switch, the proven pair -- and THEN programs
+; VERA for the bitmap (undoing the text display CINT set up). A custom
+; charset is a per-entry upload: cx_vram_write 2KB to $1F000 AFTER
+; cx_mode, same contract as mode 3. Safe here for the same reason as
+; mode 3: this engine runs in the overlay (low RAM, always mapped), so
+; the bank-unsafe KERNAL screen calls cannot corrupt banked code.
 ov1_init
+    php
+    sei
+    jsr screen_reset            ; CINT: the ROM charset lands at $1F000
+    lda #$0E                    ; CHR$(14): the PETSCII upper/lower set
+    jsr screen_chrout           ; (screen-code order, like mode 3)
+    plp
+
     vera_dcsel 0
     lda #$40                    ; 2:1 scale -> 320x240
     sta VERA_DC_HSCALE
@@ -72,9 +90,22 @@ ov1_init
     rts
 
 ; --- the adapters -----------------------------------------------------
-ov1_no                          ; the text entry: 8bpp has no CXF font
-    sec
+; the text entry: A/X = string, P0/P1 = x, P2/P3 = y. gfx_text draws 8x8
+; charset glyphs (ASCII in, screen codes out) and wants the colour in P3
+; -- which the port uses as y's high byte, dead at 240 rows -- so the
+; ink (cxov_ink, cx_ink's byte in this image) overwrites it.
+ov1_text
+    sta ov1_ts                  ; the string survives the ink load
+    stx ov1_ts+1
+    lda cxov_ink
+    sta X16_P3
+    lda ov1_ts
+    ldx ov1_ts+1
+    jsr gfx_text
+    clc
     rts
+ov1_ts .word 0
+
 ov1_pset                        ; colour A -> P3 (y's dead high byte)
     sta X16_P3
     jmp gfx_pset

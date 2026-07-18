@@ -79,6 +79,7 @@ X16_USE_SCREEN  = 1             ; the KERNAL console: mode 3 (text) draws
 ; dir.asm and dirty.asm AFTER menu.asm's B2CODE (their banked bodies
 ; must not shove the local jump table off $A000)
 .include "kernel/fs/dir.asm"
+.include "kernel/fs/fileload.asm"
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"

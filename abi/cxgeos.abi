@@ -214,3 +214,14 @@ version = 1
 # the timer arms with cx_ev_timer, the pads with cx_joy_enable, PCM by
 # playing. cx_ev_init resets the mask to 3 (mouse + keyboard).
 87  cx_ev_mask      1   A = a bit mask of sampled sources: bit 0 = mouse, bit 1 = keyboard. With both off and the pads off, the frame tick costs only the timer/PCM gates
+
+#= pluggable assets
+# The generic loader is how fonts and charsets become disk files: load
+# a .CXF then cx_font_set it (mode 0); load a 2KB charset then
+# cx_vram_write it to $1F000 (modes 1 and 3 draw their glyphs from
+# there, in screen-code order; re-upload after each cx_mode, whose init
+# resets the ROM set). The ink is ENGINE state -- it lives in the mode's
+# image, so a switch resets it to white and a value never leaks into a
+# mode where the same number is a different colour space.
+88  cx_file_load    1   A/X = filename, Y = length, P0/P1 = destination, P2/P3 = capacity -> carry clear, P4/P5 = bytes read; carry set, A = 1 not there / 2 read error / 3 bigger than the capacity (the first P4/P5 bytes are in)
+89  cx_ink          1   A = the text ink for the CURRENT mode: a palette index in mode 1, an attribute (0-15) in mode 3; mode 0's text ink belongs to the theme and ignores it

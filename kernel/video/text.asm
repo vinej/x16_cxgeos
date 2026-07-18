@@ -17,7 +17,8 @@
 ;   cx_line    horizontal or vertical only -- routed to the two above;
 ;              a diagonal has no grid meaning and refuses (carry)
 ;   cx_say     print a string at (col, row) -- routed here through the
-;              port's 14th "text" entry (cxov_text); white ink
+;              port's 14th "text" entry (cxov_text); the cx_ink
+;              attribute (white until an app sets one)
 ;
 ; pset/read/pattern/blit have no grid meaning and refuse (carry).
 ;
@@ -64,6 +65,8 @@ ov3_vector                      ; the 14 port entries, in slot order;
     jmp ov3_refuse              ; blit
     jmp ov3_refuse              ; masked blit
     jmp ov3_say                 ; text: print a string at a cell
+    .byte 1                     ; cxov_ink -- cx_say's ink attribute
+                                ; (0-15); every entry resets it to white
 
 .assert ov3_vector = CX_OVL, error, "OV3CODE must start at CX_OVL"
 
@@ -384,7 +387,7 @@ ov3_say
     stx t_sh                    ; T block: screen_color scribbles X16_T0
                                 ; composing its attribute nibble, which is
                                 ; exactly where TPTR0 lives
-    lda #1                      ; white ink
+    lda cxov_ink                ; the ink cx_ink set (white until it does)
     jsr t_ink
     ldx X16_P2                  ; row
     ldy X16_P0                  ; col

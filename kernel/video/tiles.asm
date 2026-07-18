@@ -57,6 +57,8 @@ ov2_vector
     jmp ov2_no                  ; blit
     jmp ov2_no                  ; masked blit
     jmp ov2_no                  ; text -- tile-based text is future
+    .byte 1                     ; cxov_ink -- unused here, carried so the
+                                ; port layout is the same in every image
 
 .assert ov2_vector = CX_OVL, error, "OV2CODE must start at CX_OVL"
 

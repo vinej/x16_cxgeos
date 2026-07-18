@@ -88,6 +88,7 @@ main
     jsr test_app_toonew
     jsr test_dir
     jsr test_dir_irq
+    jsr test_file_load
     jsr test_clip
     jsr test_clip_span
     jsr test_font_bank
@@ -1300,7 +1301,7 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #88                     ; 31 shipped with the table; loader, events,
+    cmp #90                     ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the
@@ -1987,6 +1988,111 @@ test_dir_irq
 ; the clipboard -- put, ask, get back, truncate, empty, and a payload
 ; long enough to roll from bank 10 into bank 11.
 ; ---------------------------------------------------------------------
+; FILE_LOAD: the generic asset loader against real DOS. BADAPP.CXA is a
+; known 35-byte fixture (build.ps1 stages it: "XXAP", 28 zeros, $01 $08
+; $EA): a whole load returns exactly those bytes and that length; a
+; 10-byte capacity refuses with A = 3 and the first 10 bytes in; a
+; missing name refuses with A = 1. The poison byte past the buffer must
+; survive everything.
+test_file_load
+    lda #$5A                    ; poison one past the full read
+    sta @buf+35
+    lda #<@buf
+    sta X16_P0
+    lda #>@buf
+    sta X16_P1
+    lda #40                     ; room to spare: the file ends it
+    sta X16_P2
+    stz X16_P3
+    lda #<@name_f
+    ldx #>@name_f
+    ldy #@name_f_len
+    jsr cx_do_file_load
+    ldy #1
+    bcs @r1
+    lda X16_P4                  ; 35 bytes, exactly
+    cmp #35
+    bne @r1
+    lda X16_P5
+    bne @r1
+    lda @buf                    ; "XXAP" leads...
+    cmp #'X'
+    bne @r1
+    lda @buf+3
+    cmp #'P'
+    bne @r1
+    lda @buf+34                 ; ...$EA ends...
+    cmp #$EA
+    bne @r1
+    lda @buf+35                 ; ...and the poison survived
+    cmp #$5A
+    bne @r1
+    ldy #0
+@r1
+    phy
+    tya
+    ldx #<@n1
+    ldy #>@n1
+    jsr t_result
+    ply
+    bne @skip2                  ; the fixture read failed: skip the rest
+
+    lda #<@buf                  ; the same file into 10 bytes of room
+    sta X16_P0
+    lda #>@buf
+    sta X16_P1
+    lda #10
+    sta X16_P2
+    stz X16_P3
+    lda #<@name_f
+    ldx #>@name_f
+    ldy #@name_f_len
+    jsr cx_do_file_load
+    ldy #1
+    bcc @r2                     ; must refuse
+    cmp #3                      ; ...as "bigger than the capacity"
+    bne @r2
+    lda X16_P4                  ; with the capacity consumed
+    cmp #10
+    bne @r2
+    ldy #0
+@r2
+@skip2
+    tya
+    ldx #<@n2
+    ldy #>@n2
+    jsr t_result
+
+    lda #<@buf                  ; a name the disk does not have
+    sta X16_P0
+    lda #>@buf
+    sta X16_P1
+    lda #40
+    sta X16_P2
+    stz X16_P3
+    lda #<@name_m
+    ldx #>@name_m
+    ldy #@name_m_len
+    jsr cx_do_file_load
+    ldy #1
+    bcc @r3
+    cmp #1
+    bne @r3
+    ldy #0
+@r3
+    tya
+    ldx #<@n3
+    ldy #>@n3
+    jmp t_result
+@n1     .byte "FL_WHOLE", 0
+@n2     .byte "FL_CAP", 0
+@n3     .byte "FL_MISSING", 0
+@name_f .byte "BADAPP.CXA"
+@name_f_len = * - @name_f
+@name_m .byte "NOFILE.BIN"
+@name_m_len = * - @name_m
+@buf    .res 40, 0
+
 test_clip
     lda #<@msg                  ; put 5 bytes of TEXT
     sta X16_P0
@@ -2189,6 +2295,7 @@ test_font_bank
 .include "kernel/resident/clip.asm"
 .include "kernel/fs/loader.asm"
 .include "kernel/fs/dir.asm"
+.include "kernel/fs/fileload.asm"
 .include "kernel/gfx2/dirty.asm"
 .include "kernel/resident/jumptab.asm"
 

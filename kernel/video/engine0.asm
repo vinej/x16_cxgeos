@@ -96,6 +96,15 @@ cx_do_gfx_init
 @go
     jmp cxov_init
 
+; --- cx_ink (slot 89) -- A = the text ink, into the CURRENT image -----
+; The byte lives in the engine image (cxov_ink), so a mode switch copies
+; the mode's default back in: an ink set here never leaks into a mode
+; where the same number is a different colour space.
+cx_do_ink
+    sta cxov_ink
+    clc
+    rts
+
 ; --- cx_gfx_mode (slot 76) -- A = the mode; carry set if unknown ------
 cx_do_gfx_mode
     cmp #CX_MODES
@@ -140,6 +149,9 @@ ov0_vector                      ; the port's entry vector, slot order
     jmp gfx2_blit
     jmp gfx2_blitm
     jmp font_draw               ; text: the CXF proportional font
+    .byte 1                     ; cxov_ink -- unused in mode 0 (the theme
+                                ; owns the GUI's text ink), carried so the
+                                ; port layout is the same in every image
 
 .assert ov0_vector = CX_OVL, error, "OV0CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 
@@ -162,6 +174,11 @@ cx_do_gfx_mode
     rts
 @bad
     sec
+    rts
+cxov_ink .byte 1                ; flat build: the ink byte is just a byte
+cx_do_ink
+    sta cxov_ink
+    clc
     rts
 .endif
 

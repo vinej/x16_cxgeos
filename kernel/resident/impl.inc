@@ -111,3 +111,5 @@ cx_tile_fill    = cx_do_tile_fill
 cx_gfx_ellipse  = cx_do_gfx_ellipse
 cx_gfx_fellipse = cx_do_gfx_fellipse
 cx_ev_mask      = ev_set_mask
+cx_file_load    = cx_do_file_load
+cx_ink          = cx_do_ink

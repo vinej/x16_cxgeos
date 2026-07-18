@@ -232,6 +232,11 @@ static void cx_fellipse(unsigned cxx, unsigned cy, unsigned char rx,
     CX__W(0, cxx); CX__W(2, cy); cx_p[4] = rx; cx_p[5] = ry;
     cx_call_a(CX_GFX_FELLIPSE, color);
 }
+/* the text ink for the CURRENT mode (0.4.0): a palette index in
+ * CX_MODE_BMP8, an attribute 0-15 in CX_MODE_TEXT; the GUI's text ink
+ * belongs to the theme and ignores it. Mode-local state: every mode
+ * switch resets it to white. */
+static void cx_ink(unsigned char color) { cx_call_a(CX_INK, color); }
 /* flood-fill the region containing (x, y); returns 0 done, 1 if the
  * seed stack overflowed on a very tortured region */
 static char cx_flood(unsigned x, unsigned y, unsigned char color) {
@@ -619,6 +624,19 @@ static char cx_da_open(const char *name) {      /* 0 ok, 1 fail */
     return cx_c;
 }
 static void cx_da_close(void) { cx_call(CX_DA_CLOSE); }
+
+/* load any file into a buffer, at most `cap` bytes (0.4.0) -- how fonts
+ * and charsets come off the disk: cx_file_load a .CXF then cx_font it;
+ * cx_file_load a 2KB charset then cx_vram_write it to 0x1F000. Returns
+ * the byte count, or -1 with the reason in cx_a (1 not there, 2 read
+ * error, 3 bigger than cap -- the first cap bytes are in). */
+static int cx_file_load(const char *name, void *dst, unsigned cap) {
+    cx_y = cx__strlen(name);
+    CX__W(0, (unsigned)dst); CX__W(2, cap);
+    cx_call_p(CX_FILE_LOAD, name);
+    if (cx_c) return -1;
+    return (int)CX__R(4);
+}
 
 /* =====================================================================
  * directory and DOS

@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 88                    ; slots
+    .word 90                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -172,6 +172,10 @@ cx_jumptab
 
 ; --- event sources -----------------------------------------------
     jmp ev_set_mask      ; 87  A = a bit mask of sampled sources: bit 0 = mouse, bit 1 = keyboard. With both off and the pads off, the frame tick costs only the timer/PCM gates
+
+; --- pluggable assets --------------------------------------------
+    jmp cx_do_file_load  ; 88  A/X = filename, Y = length, P0/P1 = destination, P2/P3 = capacity -> carry clear, P4/P5 = bytes read; carry set, A = 1 not there / 2 read error / 3 bigger than the capacity (the first P4/P5 bytes are in)
+    jmp cx_do_ink        ; 89  A = the text ink for the CURRENT mode: a palette index in mode 1, an attribute (0-15) in mode 3; mode 0's text ink belongs to the theme and ignores it
 
 .popseg
 

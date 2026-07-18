@@ -371,6 +371,22 @@ running app; returns 0 on success, 1 on failure.
 
 **`void cx_da_close(void)`** — close the desk accessory, restoring the screen.
 
+**`int cx_file_load(const char *name, void *dst, unsigned cap)`** *(0.4.0)* —
+load any file into a buffer, at most `cap` bytes. Returns the byte count, or
+-1 with the reason in `cx_a` (1 not there, 2 read error, 3 bigger than `cap`
+— the first `cap` bytes are in). This is how **fonts and charsets become
+disk assets**:
+```c
+/* a custom face for the GUI: any BDF through tools/fontconv.py */
+if (cx_file_load("MYFONT.CXF", buf, sizeof buf) > 0) cx_font(buf);
+
+/* a custom charset for modes 1 and 3: 2KB of 8x8 glyphs in screen-code
+ * order, uploaded AFTER cx_mode (whose init resets the ROM set) */
+cx_mode(CX_MODE_TEXT);
+if (cx_file_load("MYCHARS.BIN", cs, 2048) == 2048)
+    cx_vram_write(0x1F000UL, cs, 2048);
+```
+
 ## Directory & DOS
 
 **`char cx_dir_open(const char *pattern)`** — open the directory channel
@@ -491,6 +507,14 @@ restores the desktop.
 **`void cx_screen_info(cx_screen *s)`** -- mode, w, h, bpp, stride: how
 `cx_pic_*` (and your code) adapt to any canvas. See
 [graphics-port.md](graphics-port.md).
+
+**`void cx_ink(unsigned char color)`** *(0.4.0)* -- the text ink for the
+CURRENT mode: a palette index in `CX_MODE_BMP8` (whose `cx_say` draws
+8x8 charset glyphs from VRAM `$1F000` now), an attribute 0-15 in
+`CX_MODE_TEXT`. The GUI's text ink belongs to the theme and ignores it.
+Mode-local by construction: every mode switch resets it to white, so an
+ink set in one mode never leaks into another where the same number is a
+different colour space.
 
 ## Shapes *(0.3.0)* -- every bitmap mode
 

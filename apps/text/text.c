@@ -39,6 +39,11 @@ int main(void) {
     cx_line(8, 29, 40, 29, 13);          /* a horizontal one             */
 
     cx_say("cx_line draws rules too -- diagonals refuse", 12, 26);
+
+    cx_ink(7);                           /* 0.4.0: say in a colour       */
+    cx_say("and cx_ink colours the text", 12, 31);
+    cx_ink(1);
+
     cx_say("any key exits -- the desktop comes back", 20, 36);
 
     cx_ev_init();

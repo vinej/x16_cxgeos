@@ -48,6 +48,14 @@ cxov_text    = CX_OVL + 13*3    ; the 14th entry: draw a string. mode 0
                                 ; its cell writer, the rest refuse -- so
                                 ; cx_say is mode-aware through the port
 
+; One byte of ENGINE-LOCAL state rides just past the vector: the text
+; ink (cx_ink). It lives in the IMAGE, so every mode entry copies the
+; mode's default back in -- an ink set in one mode cannot leak into the
+; next, where the same number means a different colour space (a palette
+; index in mode 1, a 16-colour attribute in mode 3; mode 0's text ink
+; belongs to the theme and ignores this byte).
+cxov_ink     = CX_OVL + 14*3
+
 .else                           ; the runner: no overlay, direct engine
 
 cxov_init    = gfx2_init
