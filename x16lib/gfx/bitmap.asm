@@ -277,20 +277,20 @@ gfx_read
 ; pixel here, which makes every one of these simpler than its 2bpp
 ; sibling: no sub-byte phases, and a masked blit is a colour key.
 ;
-; b8_addr8 -- the 17-bit framebuffer address of (gb8_x, gb8_y) -> the
-; port named by b8_ld0/b8_ld1, with INC_1. y*320 = (y<<8) + (y<<6).
+; bitmap_addr8 -- the 17-bit framebuffer address of (gb8_x, gb8_y) -> the
+; port named by bitmap_ld0/bitmap_ld1, with INC_1. y*320 = (y<<8) + (y<<6).
 ; ---------------------------------------------------------------------
-b8_addr8
+bitmap_addr8
 	lda gb8_y                   ; y << 6 into a word
 	sta gb8_t
 	lda #0
 	sta gb8_t+1
 	ldx #6
-b8_a8sh
+bitmap_a8sh
 	asl gb8_t
 	rol gb8_t+1
 	dex
-	bne b8_a8sh
+	bne bitmap_a8sh
 	clc                         ; + y << 8
 	lda gb8_t+1
 	adc gb8_y
@@ -310,14 +310,14 @@ b8_a8sh
 	sta gb8_t+2
 	rts
 
-b8_ld0                            ; port 0 <- the address, INC_1
+bitmap_ld0
 	lda #VERA_CTRL_ADDRSEL
 	trb VERA_CTRL
-	bra b8_ldgo
-b8_ld1                            ; port 1 <- the address, INC_1
+	bra bitmap_ldgo
+bitmap_ld1
 	lda #VERA_CTRL_ADDRSEL
 	tsb VERA_CTRL
-b8_ldgo
+bitmap_ldgo
 	lda gb8_t
 	sta VERA_ADDR_L
 	lda gb8_t+1
@@ -340,11 +340,11 @@ gfx_pattern_set
 	sta X16_T0
 	stx X16_T0+1
 	ldy #7
-b8_gpcp
+bitmap_gpcp
 	lda (X16_T0),y
 	sta gp8_pat,y
 	dey
-	bpl b8_gpcp
+	bpl bitmap_gpcp
 	lda X16_P4
 	sta gp8_bg
 	lda X16_P5
@@ -374,34 +374,34 @@ gfx_pattern_rect
 	lda X16_P0                  ; the column phase: x & 7, fixed for
 	and #7                      ; every row
 	sta gp8_rot
-b8_gprow
-	jsr b8_addr8
-	jsr b8_ld0
+bitmap_gprow
+	jsr bitmap_addr8
+	jsr bitmap_ld0
 	lda gb8_y                   ; the pattern row: y & 7
 	and #7
 	tay
 	lda gp8_pat,y
 	ldy gp8_rot                 ; pre-rotate to the column phase
-	beq b8_gpgo
-b8_gppre
+	beq bitmap_gpgo
+bitmap_gppre
 	asl
 	adc #0                      ; circular left: bit 7 wraps to bit 0
 	dey
-	bne b8_gppre
-b8_gpgo
+	bne bitmap_gppre
+bitmap_gpgo
 	sta gp8_cur
 	lda gp8_w                   ; the width countdown, 16-bit
 	sta gb8_t
 	lda gp8_w+1
 	sta gb8_t+1
-b8_gppx
+bitmap_gppx
 	lda gp8_cur                 ; bit 7 = this pixel
-	bmi b8_gpfg
+	bmi bitmap_gpfg
 	lda gp8_bg
-	bra b8_gpout
-b8_gpfg
+	bra bitmap_gpout
+bitmap_gpfg
 	lda gp8_fg
-b8_gpout
+bitmap_gpout
 	sta VERA_DATA0
 	lda gp8_cur                 ; rotate to the next column
 	asl
@@ -413,10 +413,10 @@ b8_gpout
 :	dec gb8_t
 	lda gb8_t
 	ora gb8_t+1
-	bne b8_gppx
+	bne bitmap_gppx
 	inc gb8_y                   ; the next row
 	dec gp8_h
-	bne b8_gprow
+	bne bitmap_gprow
 	rts
 
 ; ---------------------------------------------------------------------
@@ -438,43 +438,43 @@ gfx_blit
 	sta gb8_y
 	lda X16_P5
 	sta gb8_h
-b8_gbrow
-	jsr b8_addr8
-	jsr b8_ld0
+bitmap_gbrow
+	jsr bitmap_addr8
+	jsr bitmap_ld0
 	lda gb8_op
-	beq b8_gbcopy
-	jsr b8_ld1                    ; the RMW ops read through port 1
+	beq bitmap_gbcopy
+	jsr bitmap_ld1                    ; the RMW ops read through port 1
 	ldy #0
-b8_gbop
+bitmap_gbop
 	lda gb8_op
 	cmp #2
-	beq b8_gband
-	bcs b8_gbxor
+	beq bitmap_gband
+	bcs bitmap_gbxor
 	lda (X16_PTR3),y            ; OR
 	ora VERA_DATA1
-	bra b8_gbw
-b8_gband
+	bra bitmap_gbw
+bitmap_gband
 	lda (X16_PTR3),y
 	and VERA_DATA1
-	bra b8_gbw
-b8_gbxor
+	bra bitmap_gbw
+bitmap_gbxor
 	lda (X16_PTR3),y
 	eor VERA_DATA1
-b8_gbw
+bitmap_gbw
 	sta VERA_DATA0
 	iny
 	cpy X16_P4
-	bne b8_gbop
-	bra b8_gbnext
-b8_gbcopy
+	bne bitmap_gbop
+	bra bitmap_gbnext
+bitmap_gbcopy
 	ldy #0
-b8_gbcp
+bitmap_gbcp
 	lda (X16_PTR3),y
 	sta VERA_DATA0
 	iny
 	cpy X16_P4
-	bne b8_gbcp
-b8_gbnext
+	bne bitmap_gbcp
+bitmap_gbnext
 	clc                         ; the next source row
 	lda X16_PTR3
 	adc X16_P4
@@ -483,7 +483,7 @@ b8_gbnext
 	inc X16_PTR3+1
 :	inc gb8_y
 	dec gb8_h
-	bne b8_gbrow
+	bne bitmap_gbrow
 	rts
 
 ; ---------------------------------------------------------------------
@@ -505,21 +505,21 @@ gfx_blitm
 	sta gb8_y
 	lda X16_P5
 	sta gb8_h
-b8_gmrow
-	jsr b8_addr8
-	jsr b8_ld0
+bitmap_gmrow
+	jsr bitmap_addr8
+	jsr bitmap_ld0
 	ldy #0
-b8_gmpx
+bitmap_gmpx
 	lda (X16_PTR3),y
-	beq b8_gmskip
+	beq bitmap_gmskip
 	sta VERA_DATA0
-	bra b8_gmn
-b8_gmskip
+	bra bitmap_gmn
+bitmap_gmskip
 	lda VERA_DATA0              ; advance without writing
-b8_gmn
+bitmap_gmn
 	iny
 	cpy X16_P4
-	bne b8_gmpx
+	bne bitmap_gmpx
 	clc
 	lda X16_PTR3
 	adc X16_P4
@@ -528,7 +528,7 @@ b8_gmn
 	inc X16_PTR3+1
 :	inc gb8_y
 	dec gb8_h
-	bne b8_gmrow
+	bne bitmap_gmrow
 	rts
 
 gp8_pat .res 8, 0
@@ -857,8 +857,7 @@ gt_bits  .byte 0
 ; Module variables. Kept out of zero page: these are only touched by
 ; the routine that owns them, never across a call boundary.
 ; ---------------------------------------------------------------------
-.endif                          ; X16_BITMAP_MIN -- the core data below
-                                ; belongs to rect/frame/line, not the extras
+.endif
 
 gb_x    .word 0
 gb_y    .byte 0

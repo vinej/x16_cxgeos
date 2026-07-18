@@ -28,15 +28,22 @@
 ;   X16_USE_SPRITE    sprites_on/off, sprite_pos, sprite_get_pos,
 ;                     sprite_image, sprite_flags, sprite_z, sprite_size,
 ;                     sprite_init_all
-;   X16_USE_BITMAP    gfx_init, gfx_clear, gfx_pset, gfx_hline,
+;   X16_USE_BITMAP    gfx_init, gfx_clear, gfx_read, gfx_pset,
+;                     gfx_pattern_set, gfx_pattern_rect, gfx_blit,
+;                     gfx_blitm (colour-key), gfx_hline,
 ;                     gfx_vline, gfx_rect, gfx_frame, gfx_line,
-;                     gfx_circle, gfx_disc, gfx_char, gfx_text,
-;                     gfx_flood
+;                     gfx_char, gfx_text (circle/disc/flood are in
+;                     X16_USE_SHAPES now, shared with gfx2)
 ;   X16_USE_BITMAP2   gfx2_init, gfx2_clear, gfx2_setptr, gfx2_pset,
 ;                     gfx2_read, gfx2_hline, gfx2_vline, gfx2_rect,
 ;                     gfx2_frame, gfx2_line, gfx2_pattern_set,
 ;                     gfx2_pattern_rect, gfx2_blit, gfx2_blitm
 ;                     (640x480@2bpp; pulls in VERA and VERAFX)
+;   X16_USE_SHAPES    shape_circle, shape_disc, shape_ellipse,
+;                     shape_fellipse, shape_flood -- engine-
+;                     agnostic: they draw through SHP_PSET/SHP_READ/
+;                     SHP_HLINE (+ SHP_W/SHP_H bounds), which default to
+;                     the 2bpp module; predefine them to bind any engine
 ;   X16_USE_VERAFX    all of the below, as it always has been
 ;     _MULT           fx_mult
 ;     _FILL           fx_fill, fx_clear
@@ -229,6 +236,13 @@ X16_USE_NUMBER = 1
     X16_USE_SCREEN = 1
 .endif
 .endif
+.ifdef X16_USE_SHAPES
+    .ifndef SHP_PSET
+        .ifndef X16_USE_BITMAP2
+        X16_USE_BITMAP2 = 1
+.endif
+.endif
+.endif
 .ifdef X16_USE_BITMAP2
     .ifndef X16_USE_VERA
     X16_USE_VERA        = 1
@@ -331,6 +345,9 @@ X16_USE_VERAFX_ANY = 1
 .endif
 .ifdef X16_USE_BITMAP2
 .include "gfx/bitmap2.asm"
+.endif
+.ifdef X16_USE_SHAPES
+.include "gfx/shapes.asm"
 .endif
 .ifdef X16_USE_VERAFX_ANY
 .include "gfx/verafx.asm"

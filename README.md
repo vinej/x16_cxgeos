@@ -80,12 +80,13 @@ then each hello, which draws, waits three seconds, and leaves through
 
 ## Vendored x16lib
 
-`x16lib/` is a snapshot of `x16_library/src_ca65/` at **069c8aa** (v0.4.1
-plus the bitmap parity pass: 8bpp read/pattern/blit/blitm, the
-engine-agnostic `gfx/shapes.asm`, the `X16_BITMAP_MIN` gate, and the
-de-duplication that moved circle/disc/flood out of `bitmap.asm` into
-`shapes.asm` for good)
-("VERAFX: split into parts, so a fast fill need not carry a rotozoom").
+`x16lib/` is a snapshot of `x16_library/src_ca65/` at **v0.5.0** (4691618:
+the engine-agnostic `gfx/shapes.asm` with circle/disc/flood — including
+the downward-fill flood fix — plus the new `shape_ellipse` /
+`shape_fellipse`, the converter-canonical dialect regeneration, and the
+bitmap parity pass with the `X16_BITMAP_MIN` gate). The ellipse routines
+ride bank 5 with the rest of the shape machinery; no ABI slots expose
+them yet.
 Update it by re-copying the tree and noting the new version here.
 
 The kernel gates `X16_USE_BITMAP2`, which since 0.4.1 asks VERAFX for
