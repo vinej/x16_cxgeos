@@ -178,7 +178,8 @@ function Build-Apps {
             @{ src = "apps\cdemo\cdemo.c";   prg = "CDEMO";  name = "C Demo" },
             @{ src = "apps\paint\paint.c";   prg = "PAINT";  name = "Paint" },
             @{ src = "apps\beep\beep.c";     prg = "BEEP";   name = "Beep" },
-            @{ src = "apps\sprite\sprite.c"; prg = "SPRITE"; name = "Sprite" }
+            @{ src = "apps\sprite\sprite.c"; prg = "SPRITE"; name = "Sprite" },
+            @{ src = "apps\gfx8\gfx8.c";     prg = "GFX8";   name = "256 colours" }
         )) {
             $prg = Join-Path $build "$($capp.prg).PRG"
             Write-Host "llvm  $($capp.src) -> $prg"
