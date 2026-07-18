@@ -152,7 +152,7 @@ da_open
     sta X16_P6
     stz X16_P7
     lda th_paper
-    jsr gfx2_rect
+    jsr cxov_rect
     lda #<DA_X0
     sta X16_P0
     lda #>DA_X0
@@ -168,7 +168,7 @@ da_open
     sta X16_P6
     stz X16_P7
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
 
     lda #<DA_X0                 ; ...its region...
     sta X16_P0

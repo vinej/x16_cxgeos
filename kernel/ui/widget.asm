@@ -307,15 +307,15 @@ wg_p_button
 @paper
     lda th_paper
 @fill
-    jsr gfx2_rect
+    jsr cxov_rect
     jsr wg_load_box
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
     ; the label, roughly centred: x + (w - width)/2, y + (h-8)/2
     jsr wg_label_ptr            ; X16_T0 = label
     lda X16_T0
     ldx X16_T0+1
-    jsr font_measure            ; P0/P1 = text width
+    jsr cxov_measure            ; P0/P1 = text width
     ldy #WG_W                   ; (w - tw)/2
     lda (CX_M_PTR),y
     sec
@@ -383,10 +383,10 @@ wg_p_toggle
     sta X16_P6
     stz X16_P7
     lda th_paper                ; clear it
-    jsr gfx2_rect
+    jsr cxov_rect
     jsr wg_toggle_box
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
     ldy #WG_VAL                 ; checked: an inner filled square
     lda (CX_M_PTR),y
     beq @label
@@ -415,7 +415,7 @@ wg_p_toggle
     sta X16_P6
     stz X16_P7
     lda th_frame
-    jsr gfx2_rect
+    jsr cxov_rect
 @label
     ldy #WG_X                   ; the label, WG_BOX+6 to the right
     lda (CX_M_PTR),y
@@ -446,10 +446,10 @@ WG_THUMB = 16
 wg_p_scroll
     jsr wg_load_box             ; the trough
     lda th_paper
-    jsr gfx2_rect
+    jsr cxov_rect
     jsr wg_load_box
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
     lda wg_drag                 ; while this bar is dragged the thumb
     cmp wg_i                    ; tracks the mouse pixel by pixel (the
     bne @snapped                ; live offset), snapping to the value only
@@ -487,7 +487,7 @@ wg_p_scroll
     sta X16_P6
     stz X16_P7
     lda th_hi
-    jsr gfx2_rect
+    jsr cxov_rect
     rts
 
 ; a text field: a framed box, the buffer's text inside, and -- when the
@@ -495,10 +495,10 @@ wg_p_scroll
 wg_p_field
     jsr wg_load_box
     lda th_paper
-    jsr gfx2_rect
+    jsr cxov_rect
     jsr wg_load_box
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
 
     clc                         ; the text pen: x+4, y centred
     ldy #WG_X
@@ -527,7 +527,7 @@ wg_p_field
     jsr wg_label_ptr            ; X16_T0 = the buffer
     lda X16_T0
     ldx X16_T0+1
-    jsr font_draw               ; hands back the pen past the text in P0/P1
+    jsr cxov_text               ; hands back the pen past the text in P0/P1
 
     lda wg_focus                ; a caret only while this field has focus
     cmp wg_i
@@ -552,7 +552,7 @@ wg_p_field
     sta X16_P6
     stz X16_P7
     lda th_frame
-    jsr gfx2_rect
+    jsr cxov_rect
 @done
     rts
 
@@ -644,10 +644,10 @@ wg_bufptr
 wg_p_list
     jsr wg_load_box
     lda th_paper
-    jsr gfx2_rect
+    jsr cxov_rect
     jsr wg_load_box
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
 
     jsr wg_list_maxrows         ; wg_maxrows = (h-2)/ROWH
 
@@ -729,7 +729,7 @@ wg_p_list
 @plain
     lda th_paper
 @band
-    jsr gfx2_rect
+    jsr cxov_rect
 
     ; the item's string at x0+4, row_y+1
     ldy #WG_LBL                 ; reload the array pointer: gfx2_rect above
@@ -762,7 +762,7 @@ wg_p_list
 @yok
     lda X16_T0
     ldx X16_T0+1
-    jsr font_draw
+    jsr cxov_text
 
     inc wg_row
     jmp @rows                   ; the body is over a page
@@ -1419,7 +1419,7 @@ wg_draw_frame
 wg_clr_frame
     jsr wg_frame_box            ; a paper margin, then the widget back
     lda th_paper
-    jsr gfx2_rect
+    jsr cxov_rect
     jmp wg_paint
 
 ; wg_frame_box -- P0..P7 = the widget's box grown 2px each way.

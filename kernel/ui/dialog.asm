@@ -165,7 +165,7 @@ dg_prompt
     sta X16_P6
     stz X16_P7
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
     jsr dg_field                ; the seed text and the caret
 
     lda #<dg_ptable
@@ -229,7 +229,7 @@ dg_boxup
     sta X16_P6
     stz X16_P7
     lda th_paper
-    jsr gfx2_rect
+    jsr cxov_rect
     lda #<DG_X0
     sta X16_P0
     lda #>DG_X0
@@ -245,7 +245,7 @@ dg_boxup
     sta X16_P6
     stz X16_P7
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
 
     lda #<(DG_X0+12)            ; the message
     sta X16_P0
@@ -283,7 +283,7 @@ dg_buttons
     sta X16_P6
     stz X16_P7
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
     clc                         ; the label, inset
     lda dg_t
     adc #8
@@ -301,7 +301,7 @@ dg_buttons
     lda dg_lab+DG_MAXB,x
     tax
     pla
-    jsr font_draw
+    jsr cxov_text
     inc dg_i
     bra @button
 @drawn
@@ -382,7 +382,7 @@ dg_field
     sta X16_P6
     stz X16_P7
     lda th_paper
-    jsr gfx2_rect
+    jsr cxov_rect
 
     lda #<(DG_X0+16)
     sta X16_P0
@@ -393,7 +393,7 @@ dg_field
     stz X16_P3
     lda dg_buf
     ldx dg_buf+1
-    jsr font_draw               ; the pen comes back in P0/P1
+    jsr cxov_text               ; the pen comes back in P0/P1
 
     inc X16_P0                  ; the caret, a breath after the text
     bne @nc

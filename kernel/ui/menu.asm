@@ -188,7 +188,7 @@ mn_draw_bar
     sta X16_P6
     stz X16_P7
     lda th_paper
-    jsr gfx2_rect
+    jsr cxov_rect
     stz X16_P0                  ; ...ruled off along its bottom
     stz X16_P1
     lda #CX_MENU_H-1
@@ -199,7 +199,7 @@ mn_draw_bar
     lda #>640
     sta X16_P5
     lda th_frame
-    jsr gfx2_hline
+    jsr cxov_hline
 
     lda #8                      ; the pen
     sta mn_t
@@ -226,7 +226,7 @@ mn_draw_bar
     sta mn_t2+1
     lda mn_t2
     ldx mn_t2+1
-    jsr font_measure            ; P0/P1 = width
+    jsr cxov_measure            ; P0/P1 = width
     clc                         ; span close = pen + width
     lda mn_t
     adc X16_P0
@@ -245,7 +245,7 @@ mn_draw_bar
     stz X16_P3
     lda mn_t2
     ldx mn_t2+1
-    jsr font_draw               ; hands back the pen in P0/P1
+    jsr cxov_text               ; hands back the pen in P0/P1
 
     clc                         ; 16px of air to the next title
     lda X16_P0
@@ -298,7 +298,7 @@ mn_title_band
     sta X16_P6
     stz X16_P7
     lda mn_band
-    jsr gfx2_rect
+    jsr cxov_rect
 
     lda mn_cur                  ; the title back on top, where the bar
     sta mn_i                    ; drew it: its span's start, 2 down
@@ -432,7 +432,7 @@ mn_drop_open
     jsr mn_item                 ; CX_M_PTR = label mn_i
     lda CX_M_PTR
     ldx CX_M_PTR+1
-    jsr font_measure
+    jsr cxov_measure
     lda X16_P0                  ; keep the widest
     cmp mn_w
     lda X16_P1
@@ -480,7 +480,7 @@ mn_drop_open
     sta X16_P6
     stz X16_P7
     lda th_paper
-    jsr gfx2_rect
+    jsr cxov_rect
     lda mn_x0                   ; ...framed...
     sta X16_P0
     lda mn_x0+1
@@ -496,7 +496,7 @@ mn_drop_open
     sta X16_P6
     stz X16_P7
     lda th_frame
-    jsr gfx2_frame
+    jsr cxov_frame
 
     stz mn_i                    ; ...and the items
 @item
@@ -521,7 +521,7 @@ mn_drop_open
     stz X16_P3
     lda CX_M_PTR
     ldx CX_M_PTR+1
-    jsr font_draw
+    jsr cxov_text
     inc mn_i
     bra @item
 @idone
@@ -841,7 +841,7 @@ mn_row_paint
     sta X16_P6
     stz X16_P7
     lda mn_t2
-    jsr gfx2_rect
+    jsr cxov_rect
 
     jsr mn_item                 ; the label, back on top
     clc
