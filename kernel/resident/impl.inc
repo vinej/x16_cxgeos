@@ -31,10 +31,13 @@ cx_gfx_patrect  = cxov_patrect
 cx_gfx_blit     = cxov_blit
 cx_gfx_blitm    = cxov_blitm
 
-cx_font_set     = font_set
-cx_font_style   = font_style
-cx_font_measure = font_measure
-cx_font_draw    = font_draw
+; the font and toolkit slots below are GUI-only: they go through the
+; gui_gate wrappers (kernel/video/engine0.asm), which refuse with carry
+; outside graphics mode 0 rather than draw into another mode's picture.
+cx_font_set     = cx_g_font_set
+cx_font_style   = cx_g_font_style
+cx_font_measure = cx_g_font_measure
+cx_font_draw    = cx_g_font_draw
 
 cx_ev_handlers  = ev_handlers
 cx_ev_mainloop  = ev_mainloop
@@ -52,27 +55,27 @@ cx_dirty_get    = cx_do_dirty_get
 
 cx_app_load     = cxl_load
 cx_ev_init      = ev_init
-cx_menu_set     = cx_do_menu_set
-cx_menu_off     = cx_do_menu_off
+cx_menu_set     = cx_g_menu_set
+cx_menu_off     = cx_g_menu_off
 cx_mouse_show   = cx_do_mouse_show
 cx_mouse_hide   = mouse_hide
-cx_theme_set    = cx_do_theme_set
-cx_dlg_alert    = cx_do_dlg_alert
-cx_wg_set       = cx_do_wg_set
-cx_wg_draw      = cx_do_wg_draw
-cx_menu_key     = cx_do_menu_key
-cx_wg_key       = cx_do_wg_key
+cx_theme_set    = cx_g_theme_set
+cx_dlg_alert    = cx_g_dlg_alert
+cx_wg_set       = cx_g_wg_set
+cx_wg_draw      = cx_g_wg_draw
+cx_menu_key     = cx_g_menu_key
+cx_wg_key       = cx_g_wg_key
 cx_dir_open     = cx_do_dir_open
 cx_dir_next     = cx_do_dir_next
 cx_dir_close    = cx_do_dir_close
 cx_dos_cmd      = cx_do_dos_cmd
 cx_dos_msg      = cx_do_dos_msg
-cx_dlg_prompt   = cx_do_dlg_prompt
+cx_dlg_prompt   = cx_g_dlg_prompt
 cx_clip_put     = cx_do_clip_put
 cx_clip_get     = cx_do_clip_get
 cx_clip_type    = cx_do_clip_type
-cx_da_open      = cx_do_da_open
-cx_da_close     = cx_do_da_close
+cx_da_open      = cx_g_da_open
+cx_da_close     = cx_g_da_close
 cx_ev_next      = ev_next
 
 cx_psg_init     = cx_do_psg_init

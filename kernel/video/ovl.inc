@@ -27,8 +27,8 @@ CX_OVL_INC = 1
 
 .ifndef CX_NO_OVERLAY
 
-CX_OVL      = $9500             ; MUST match OVL's start in kernel.cfg
-CX_OVL_SIZE = $0A00             ; ...and its size
+CX_OVL      = $9600             ; MUST match OVL's start in kernel.cfg
+CX_OVL_SIZE = $0900             ; ...and its size
 
 cxov_init    = CX_OVL + 0*3     ; the vector, in gfx slot order
 cxov_clear   = CX_OVL + 1*3

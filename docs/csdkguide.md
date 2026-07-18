@@ -81,63 +81,13 @@ PSG waveforms: `CX_WAVE_PULSE`=`$00`, `CX_WAVE_SAW`=`$40`, `CX_WAVE_TRI`=`$80`,
 `CX_PAN_BOTH`=`$C0`. `CX_YM(octave, note)` packs a YM note code. PCM format:
 `CX_PCM_16BIT`=`$20`, `CX_PCM_STEREO`=`$10` (low nibble is volume 0–15).
 
-### Joysticks *(0.3.0)*
+### Joysticks, modes, shapes, tiles *(0.3.0)*
 
-Pad 0 is the keyboard joystick; 1-4 are SNES pads. Buttons are ACTIVE
-HIGH `CX_J_*` masks (UP/DOWN/LEFT/RIGHT/A/B/X/Y/L/R/START/SELECT).
-
-**`unsigned cx_joy(unsigned char pad)`** -- the pad's buttons (0 = none);
-after the call `cx_c` is 1 if no physical pad is plugged in (pad 0's
-keyboard data stays valid regardless).
-**`void cx_joy_enable(unsigned char mask)`** -- scan the masked pads each
-frame and post `CX_ET_JOY` on any change; 0 stops.
-```c
-cx_joy_enable(1);
-if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
-```
-
-## Graphics modes *(0.3.0)*
-
-**`char cx_mode(unsigned char m)`** -- switch to `CX_MODE_GUI` (0),
-`CX_MODE_BMP8` (1: 320x240, colours 0-255) or `CX_MODE_TILE` (2). The
-same 13 drawing calls work in both bitmap modes; the toolkit and fonts
-are GUI-only; `cx_exit` always restores the desktop.
-**`void cx_screen_info(cx_screen *s)`** -- mode, w, h, bpp, stride: how
-`cx_pic_*` (and your code) adapt to any canvas. See
-[graphics-port.md](graphics-port.md).
-
-## Shapes *(0.3.0)* -- every bitmap mode
-
-**`void cx_circle(unsigned cx, unsigned cy, unsigned char r, unsigned char color)`**
--- an outline; clips wherever pset clips.
-**`void cx_disc(...)`** -- the same, filled; no clipping, keep it on screen.
-**`char cx_flood(unsigned x, unsigned y, unsigned char color)`** --
-scanline fill of the region containing the seed; returns 1 if the seed
-stack overflowed on a very tortured region.
-```c
-cx_disc(250, 222, 7, 220);
-cx_circle(250, 222, 13, 15);
-cx_flood(250, 212, 110);       /* fills the moat between them */
-```
-
-## Tiles *(0.3.0)* -- CX_MODE_TILE only
-
-Two 64x32 maps of 8x8 4bpp tiles. Upload tile pixels with
-`cx_vram_write(CX_TILE_IMG + n*32, data, len)`; a cell is
-`CX_CELL(index, palette)`, optionally `| CX_CELL_HF | CX_CELL_VF`.
-
-**`char cx_tile_setup(unsigned char layer)`** -- configure + enable a layer.
-**`void cx_tile_fill(unsigned char layer, unsigned cell)`** -- carpet the map.
-**`void cx_tile_cell(unsigned char layer, unsigned char col, unsigned char row, unsigned cell)`** -- one cell.
-**`void cx_tile_scroll(unsigned char layer, unsigned h, unsigned v)`** --
-hardware scroll: a register write, nothing redrawn.
-```c
-cx_mode(CX_MODE_TILE);
-cx_vram_write(CX_TILE_IMG, tiles, sizeof tiles);
-cx_tile_setup(0);
-cx_tile_fill(0, CX_CELL(0, 0));
-cx_tile_scroll(0, h & 0x0FFF, 0);
-```
+Joystick button masks (ACTIVE HIGH): `CX_J_UP/DOWN/LEFT/RIGHT`,
+`CX_J_A/B/X/Y`, `CX_J_L/R`, `CX_J_START/SELECT`. Graphics modes:
+`CX_MODE_GUI` (0), `CX_MODE_BMP8` (1), `CX_MODE_TILE` (2). Tiles:
+`CX_TILE_IMG`, `CX_CELL(index, palette)`, `CX_CELL_HF`, `CX_CELL_VF`.
+(The functions are in the sections further down.)
 
 ## Sprites *(0.2.0)*
 
@@ -515,8 +465,12 @@ if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
 
 **`char cx_mode(unsigned char m)`** -- switch to `CX_MODE_GUI` (0),
 `CX_MODE_BMP8` (1: 320x240, colours 0-255) or `CX_MODE_TILE` (2). The
-same 13 drawing calls work in both bitmap modes; the toolkit and fonts
-are GUI-only; `cx_exit` always restores the desktop.
+same 13 drawing calls work in both bitmap modes. The toolkit and fonts
+(`cx_say`, `cx_measure`, `cx_wg_*`, `cx_menu_*`, dialogs, DAs) are
+GUI-only: outside mode 0 they refuse with carry (`cx_c`) and do nothing,
+so a stray call is a safe no-op, not a crash. Sprites, audio, joysticks,
+events, files, and the shapes work in every mode. `cx_exit` always
+restores the desktop.
 **`void cx_screen_info(cx_screen *s)`** -- mode, w, h, bpp, stride: how
 `cx_pic_*` (and your code) adapt to any canvas. See
 [graphics-port.md](graphics-port.md).

@@ -194,6 +194,62 @@ cx_ov_bounds
     bne @cp
     rts
 
+; --- the GUI-only guard ----------------------------------------------
+; The font engine and the toolkit assume the mode-0 framebuffer: they
+; blit 2bpp glyphs and rows into $00000. Outside mode 0 that memory is
+; another mode's picture (or, in tiles, not a framebuffer at all), so
+; those calls must not run. gui_gate sits at the top of each of their
+; ABI entries: in mode 0 it returns normally and the entry proceeds; in
+; any other mode it discards the call and returns carry-set to the
+; ORIGINAL caller -- the same polite refusal the drawing entries give,
+; instead of a jump into whatever now occupies the port. Internal kernel
+; callers use the routines directly and never pay this.
+gui_gate
+    pha                         ; the entry's A is an argument (a pointer
+    lda cx_vmode                ; byte, a key) -- save it across the check
+    bne @refuse
+    pla                         ; mode 0: A back, on to the wrapper's jmp
+    rts
+@refuse
+    pla                         ; not mode 0: drop the saved A and the
+    pla                         ; wrapper's return address, then land the
+    pla                         ; rts on the app with carry set (X and Y
+    sec                         ; are untouched throughout)
+    rts
+
+; the gated ABI entries -- one per GUI-only slot. impl.inc points the
+; slots here; the plain routines behind the jmps are unchanged.
+cx_g_font_set    jsr gui_gate
+                 jmp font_set
+cx_g_font_style  jsr gui_gate
+                 jmp font_style
+cx_g_font_measure jsr gui_gate
+                 jmp font_measure
+cx_g_font_draw   jsr gui_gate
+                 jmp font_draw
+cx_g_menu_set    jsr gui_gate
+                 jmp cx_do_menu_set
+cx_g_menu_off    jsr gui_gate
+                 jmp cx_do_menu_off
+cx_g_menu_key    jsr gui_gate
+                 jmp cx_do_menu_key
+cx_g_wg_set      jsr gui_gate
+                 jmp cx_do_wg_set
+cx_g_wg_draw     jsr gui_gate
+                 jmp cx_do_wg_draw
+cx_g_wg_key      jsr gui_gate
+                 jmp cx_do_wg_key
+cx_g_theme_set   jsr gui_gate
+                 jmp cx_do_theme_set
+cx_g_dlg_alert   jsr gui_gate
+                 jmp cx_do_dlg_alert
+cx_g_dlg_prompt  jsr gui_gate
+                 jmp cx_do_dlg_prompt
+cx_g_da_open     jsr gui_gate
+                 jmp cx_do_da_open
+cx_g_da_close    jsr gui_gate
+                 jmp cx_do_da_close
+
 cx_vmode .byte 0                ; the engine in the port right now
 cx_cur_w .word 640              ; the live canvas, kept current by
 cx_cur_h .word 480              ; cx_ov_bounds (the flat runner keeps

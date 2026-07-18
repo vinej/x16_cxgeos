@@ -18,8 +18,11 @@ a new mode never moves a slot, changes a signature, or touches an app.
 
 The gfx ABI slots (2–14) target the vector's constants forever. The
 toolkit (fonts, widgets, menus, dialogs) calls the mode-0 engine's labels
-directly — it is mode-0-only *by contract*, enforced where it matters, not
-by a dispatch tax on every rect.
+directly. Its ABI entries pass through `gui_gate` (`engine0.asm`): in
+mode 0 the call proceeds; in any other mode it **refuses with carry**
+rather than blit a 2bpp glyph into another mode's picture. Internal
+kernel callers use the routines directly and pay nothing — there is no
+dispatch tax on the hot path.
 
 ## The modes today
 
@@ -35,8 +38,11 @@ flood are one copy of code in bank 5 drawing **through the vector
 itself**, with bounds from `cx_cur_w/h`, so they are correct in every
 bitmap mode automatically.
 
-**Mode-0-only by contract:** the toolkit, fonts, dialogs, menus, desk
-accessories, and the save-under machinery.
+**Mode-0-only, enforced:** the toolkit, fonts, dialogs, menus, desk
+accessories, and the save-under machinery. Their ABI entries refuse with
+carry (via `gui_gate`) outside mode 0, so a mistaken call in a bitmap or
+tile app is a clean no-op, not a crash. Text in tile mode is font *tiles*
+(`cx_tile_cell` with a glyph's tile index), the classic approach.
 
 ## How to add mode N
 

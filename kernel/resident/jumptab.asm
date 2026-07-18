@@ -47,10 +47,10 @@ cx_jumptab
     jmp cxov_blitm       ; 14  P0/P1 = x, P2/P3 = y, P4 = h, P5 = cols, P6/P7 = src
 
 ; --- text --------------------------------------------------------
-    jmp font_set         ; 15  A/X = CXF image -> carry set if bad
-    jmp font_style       ; 16  A = CX_BOLD | CX_UNDER
-    jmp font_measure     ; 17  A/X = string -> P0/P1 = width
-    jmp font_draw        ; 18  P0/P1 = x, P2/P3 = y, A/X = string -> P0/P1 = pen
+    jmp cx_g_font_set    ; 15  A/X = CXF image -> carry set if bad
+    jmp cx_g_font_style  ; 16  A = CX_BOLD | CX_UNDER
+    jmp cx_g_font_measure ; 17  A/X = string -> P0/P1 = width
+    jmp cx_g_font_draw   ; 18  P0/P1 = x, P2/P3 = y, A/X = string -> P0/P1 = pen
 
 ; --- events ------------------------------------------------------
     jmp ev_handlers      ; 19  A/X = a table of CX_EV_COUNT vectors
@@ -75,26 +75,26 @@ cx_jumptab
     jmp ev_init          ; 32  clear the queue and hook the raster; an app calls this before cx_ev_handlers
 
 ; --- menus -------------------------------------------------------
-    jmp cx_do_menu_set   ; 33  A/X = the menu bar (docs/formats.md); draws it, owns the top strip; carry = region stack full
-    jmp cx_do_menu_off   ; 34  forget the menu; only with no menu open
+    jmp cx_g_menu_set    ; 33  A/X = the menu bar (docs/formats.md); draws it, owns the top strip; carry = region stack full
+    jmp cx_g_menu_off    ; 34  forget the menu; only with no menu open
 
 ; --- the pointer -------------------------------------------------
     jmp cx_do_mouse_show ; 35  A = the pointer number (1 = the arrow), or $FF to show without setting one; the loader hides it between apps, so an app that wants it asks
     jmp mouse_hide       ; 36  -
 
 ; --- themes and dialogs ------------------------------------------
-    jmp cx_do_theme_set  ; 37  A/X = a 12-byte theme record (docs/formats.md): four palette RGBs plus the role indices; the palette changes instantly
-    jmp cx_do_dlg_alert  ; 38  A/X = a dialog descriptor (docs/formats.md); SYNCHRONOUS -- returns A = the chosen button. RETURN picks button 0
+    jmp cx_g_theme_set   ; 37  A/X = a 12-byte theme record (docs/formats.md): four palette RGBs plus the role indices; the palette changes instantly
+    jmp cx_g_dlg_alert   ; 38  A/X = a dialog descriptor (docs/formats.md); SYNCHRONOUS -- returns A = the chosen button. RETURN picks button 0
 
 ; --- widgets -----------------------------------------------------
-    jmp cx_do_wg_set     ; 39  A/X = a widget list (docs/formats.md); draws it, routes its clicks; posts EV_WIDGET(detail = index, P2 = value)
-    jmp cx_do_wg_draw    ; 40  redraw the current widget list
+    jmp cx_g_wg_set      ; 39  A/X = a widget list (docs/formats.md); draws it, routes its clicks; posts EV_WIDGET(detail = index, P2 = value)
+    jmp cx_g_wg_draw     ; 40  redraw the current widget list
 
 ; --- keyboard menu nav -------------------------------------------
-    jmp cx_do_menu_key   ; 41  A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key; clobbers X and Y. Call it from your EV_KEY handler
+    jmp cx_g_menu_key    ; 41  A = a key; drives the menu bar (DOWN opens, arrows move, RETURN picks, ESC dismisses). Carry set if it was a menu key; clobbers X and Y. Call it from your EV_KEY handler
 
 ; --- keyboard widget focus ---------------------------------------
-    jmp cx_do_wg_key     ; 42  A = a key; TAB/UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar, printable keys type into a focused field. Carry set if it was a widget key; clobbers X and Y. Call from EV_KEY
+    jmp cx_g_wg_key      ; 42  A = a key; TAB/UP move focus, SPACE/RETURN activate, LEFT/RIGHT step a scrollbar, printable keys type into a focused field. Carry set if it was a widget key; clobbers X and Y. Call from EV_KEY
 
 ; --- the directory -----------------------------------------------
     jmp cx_do_dir_open   ; 43  A/X = a pattern like "$", Y = length; opens the directory channel. Carry set on a DOS error
@@ -106,7 +106,7 @@ cx_jumptab
     jmp cx_do_dos_msg    ; 47  P0/P1 = a >=64-byte buffer; copies the last DOS reply ("62,FILE NOT FOUND,00,00"), NUL-terminated -> A = its length
 
 ; --- dialogs, continued ------------------------------------------
-    jmp cx_do_dlg_prompt ; 48  A/X = message, P0/P1 = a NUL-terminated buffer (may be seeded), P2 = its capacity; SYNCHRONOUS one-line editor with ok/cancel -> A = the length, carry set if cancelled. RETURN is ok, ESC is cancel
+    jmp cx_g_dlg_prompt  ; 48  A/X = message, P0/P1 = a NUL-terminated buffer (may be seeded), P2 = its capacity; SYNCHRONOUS one-line editor with ok/cancel -> A = the length, carry set if cancelled. RETURN is ok, ESC is cancel
 
 ; --- the clipboard -----------------------------------------------
     jmp cx_do_clip_put   ; 49  A = type (1 = TEXT; 0 or length 0 empties), P0/P1 = source, P2/P3 = length -> carry set if too big (~32KB fits)
@@ -114,8 +114,8 @@ cx_jumptab
     jmp cx_do_clip_type  ; 51  -> A = the type waiting (0 = empty), P2/P3 = its length; nothing is consumed
 
 ; --- desk accessories --------------------------------------------
-    jmp cx_do_da_open    ; 52  A/X = a .CXD's name, Y = length: load it into bank 9 and open its window over the running app. Carry set = would not load / not a DA. One at a time; no dialogs while one is up (they share banks 14-15)
-    jmp cx_do_da_close   ; 53  put the handlers, the region and the pixels back; the DA usually calls this itself on its exit key
+    jmp cx_g_da_open     ; 52  A/X = a .CXD's name, Y = length: load it into bank 9 and open its window over the running app. Carry set = would not load / not a DA. One at a time; no dialogs while one is up (they share banks 14-15)
+    jmp cx_g_da_close    ; 53  put the handlers, the region and the pixels back; the DA usually calls this itself on its exit key
 
 ; --- events, continued -------------------------------------------
     jmp ev_next          ; 54  -> P0..P7 = the next non-mouse event; mouse events are routed to the toolkit first; carry set if the queue emptied with none to return
