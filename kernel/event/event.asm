@@ -65,7 +65,13 @@ EV_WIDGET     = 8               ; posted by the widget toolkit: detail =
                                 ; the widget index, P2 = its value. Same
                                 ; contract as EV_MENU -- only an app that
                                 ; called cx_wg_set is handed one.
-EV_COUNT      = 9               ; how many types, for the handler table
+EV_JOY        = 9               ; a joystick's buttons changed: detail =
+                                ; the pad, P2/P3 = the buttons (active
+                                ; high), P4/P5 = which bits changed. Same
+                                ; contract again -- posted only after
+                                ; cx_joy_enable, so an app that never
+                                ; asked has no table entry read.
+EV_COUNT      = 10              ; how many types, for the handler table
 
 EV_MAX        = 16              ; records in the queue
 EV_SIZE       = 8
@@ -229,15 +235,15 @@ ev_get
 ; an event to itself without a special case.
 ; ---------------------------------------------------------------------
 ev_post
-    ldx #0
-@copy
-    lda X16_P0,x
-    sta ev_rec,x
-    inx
-    cpx #EV_SIZE
+    php                         ; mask around the COPY too: the IRQ's
+    sei                         ; mouse pass stamps ev_rec+2..5 with the
+    ldx #0                      ; live pointer every frame, and an IRQ
+@copy                           ; landing mid-copy would swap a synthetic
+    lda X16_P0,x                ; event's coordinates for the pointer's
+    sta ev_rec,x                ; (found the hard way: a shifted build
+    inx                         ; moved the IRQ phase onto menutest's
+    cpx #EV_SIZE                ; synthetic MOVE and broke its hover)
     bne @copy
-    php
-    sei
     lda ev_rec
     cmp #EV_MOUSE_MOVE
     beq @move
@@ -363,6 +369,7 @@ ev_irq
     jsr ev_do_mouse
     jsr ev_do_keys
     jsr ev_do_timer
+    jsr ev_do_joy              ; joysticks last: they reuse ev_rec's x/y
     jsr pcm_refill              ; top up the PCM FIFO from the sample buffer
     jsr irq_restore_regs        ; (a no-op unless a sample is playing)
     rts
@@ -408,14 +415,20 @@ ev_do_mouse
     cmp ev_my+1
     beq @buttons
 @moved
-    lda ev_nx
-    sta ev_mx
-    lda ev_nx+1
-    sta ev_mx+1
+    lda ev_mx                   ; the FIRST sample after ev_init: the
+    and ev_mx+1                 ; marker is $FFFF, no real x is. The
+    cmp #$FF                    ; pointer APPEARING is not the pointer
+    php                         ; MOVING -- record where it is and post
+    lda ev_nx                   ; nothing, or the stray MOVE lands at a
+    sta ev_mx                   ; phase-dependent moment in whatever the
+    lda ev_nx+1                 ; app is doing (menutest's hover check
+    sta ev_mx+1                 ; caught exactly that)
     lda ev_ny
     sta ev_my
     lda ev_ny+1
     sta ev_my+1
+    plp
+    beq @buttons                ; first sample: seeded, silent
     lda #EV_MOUSE_MOVE
     sta ev_rec
     stz ev_rec+1
@@ -513,6 +526,101 @@ ev_do_timer
     jsr ev_push
 @done
     rts
+
+; --- joysticks (opt-in) ----------------------------------------------
+; Scanning the SNES pads costs real scanline time every frame, so the
+; GUI never pays it: nothing runs until cx_joy_enable names the pads.
+; The ABI's button words are ACTIVE HIGH with the filler bits gone --
+; the KERNAL's raw active-low reads are inverted at this boundary, so a
+; pressed button is a 1 everywhere an app looks, and an absent pad
+; (raw $FF) reads as no buttons at all.
+
+; cx_joy_enable -- A = a mask of pads (bit n = pad n, 0-3); 0 stops the
+; scan. The remembered states clear, so the first scan posts a fresh
+; EV_JOY for anything already held.
+ev_joy_enable
+    sta ev_joy_en
+    ldx #7
+@clr
+    stz ev_joy_prev,x
+    dex
+    bpl @clr
+    rts
+
+; cx_joy_get -- A = pad (0 = keyboard, 1-4 = gamepads) -> A = buttons
+; low (B Y SELECT START UP DOWN LEFT RIGHT), X = buttons high (A X L R
+; in bits 7:4), active high; carry set if the pad is absent.
+cx_do_joy_get
+    jsr joy_get                 ; A/X = raw active-low, Y = $FF absent
+    eor #$FF
+    pha
+    txa
+    eor #$FF
+    tax
+    pla
+    cpy #$FF                    ; carry set only when Y = $FF
+    rts
+
+ev_do_joy
+    lda ev_joy_en
+    bne @scan
+    rts
+@scan
+    jsr joy_scan                ; fresh state; no KERNAL-IRQ assumption
+    stz CX_J_I
+@pad
+    ldx CX_J_I
+    cpx #4
+    bcs @out
+    lda ev_pow2,x
+    and ev_joy_en
+    beq @next
+    txa
+    jsr cx_do_joy_get           ; A/X = active-high, filler-free
+    sta CX_J_CUR
+    stx CX_J_CUR+1
+
+    lda CX_J_I                ; changed since the last tick?
+    asl
+    tay                         ; Y = pad * 2
+    lda CX_J_CUR
+    eor ev_joy_prev,y
+    sta CX_J_DLT
+    lda CX_J_CUR+1
+    eor ev_joy_prev+1,y
+    sta CX_J_DLT+1
+    ora CX_J_DLT
+    beq @next                   ; same word: nothing to say
+
+    lda CX_J_CUR                ; remember, then post
+    sta ev_joy_prev,y
+    lda CX_J_CUR+1
+    sta ev_joy_prev+1,y
+    lda #EV_JOY
+    sta ev_rec
+    lda CX_J_I
+    sta ev_rec+1                ; detail = the pad
+    lda CX_J_CUR
+    sta ev_rec+2                ; x = the buttons now
+    lda CX_J_CUR+1
+    sta ev_rec+3
+    lda CX_J_DLT
+    sta ev_rec+4                ; y = which bits changed
+    lda CX_J_DLT+1
+    sta ev_rec+5
+    jsr irq_frames
+    sta ev_rec+6
+    stz ev_rec+7
+    jsr ev_push
+@next
+    inc CX_J_I
+    bra @pad
+@out
+    rts
+
+ev_joy_en   .byte 0
+ev_joy_prev .res 8, 0
+ev_pow2     .byte 1, 2, 4, 8
 
 ; ---------------------------------------------------------------------
 ev_q       .res EV_MAX * EV_SIZE, 0

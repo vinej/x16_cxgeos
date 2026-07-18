@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 74                    ; slots
+    .word 76                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -146,6 +146,10 @@ cx_jumptab
     jmp cx_do_pcm_play   ; 71  P0/P1 = sample source, P2/P3 = byte count, A = rate (1-128, 128 = 48 kHz); resets the FIFO, primes it, starts playback
     jmp cx_do_pcm_stop   ; 72  silence and forget the current sample
     jmp cx_do_pcm_active ; 73  -> A = 1 while a sample is still playing, else 0
+
+; --- joysticks (SNES pads; pad 0 is the keyboard joystick) -------
+    jmp cx_do_joy_get    ; 74  A = pad (0-4) -> A = buttons low, X = buttons high; carry set if the pad is absent. Pad 0's presence tracks a PHYSICAL pad -- its keyboard-driven data is valid even when carry says absent
+    jmp ev_joy_enable    ; 75  A = a mask of pads (bit n = pad n, 0-3; 0 = off): scan each frame and post EV_JOY (type 9, detail = pad, P2/P3 = buttons, P4/P5 = changed bits) whenever a pad's state changes
 
 .popseg
 

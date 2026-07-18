@@ -38,7 +38,8 @@
 #define CX_ET_TIMER   6
 #define CX_ET_MENU    7
 #define CX_ET_WIDGET  8
-#define CX_ET_TYPES   9          /* how many, for a handler table */
+#define CX_ET_JOY     9          /* detail = pad, x = buttons, y = changed */
+#define CX_ET_TYPES   10         /* how many, for a handler table */
 
 /* --- widget types (a record's `type`) ------------------------------- */
 #define CX_WG_BUTTON  0
@@ -86,6 +87,22 @@
 /* --- PCM format bits (cx_pcm_ctrl); low nibble is volume 0-15 -------- */
 #define CX_PCM_16BIT  0x20
 #define CX_PCM_STEREO 0x10
+
+/* --- joystick buttons (ACTIVE HIGH: pressed = 1), as cx_joy returns
+ * them and as an EV_JOY's x/y words carry them. Pad 0 is the keyboard
+ * joystick; 1-4 are SNES pads. ------------------------------------- */
+#define CX_J_RIGHT    0x0001
+#define CX_J_LEFT     0x0002
+#define CX_J_DOWN     0x0004
+#define CX_J_UP       0x0008
+#define CX_J_START    0x0010
+#define CX_J_SELECT   0x0020
+#define CX_J_Y        0x0040
+#define CX_J_B        0x0080
+#define CX_J_R        0x1000
+#define CX_J_L        0x2000
+#define CX_J_X        0x4000
+#define CX_J_A        0x8000
 
 /* --- sprites -------------------------------------------------------- */
 #define CX_SPR_4BPP   0x00       /* image colour depth (cx_sprite_image) */
@@ -417,6 +434,19 @@ static void cx_pcm_play(const void *src, unsigned len, unsigned char rate) {
 }
 static void          cx_pcm_stop(void) { cx_call(CX_PCM_STOP); }
 static unsigned char cx_pcm_active(void) { return cx_ret(CX_PCM_ACTIVE); }
+
+/* =====================================================================
+ * joysticks (pad 0 = the keyboard joystick, 1-4 = SNES pads)
+ * ===================================================================== */
+/* the pad's buttons as an active-high CX_J_* word; 0 = none (or absent).
+ * After the call cx_c is 1 if the pad is not plugged in. */
+static unsigned cx_joy(unsigned char pad) {
+    cx_call_a(CX_JOY_GET, pad);
+    return (unsigned)cx_a | ((unsigned)cx_x << 8);
+}
+/* scan the pads in `mask` (bit n = pad n, 0-3) every frame and post a
+ * CX_ET_JOY event whenever one's state changes; 0 turns it off */
+static void cx_joy_enable(unsigned char mask) { cx_call_a(CX_JOY_ENABLE, mask); }
 
 /* =====================================================================
  * sprites (VERA hardware sprites)

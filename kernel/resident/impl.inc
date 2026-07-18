@@ -94,3 +94,5 @@ cx_pcm_ctrl     = cx_do_pcm_ctrl
 cx_pcm_play     = cx_do_pcm_play
 cx_pcm_stop     = cx_do_pcm_stop
 cx_pcm_active   = cx_do_pcm_active
+cx_joy_get      = cx_do_joy_get
+cx_joy_enable   = ev_joy_enable

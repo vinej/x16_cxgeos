@@ -63,7 +63,14 @@ CX_C_BNK   = CX_ZP + 24         ; $4A/$4B  the banked side
 
 CX_C_ZP_TOP = CX_ZP + 26        ; = $4C
 
-; --- free: $4C-$5F ---------------------------------------------------
+; --- joystick scanner (kernel/event/event.asm) ------------------------
+CX_J_I     = CX_ZP + 26         ; $4C      the pad being scanned
+CX_J_CUR   = CX_ZP + 27         ; $4D/$4E  its current button word
+CX_J_DLT   = CX_ZP + 29         ; $4F/$50  ...and the changed bits
+
+CX_J_ZP_TOP = CX_ZP + 31        ; = $51
+
+; --- free: $51-$5F ---------------------------------------------------
 
 .if CX_ZP < $32
     .error "CX_ZP must be >= $32: below that is x16lib's block"

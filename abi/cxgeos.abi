@@ -173,3 +173,10 @@ version = 1
 71  cx_pcm_play     1   P0/P1 = sample source, P2/P3 = byte count, A = rate (1-128, 128 = 48 kHz); resets the FIFO, primes it, starts playback
 72  cx_pcm_stop     1   silence and forget the current sample
 73  cx_pcm_active   1   -> A = 1 while a sample is still playing, else 0
+
+#= joysticks (SNES pads; pad 0 is the keyboard joystick)
+# Button words are ACTIVE HIGH with the KERNAL's filler bits stripped:
+# low byte = B Y SELECT START UP DOWN LEFT RIGHT (bit 7..0), high byte =
+# A X L R in bits 7:4. An absent pad reads as no buttons.
+74  cx_joy_get      1   A = pad (0-4) -> A = buttons low, X = buttons high; carry set if the pad is absent. Pad 0's presence tracks a PHYSICAL pad -- its keyboard-driven data is valid even when carry says absent
+75  cx_joy_enable   1   A = a mask of pads (bit n = pad n, 0-3; 0 = off): scan each frame and post EV_JOY (type 9, detail = pad, P2/P3 = buttons, P4/P5 = changed bits) whenever a pad's state changes
