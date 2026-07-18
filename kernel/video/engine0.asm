@@ -150,6 +150,8 @@ ov0_vector                      ; the port's entry vector, slot order
     jmp gfx2_blitm
     jmp font_draw               ; text: the CXF proportional font
     jmp font_measure            ; measure: CXF pixel widths
+    jmp vrows_save              ; rsave/rrest: full pixel rows <-> banked
+    jmp vrows_restore           ; RAM, the toolkit's mode-0 save-under
     .byte 1                     ; cxov_ink -- unused in mode 0 (the theme
                                 ; owns the GUI's text ink), carried so the
                                 ; port layout is the same in every image

@@ -43,6 +43,8 @@ ov1_vector                      ; the port's entry vector, slot order
     jmp gfx_blitm               ; PIXELS; blitm's $00 is transparent
     jmp ov1_text                ; text: 8x8 charset glyphs from $1F000
     jmp ov1_measure             ; measure: 8 pixels per glyph
+    jmp ov1_no                  ; rsave: 8bpp save-under is future work
+    jmp ov1_no                  ; rrest
     .byte 1                     ; cxov_ink -- the text ink, a palette
                                 ; index; each entry resets it to white
 
@@ -91,6 +93,10 @@ ov1_init
     rts
 
 ; --- the adapters -----------------------------------------------------
+ov1_no                          ; an entry this engine does not offer yet
+    sec                         ; (the 8bpp save-under)
+    rts
+
 ; the text entry: A/X = string, P0/P1 = x, P2/P3 = y. gfx_text draws 8x8
 ; charset glyphs (ASCII in, screen codes out) and wants the colour in P3
 ; -- which the port uses as y's high byte, dead at 240 rows -- so the

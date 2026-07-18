@@ -58,6 +58,8 @@ ov2_vector
     jmp ov2_no                  ; masked blit
     jmp ov2_no                  ; text -- tile-based text is future
     jmp ov2_no                  ; measure -- likewise
+    jmp ov2_no                  ; rsave -- no save-under on a tile canvas
+    jmp ov2_no                  ; rrest
     .byte 1                     ; cxov_ink -- unused here, carried so the
                                 ; port layout is the same in every image
 

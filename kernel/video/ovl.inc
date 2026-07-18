@@ -52,6 +52,15 @@ cxov_measure = CX_OVL + 14*3    ; the 15th: A/X = string -> P0/P1 = its
                                 ; pixels in mode 0, 8-pixel glyphs in
                                 ; mode 1, cells in mode 3) -- what lets
                                 ; the toolkit lay text out in any mode
+cxov_rsave   = CX_OVL + 15*3    ; save full screen rows to banked RAM,
+cxov_rrest   = CX_OVL + 16*3    ; and restore them: the toolkit's
+                                ; save-under, one per mode. A = first RAM
+                                ; bank, P0/P1 = first row, P2 = row count
+                                ; -- the vrows contract, so mode 0 is
+                                ; vrows itself; mode 3 saves text cells,
+                                ; the bitmap modes refuse (carry). "Rows"
+                                ; are the mode's own: pixel rows in 0/1,
+                                ; cell rows in 3
 
 ; One byte of ENGINE-LOCAL state rides just past the vector: the text
 ; ink (cx_ink). It lives in the IMAGE, so every mode entry copies the
@@ -59,7 +68,7 @@ cxov_measure = CX_OVL + 14*3    ; the 15th: A/X = string -> P0/P1 = its
 ; next, where the same number means a different colour space (a palette
 ; index in mode 1, a 16-colour attribute in mode 3; mode 0's text ink
 ; belongs to the theme and ignores this byte).
-cxov_ink     = CX_OVL + 15*3
+cxov_ink     = CX_OVL + 17*3
 
 .else                           ; the runner: no overlay, direct engine
 
@@ -78,6 +87,8 @@ cxov_blit    = gfx2_blit
 cxov_blitm   = gfx2_blitm
 cxov_text    = font_draw        ; the runner is always mode 0: the font
 cxov_measure = font_measure
+cxov_rsave   = vrows_save       ; mode 0's rows save/restore IS vrows
+cxov_rrest   = vrows_restore
 
 .endif
 

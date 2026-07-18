@@ -66,6 +66,8 @@ ov3_vector                      ; the 14 port entries, in slot order;
     jmp ov3_refuse              ; masked blit
     jmp ov3_say                 ; text: print a string at a cell
     jmp ov3_measure             ; measure: one cell per character
+    jmp ov3_refuse              ; rsave: text-cell save-under -- lands
+    jmp ov3_refuse              ; rrest: with the menu conversion
     .byte 1                     ; cxov_ink -- cx_say's ink attribute
                                 ; (0-15); every entry resets it to white
 
