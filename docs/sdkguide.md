@@ -1,6 +1,6 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.2.0** · ABI version 1 · 74 slots
+**Release 0.3.0** · ABI version 1 · 85 slots
 
 This documents `sdk/include_<compiler>/cxgeos.h` — the **generated**, low-level
 binding to the kernel. It is what every CXGEOS app ultimately calls. C
@@ -104,7 +104,7 @@ python tools/mkcxap.py build/MYAPP.PRG build/MYAPP.CXA --name "My App"
 | name | value | meaning |
 |---|---|---|
 | `CX_ABI_VERSION` | `1` | the ABI version these bindings were cut from |
-| `CX_ABI_SLOTS` | `74` | the number of slots defined (indices 0–73) |
+| `CX_ABI_SLOTS` | `85` | the number of slots defined (indices 0–84) |
 
 Query the *running* kernel's version with `cx_version` (slot 0); the loader
 refuses an app whose min-ABI exceeds it.
@@ -294,6 +294,57 @@ The sample source is low RAM; samples are signed bytes. *(Added in 0.2.0.)*
 | 71 | `CX_PCM_PLAY` | `$80E5` | P0/P1=source, P2/P3=byte count, A=rate (1–128, 128=48 kHz) | reset FIFO, prime, start |
 | 72 | `CX_PCM_STOP` | `$80E8` | — | silence and forget the sample |
 | 73 | `CX_PCM_ACTIVE` | `$80EB` | → A=1 while playing, else 0 | is a sample still playing |
+
+### Joysticks
+
+Button words are ACTIVE HIGH with the KERNAL's filler stripped: low byte
+B/Y/SELECT/START/UP/DOWN/LEFT/RIGHT (bit 7..0), high byte A/X/L/R in bits
+7:4. Pad 0 is the keyboard joystick -- its presence tracks a physical
+pad, but its data is valid regardless. EV_JOY (event type 9) follows the
+EV_MENU precedent: posted only after CX_JOY_ENABLE, so old handler
+tables are never over-indexed. *(Added in 0.3.0.)*
+
+| slot | name | addr | args -> result | purpose |
+|---|---|---|---|---|
+| 74 | `CX_JOY_GET` | `$80EE` | A=pad (0-4) -> A=buttons low, X=high; carry if absent | read a pad |
+| 75 | `CX_JOY_ENABLE` | `$80F1` | A=pad mask (bit n = pad n) | scan each frame, post EV_JOY on change |
+
+### The graphics port
+
+The gfx slots (2-14) always target the port's entry vector; which engine
+answers is the MODE -- see [graphics-port.md](graphics-port.md). Mode 0 =
+640x480 @2bpp (the GUI), mode 1 = 320x240 @8bpp, mode 2 = tiles.
+`CX_GFX_INIT` always lands in mode 0. *(Added in 0.3.0.)*
+
+| slot | name | addr | args -> result | purpose |
+|---|---|---|---|---|
+| 76 | `CX_GFX_MODE` | `$80F4` | A=mode -> carry if unknown | swap the engine, run its init |
+| 77 | `CX_GFX_INFO` | `$80F7` | -> A=mode, P0/P1=w, P2/P3=h, P4=bpp, P5/P6=stride | what canvas is this |
+
+### Shapes -- every bitmap mode
+
+One copy of code (bank 5) drawing through the port itself, so these are
+correct in mode 0 and mode 1 alike. *(Added in 0.3.0.)*
+
+| slot | name | addr | args -> result | purpose |
+|---|---|---|---|---|
+| 78 | `CX_GFX_CIRCLE` | `$80FA` | P0/P1=cx, P2/P3=cy, P4=r, A=colour | an outline (clips with pset) |
+| 79 | `CX_GFX_DISC` | `$80FD` | same | filled; no clipping |
+| 80 | `CX_GFX_FLOOD` | `$8100` | P0/P1=x, P2/P3=y, A=colour -> carry if the seed stack overflowed | scanline fill, fenced by pixels and the canvas |
+
+### Tiles -- mode 2 only
+
+Tile images live at VRAM `$00000` (4bpp 8x8, 32 bytes each; upload with
+the csdk's `cx_vram_write`); the maps are 64x32 cells at `$08000` (layer
+0) / `$09000` (layer 1). All refuse with carry outside mode 2. *(Added
+in 0.3.0.)*
+
+| slot | name | addr | args -> result | purpose |
+|---|---|---|---|---|
+| 81 | `CX_TILE_SETUP` | `$8103` | A=layer (0/1) | ledger config + layer on |
+| 82 | `CX_TILE_SCROLL` | `$8106` | A=layer, P0/P1=h, P2/P3=v | hardware scroll |
+| 83 | `CX_TILE_CELL` | `$8109` | A=layer, X=col, Y=row, P0/P1=cell | one map cell |
+| 84 | `CX_TILE_FILL` | `$810C` | A=layer, P0/P1=cell | the whole map |
 
 ---
 

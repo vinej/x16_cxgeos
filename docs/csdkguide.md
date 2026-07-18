@@ -1,6 +1,6 @@
 # CXGEOS csdk Guide — the friendly C wrapper
 
-**Release 0.2.0** · header: `csdk/cxsdk.h`
+**Release 0.3.0** · header: `csdk/cxsdk.h`
 
 The csdk turns the low-level [ABI](sdkguide.md) into clean, named `cx_*`
 functions, a typed event record, the shared constants, immediate-mode widget
@@ -45,7 +45,8 @@ Named `CX_ET_*` (event **t**ype), distinct from the generated header's
 | `CX_ET_TIMER` | 6 | the timer fired |
 | `CX_ET_MENU` | 7 | menu pick (`detail` = item, `x` = menu) |
 | `CX_ET_WIDGET` | 8 | widget acted (`detail` = index, `x` = value) |
-| `CX_ET_TYPES` | 9 | the count, for a handler table |
+| `CX_ET_JOY` | 9 | a pad changed (`detail` = pad, `x` = buttons, `y` = changed bits); opt-in via `cx_joy_enable` |
+| `CX_ET_TYPES` | 10 | the count, for a handler table |
 
 ### Widget types — a descriptor's `type` (`CX_WG_*`)
 
@@ -80,7 +81,65 @@ PSG waveforms: `CX_WAVE_PULSE`=`$00`, `CX_WAVE_SAW`=`$40`, `CX_WAVE_TRI`=`$80`,
 `CX_PAN_BOTH`=`$C0`. `CX_YM(octave, note)` packs a YM note code. PCM format:
 `CX_PCM_16BIT`=`$20`, `CX_PCM_STEREO`=`$10` (low nibble is volume 0–15).
 
-### Sprites *(0.2.0)*
+### Joysticks *(0.3.0)*
+
+Pad 0 is the keyboard joystick; 1-4 are SNES pads. Buttons are ACTIVE
+HIGH `CX_J_*` masks (UP/DOWN/LEFT/RIGHT/A/B/X/Y/L/R/START/SELECT).
+
+**`unsigned cx_joy(unsigned char pad)`** -- the pad's buttons (0 = none);
+after the call `cx_c` is 1 if no physical pad is plugged in (pad 0's
+keyboard data stays valid regardless).
+**`void cx_joy_enable(unsigned char mask)`** -- scan the masked pads each
+frame and post `CX_ET_JOY` on any change; 0 stops.
+```c
+cx_joy_enable(1);
+if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
+```
+
+## Graphics modes *(0.3.0)*
+
+**`char cx_mode(unsigned char m)`** -- switch to `CX_MODE_GUI` (0),
+`CX_MODE_BMP8` (1: 320x240, colours 0-255) or `CX_MODE_TILE` (2). The
+same 13 drawing calls work in both bitmap modes; the toolkit and fonts
+are GUI-only; `cx_exit` always restores the desktop.
+**`void cx_screen_info(cx_screen *s)`** -- mode, w, h, bpp, stride: how
+`cx_pic_*` (and your code) adapt to any canvas. See
+[graphics-port.md](graphics-port.md).
+
+## Shapes *(0.3.0)* -- every bitmap mode
+
+**`void cx_circle(unsigned cx, unsigned cy, unsigned char r, unsigned char color)`**
+-- an outline; clips wherever pset clips.
+**`void cx_disc(...)`** -- the same, filled; no clipping, keep it on screen.
+**`char cx_flood(unsigned x, unsigned y, unsigned char color)`** --
+scanline fill of the region containing the seed; returns 1 if the seed
+stack overflowed on a very tortured region.
+```c
+cx_disc(250, 222, 7, 220);
+cx_circle(250, 222, 13, 15);
+cx_flood(250, 212, 110);       /* fills the moat between them */
+```
+
+## Tiles *(0.3.0)* -- CX_MODE_TILE only
+
+Two 64x32 maps of 8x8 4bpp tiles. Upload tile pixels with
+`cx_vram_write(CX_TILE_IMG + n*32, data, len)`; a cell is
+`CX_CELL(index, palette)`, optionally `| CX_CELL_HF | CX_CELL_VF`.
+
+**`char cx_tile_setup(unsigned char layer)`** -- configure + enable a layer.
+**`void cx_tile_fill(unsigned char layer, unsigned cell)`** -- carpet the map.
+**`void cx_tile_cell(unsigned char layer, unsigned char col, unsigned char row, unsigned cell)`** -- one cell.
+**`void cx_tile_scroll(unsigned char layer, unsigned h, unsigned v)`** --
+hardware scroll: a register write, nothing redrawn.
+```c
+cx_mode(CX_MODE_TILE);
+cx_vram_write(CX_TILE_IMG, tiles, sizeof tiles);
+cx_tile_setup(0);
+cx_tile_fill(0, CX_CELL(0, 0));
+cx_tile_scroll(0, h & 0x0FFF, 0);
+```
+
+## Sprites *(0.2.0)*
 
 Depth: `CX_SPR_4BPP`=`$00`, `CX_SPR_8BPP`=`$80`. Size codes: `CX_SPR_8`=0,
 `CX_SPR_16`=1, `CX_SPR_32`=2, `CX_SPR_64`=3. Z-depth: `CX_SPR_HIDE`=`$00`,
@@ -437,6 +496,64 @@ cx_pcm_ctrl(0x0F);
 cx_pcm_play(sample, sizeof sample, 64);
 ```
 
+## Joysticks *(0.3.0)*
+
+Pad 0 is the keyboard joystick; 1-4 are SNES pads. Buttons are ACTIVE
+HIGH `CX_J_*` masks (UP/DOWN/LEFT/RIGHT/A/B/X/Y/L/R/START/SELECT).
+
+**`unsigned cx_joy(unsigned char pad)`** -- the pad's buttons (0 = none);
+after the call `cx_c` is 1 if no physical pad is plugged in (pad 0's
+keyboard data stays valid regardless).
+**`void cx_joy_enable(unsigned char mask)`** -- scan the masked pads each
+frame and post `CX_ET_JOY` on any change; 0 stops.
+```c
+cx_joy_enable(1);
+if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
+```
+
+## Graphics modes *(0.3.0)*
+
+**`char cx_mode(unsigned char m)`** -- switch to `CX_MODE_GUI` (0),
+`CX_MODE_BMP8` (1: 320x240, colours 0-255) or `CX_MODE_TILE` (2). The
+same 13 drawing calls work in both bitmap modes; the toolkit and fonts
+are GUI-only; `cx_exit` always restores the desktop.
+**`void cx_screen_info(cx_screen *s)`** -- mode, w, h, bpp, stride: how
+`cx_pic_*` (and your code) adapt to any canvas. See
+[graphics-port.md](graphics-port.md).
+
+## Shapes *(0.3.0)* -- every bitmap mode
+
+**`void cx_circle(unsigned cx, unsigned cy, unsigned char r, unsigned char color)`**
+-- an outline; clips wherever pset clips.
+**`void cx_disc(...)`** -- the same, filled; no clipping, keep it on screen.
+**`char cx_flood(unsigned x, unsigned y, unsigned char color)`** --
+scanline fill of the region containing the seed; returns 1 if the seed
+stack overflowed on a very tortured region.
+```c
+cx_disc(250, 222, 7, 220);
+cx_circle(250, 222, 13, 15);
+cx_flood(250, 212, 110);       /* fills the moat between them */
+```
+
+## Tiles *(0.3.0)* -- CX_MODE_TILE only
+
+Two 64x32 maps of 8x8 4bpp tiles. Upload tile pixels with
+`cx_vram_write(CX_TILE_IMG + n*32, data, len)`; a cell is
+`CX_CELL(index, palette)`, optionally `| CX_CELL_HF | CX_CELL_VF`.
+
+**`char cx_tile_setup(unsigned char layer)`** -- configure + enable a layer.
+**`void cx_tile_fill(unsigned char layer, unsigned cell)`** -- carpet the map.
+**`void cx_tile_cell(unsigned char layer, unsigned char col, unsigned char row, unsigned cell)`** -- one cell.
+**`void cx_tile_scroll(unsigned char layer, unsigned h, unsigned v)`** --
+hardware scroll: a register write, nothing redrawn.
+```c
+cx_mode(CX_MODE_TILE);
+cx_vram_write(CX_TILE_IMG, tiles, sizeof tiles);
+cx_tile_setup(0);
+cx_tile_fill(0, CX_CELL(0, 0));
+cx_tile_scroll(0, h & 0x0FFF, 0);
+```
+
 ## Sprites *(0.2.0)*
 
 VERA hardware sprites. Sprite 0 is the mouse; drive sprites 1–127. Put image
@@ -617,6 +734,10 @@ Each palette colour is two little-endian bytes: byte0 = `GGGGBBBB`, byte1 =
   set, a dialog and two themes, driven by `cx_next`.
 - `apps/paint/paint.c` — mouse-drag drawing (`cx_line`/`cx_pset`/`cx_rect`) and
   `cx_pic_save`/`cx_pic_load` persistence.
+- `apps/gfx8/gfx8.c` *(0.3.0)* -- 256-colour mode: the same drawing calls
+  in `CX_MODE_BMP8`, plus the shapes.
+- `apps/tiles/tiles.c` *(0.3.0)* -- the tile mode: upload, fill, cells,
+  and hardware scrolling by keys, joystick, or drift.
 - `apps/beep/beep.c` *(0.2.0)* — audio: a PSG scale, a YM note, and a PCM blip.
 - `apps/sprite/sprite.c` *(0.2.0)* — a hardware sprite that follows the mouse.
 

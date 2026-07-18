@@ -41,6 +41,16 @@ file in the same commit as the code that claims or releases a region.
 | 14–15 | desk-accessory slots (code + saved state) |
 | 16+ | dynamic pool (`bank_alloc`): window backing store, app allocations, file buffers. Sized from MEMTOP at boot (512KB → 48 free banks; 2MB → 240) |
 
+### The graphics port and its banks *(0.3.0)*
+
+The resident region `$9500`-`$9EFF` is the graphics PORT: the current
+engine image lives there, copied from its bank by `cx_gfx_mode`
+([graphics-port.md](graphics-port.md)). Bank 3 = mode 0 (2bpp), bank 4 =
+mode 1 (8bpp core), bank 5 = the mode-agnostic shapes + the tile
+machinery + mode 2's image. In `CX_MODE_TILE`, VRAM `$00000` holds tile
+images and `$08000`/`$09000` the two 64x32 maps (the bitmap framebuffer
+region is free -- there is no bitmap).
+
 ## VRAM (128KB) — the contended resource
 
 | Range | Size | Contents |
