@@ -37,7 +37,7 @@ cx_gfx_blitm    = cxov_blitm
 cx_font_set     = cx_g_font_set
 cx_font_style   = cx_g_font_style
 cx_font_measure = cx_g_font_measure
-cx_font_draw    = cx_g_font_draw
+cx_font_draw    = cxov_text     ; cx_say through the port's 14th entry
 
 cx_ev_handlers  = ev_handlers
 cx_ev_mainloop  = ev_mainloop

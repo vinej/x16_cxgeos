@@ -464,8 +464,11 @@ if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
 ## Graphics modes *(0.3.0)*
 
 **`char cx_mode(unsigned char m)`** -- switch to `CX_MODE_GUI` (0),
-`CX_MODE_BMP8` (1: 320x240, colours 0-255) or `CX_MODE_TILE` (2). The
-same 13 drawing calls work in both bitmap modes. The toolkit and fonts
+`CX_MODE_BMP8` (1: 320x240, colours 0-255), `CX_MODE_TILE` (2) or
+`CX_MODE_TEXT` (3: 80x60 text cells, 16 colours -- coordinates are
+cells, "colour" a text attribute; `cx_clear`/`cx_rect`/`cx_frame`/
+`cx_hline`/`cx_vline` and `cx_say` work, the pixel-only calls refuse).
+The same drawing calls work across the bitmap modes. The toolkit and fonts
 (`cx_say`, `cx_measure`, `cx_wg_*`, `cx_menu_*`, dialogs, DAs) are
 GUI-only: outside mode 0 they refuse with carry (`cx_c`) and do nothing,
 so a stray call is a safe no-op, not a crash. Sprites, audio, joysticks,

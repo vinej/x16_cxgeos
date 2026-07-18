@@ -148,6 +148,7 @@ static unsigned cx_version(void)       { return cx_ret16(CX_VERSION); }
 #define CX_MODE_GUI   0          /* 640x480, 4 colours -- the desktop  */
 #define CX_MODE_BMP8  1          /* 320x240, 256 colours               */
 #define CX_MODE_TILE  2          /* two tile layers + sprites (games)  */
+#define CX_MODE_TEXT  3          /* 80x60 text cells, 16 colours       */
 
 static void cx_gfx_init(void) { cx_call(CX_GFX_INIT); }  /* = mode GUI */
 static void cx_clear(unsigned char color) { cx_call_a(CX_GFX_CLEAR, color); }

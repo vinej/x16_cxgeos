@@ -11,7 +11,7 @@ a new mode never moves a slot, changes a signature, or touches an app.
 | piece | where | what |
 |---|---|---|
 | the region (`OVL`) | `$9500`–`$9EFF` resident RAM (`kernel.cfg`, `CX_OVL` in `kernel/video/ovl.inc`) | 2,560 bytes the current engine occupies |
-| the entry vector | the region's first 39 bytes | 13 × `jmp`, one per gfx slot, in slot order: init, clear, pset, read, hline, vline, rect, frame, line, pattern set, pattern rect, blit, masked blit |
+| the entry vector | the region's first 42 bytes | 14 × `jmp`, one per gfx slot, in slot order: init, clear, pset, read, hline, vline, rect, frame, line, pattern set, pattern rect, blit, masked blit, **text**. The 14th (text) is `cx_say`: mode 0 points it at the CXF font, text mode at its cell writer, the rest refuse — so `cx_say` is mode-aware through the port, not a special case |
 | an engine image | an ld65 overlay segment: `run = OVL`, `load =` a kernel bank | the vector + the engine + any argument adapters |
 | the manager | `kernel/video/engine0.asm` (resident) | `cx_ov_load` copies image *n* from `cx_mbank[n]` / `cx_msrc[n]` (interrupts masked); `cx_gfx_mode` = copy + the new engine's init; `cx_gfx_init` **forces mode 0**, so `cx_exit` → shell always restores the desktop |
 | the canvas facts | `cx_gfx_info` (slot 77), `cx_cur_w/h` | mode, width, height, bpp, stride — how client code adapts without naming engines |
@@ -31,6 +31,7 @@ dispatch tax on the hot path.
 | 0 `CX_MODE_GUI` | 640×480, 4 colours, stride 160 | x16lib `bitmap2` | 3 | the desktop; all 13 entries native |
 | 1 `CX_MODE_BMP8` | 320×240, 256 colours, stride 320 | x16lib `bitmap` (core, `X16_BITMAP_MIN`) | 4 | thin adapters (colour A→P3, line operands); pattern takes bg/fg as full bytes in P4/P5; blit widths in pixels; blitm's `$00` transparent |
 | 2 `CX_MODE_TILE` | 320×240, two 64×32 tile maps | refusal vector + real init | 5 (shared, via `__OV2CODE_LOAD__`) | bitmap entries refuse (a map is not a bitmap); the API is `cx_tile_*` (slots 81–84); tiles at VRAM `$00000`, maps `$08000`/`$09000` |
+| 3 `CX_MODE_TEXT` | 80×60 text cells, 16 colours | KERNAL console (`screen.asm`), **all in the overlay** | 5 (shared, via `__OV3CODE_LOAD__`) | a CELL grid, not pixels: clear/rect/frame/hline/vline become coloured-cell ops, `cx_say` prints a string at (col,row); pset/read/line/pattern/blit refuse. Runs in the overlay (low RAM), not a bank, because the KERNAL screen routines do not preserve `RAM_BANK` and would corrupt banked code. Init is `CINT` (a full reset — `screen_set_mode` alone left the text layer dark over the bitmap display) |
 
 **Mode-agnostic by construction:** events, audio, sprites, PCM, files,
 clipboard, joysticks — and the *shapes* (slots 78–80): circle, disc and
@@ -68,6 +69,14 @@ binary still draws.
 
 Resident cost of the whole port: the manager (~200 bytes) — the region
 itself replaced the engine that used to live in resident RAM. Engine
-images: bank 3 (2bpp, `$88C`), bank 4 (8bpp core, `$525`), bank 5 (shapes
-+ tile machinery + mode-2 image). `CXBANKS.BIN` carries banks 2–5 and the
-boot's single LOAD fills them all (the KERNAL wraps at `$BFFF`).
+images ride banks 3–5 (bank 5 holds the shapes, the tile machinery, and
+the mode-2 and mode-3 images).
+
+**The four-bank ceiling.** The boot's KERNAL LOAD of `CXBANKS.BIN` wraps
+exactly **four banks (32 KB, banks 2–5)** and then stops — a fifth bank
+gets nothing. So all banked code must fit banks 2–5, and a new engine
+image shares an existing bank rather than claiming a new one. Mode 3 was
+first parked in bank 6 and crashed to the monitor for exactly this
+reason (`$9601`, blown stack: the copy pulled `$FF` from an unloaded
+bank). Banks 2–5 currently hold ~12 KB of code, so there is room; when
+they fill, the boot loader needs a second LOAD.

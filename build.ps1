@@ -180,7 +180,8 @@ function Build-Apps {
             @{ src = "apps\beep\beep.c";     prg = "BEEP";   name = "Beep" },
             @{ src = "apps\sprite\sprite.c"; prg = "SPRITE"; name = "Sprite" },
             @{ src = "apps\gfx8\gfx8.c";     prg = "GFX8";   name = "256 colours" },
-            @{ src = "apps\tiles\tiles.c";   prg = "TILES";  name = "Tiles" }
+            @{ src = "apps\tiles\tiles.c";   prg = "TILES";  name = "Tiles" },
+            @{ src = "apps\text\text.c";     prg = "TEXT";   name = "Text mode" }
         )) {
             $prg = Join-Path $build "$($capp.prg).PRG"
             Write-Host "llvm  $($capp.src) -> $prg"
@@ -230,6 +231,9 @@ function Stage-SdRoot {
     }
     if (Test-Path (Join-Path $build "TILES.CXA")) {
         Copy-Item (Join-Path $build "TILES.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "TEXT.CXA")) {
+        Copy-Item (Join-Path $build "TEXT.CXA") $sdroot
     }
     Copy-Item (Join-Path $build "NOTES.CXD")     $sdroot
     return $sdroot

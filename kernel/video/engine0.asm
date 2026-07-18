@@ -20,16 +20,22 @@
 ; always reaches the CURRENT engine.
 ; =====================================================================
 
+CX_MODE_TEXT = 3                ; the 80x60 text personality -- named
+                                ; here (not in the overlay block) because
+                                ; cx_g_font_draw's dispatch needs it in
+                                ; the flat runner build too
+
 .ifndef CX_NO_OVERLAY
 
 ; --- the port manager (CODE, resident) --------------------------------
 ; cx_ov_load copies an engine image from its bank into the port region:
 ; interrupts masked (nothing must draw mid-copy), the caller's bank
 ; restored. Engine n lives in bank CX_OV0_BANK + n.
-CX_MODES    = 3                 ; how many engines ride the banks today
+CX_MODES    = 4                 ; how many engines ride the banks today
 
-.import __OV2CODE_LOAD__        ; mode 2's image shares bank 5 with the
-                                ; shapes; ld65 says where it landed
+.import __OV2CODE_LOAD__        ; modes 2 and 3 share a bank with the
+.import __OV3CODE_LOAD__        ; shapes / text machinery; ld65 says
+                                ; where each image landed in it
 
 cx_ov_boot                      ; boot: engine 0 in, mode noted
     stz cx_vmode
@@ -109,9 +115,12 @@ cx_do_gfx_mode
     sec
     rts
 
-cx_mbank   .byte 3, 4, 5        ; which bank holds each mode's image
-cx_msrc_lo .byte <$A000, <$A000, <__OV2CODE_LOAD__
-cx_msrc_hi .byte >$A000, >$A000, >__OV2CODE_LOAD__
+; The KERNAL's boot LOAD wraps exactly four banks (32KB) before it
+; stops, so every engine image rides banks 2-5; modes 2 and 3 share
+; bank 5 with the shapes/tile code (ld65 says where each landed).
+cx_mbank   .byte 3, 4, 5, 5     ; which bank holds each mode's image
+cx_msrc_lo .byte <$A000, <$A000, <__OV2CODE_LOAD__, <__OV3CODE_LOAD__
+cx_msrc_hi .byte >$A000, >$A000, >__OV2CODE_LOAD__, >__OV3CODE_LOAD__
 
 ; --- the engine image (OV0CODE: run = OVL, load = bank 3) ------------
 .segment "OV0CODE"
@@ -130,6 +139,7 @@ ov0_vector                      ; the port's entry vector, slot order
     jmp gfx2_pattern_rect
     jmp gfx2_blit
     jmp gfx2_blitm
+    jmp font_draw               ; text: the CXF proportional font
 
 .assert ov0_vector = CX_OVL, error, "OV0CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 
@@ -225,8 +235,12 @@ cx_g_font_style  jsr gui_gate
                  jmp font_style
 cx_g_font_measure jsr gui_gate
                  jmp font_measure
-cx_g_font_draw   jsr gui_gate
-                 jmp font_draw
+
+; cx_say (the font-draw slot) is NOT gated -- it routes through the
+; port's 14th entry (cxov_text, in impl.inc), so each engine answers for
+; itself: mode 0 the CXF proportional font, text mode the cell writer,
+; the bitmap modes refuse. That is the whole "mode-aware text" story, in
+; the same seam as the drawing calls.
 cx_g_menu_set    jsr gui_gate
                  jmp cx_do_menu_set
 cx_g_menu_off    jsr gui_gate
@@ -266,4 +280,8 @@ cx_minfo                        ; w.w, h.w, bpp, stride.w (+1 pad) per mode
     .word 320, 240              ; mode 2: tiles -- not a bitmap, so
     .byte 0                     ; bpp 0 and no stride; the maps are
     .word 0                     ; the picture (cx_tile_*)
+    .byte 0
+    .word 80, 60                ; mode 3: text -- an 80x60 CELL grid,
+    .byte 0                     ; bpp 0; w/h are cells, not pixels
+    .word 0
     .byte 0

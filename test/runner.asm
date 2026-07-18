@@ -2107,6 +2107,7 @@ test_font_bank
 .include "kernel/video/engine0.asm"
 .include "kernel/video/shapes.asm"
 .include "kernel/video/tiles.asm"
+.include "kernel/video/text.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"
 .include "kernel/audio/pcm.asm"

@@ -19,8 +19,9 @@ binaries, a patched KERNAL ROM. CXGEOS is the clean break:
   (0.2.0) **audio** (VERA PSG, the YM2151 FM chip, streamed PCM) and
   **hardware sprites**, and (0.3.0) **joysticks** and **pluggable video
   modes** behind a graphics port -- the 640x480 GUI, a 320x240
-  256-colour bitmap, and a two-layer tile engine with hardware
-  scrolling -- plus mode-agnostic **circle/disc/flood**. Guides in
+  256-colour bitmap, a two-layer tile engine with hardware scrolling,
+  and an 80x60 text mode -- plus mode-agnostic **circle/disc/flood**.
+  Guides in
   [docs/sdkguide.md](docs/sdkguide.md), [docs/csdkguide.md](docs/csdkguide.md)
   and [docs/graphics-port.md](docs/graphics-port.md).
 - Foundationed on [x16lib](https://github.com/vinej/x16_library): the kernel

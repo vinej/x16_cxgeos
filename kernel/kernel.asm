@@ -39,6 +39,9 @@ X16_USE_VERAFX_FILL = 1         ; fx_fill (engine rects)
 X16_USE_VERAFX_COPY = 1         ; menu save-under: fx_copy moves the rows
 X16_USE_IRQ     = 1             ; the event system's raster hook
 X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
+X16_USE_SCREEN  = 1             ; the KERNAL console: mode 3 (text) draws
+                                ; through it, and the 8bpp gfx_init needs
+                                ; screen_set_mode
 
 .include "kernel/video/ovl.inc"
 
@@ -72,6 +75,7 @@ X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
 .include "kernel/video/engine1.asm"
 .include "kernel/video/shapes.asm"
 .include "kernel/video/tiles.asm"
+.include "kernel/video/text.asm"
 ; dir.asm and dirty.asm AFTER menu.asm's B2CODE (their banked bodies
 ; must not shove the local jump table off $A000)
 .include "kernel/fs/dir.asm"

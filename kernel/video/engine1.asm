@@ -43,6 +43,7 @@ ov1_vector                      ; the port's entry vector, slot order
     jmp gfx_pattern_rect        ; (full 0-255; Y's packed pair only
     jmp gfx_blit                ; holds 2-bit colours). blit width is in
     jmp gfx_blitm               ; PIXELS; blitm's $00 is transparent
+    jmp ov1_no                  ; text -- the CXF font is 2bpp-only
 
 .assert ov1_vector = CX_OVL, error, "OV1CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 
@@ -71,6 +72,9 @@ ov1_init
     rts
 
 ; --- the adapters -----------------------------------------------------
+ov1_no                          ; the text entry: 8bpp has no CXF font
+    sec
+    rts
 ov1_pset                        ; colour A -> P3 (y's dead high byte)
     sta X16_P3
     jmp gfx_pset
@@ -99,12 +103,9 @@ ov1_line                        ; ABI x1 P4/P5, y1 P6, colour A -> the
     sta X16_P6
     jmp gfx_line
 
-; gfx_init jumps here; the port never calls gfx_init, but the symbol
-; must exist for the module to assemble without the SCREEN module.
-screen_set_mode
-    sec
-    rts
-
+; gfx_init's `jmp screen_set_mode` resolves to the real KERNAL console
+; now that X16_USE_SCREEN is on (mode 3 needs it too); the port never
+; calls gfx_init anyway -- ov1_init programs VERA directly.
 .include "gfx/bitmap.asm"
 
 .segment "CODE"

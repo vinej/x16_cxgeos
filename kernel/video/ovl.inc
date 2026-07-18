@@ -43,6 +43,10 @@ cxov_pattern = CX_OVL + 9*3
 cxov_patrect = CX_OVL + 10*3
 cxov_blit    = CX_OVL + 11*3
 cxov_blitm   = CX_OVL + 12*3
+cxov_text    = CX_OVL + 13*3    ; the 14th entry: draw a string. mode 0
+                                ; points it at the CXF font, text mode at
+                                ; its cell writer, the rest refuse -- so
+                                ; cx_say is mode-aware through the port
 
 .else                           ; the runner: no overlay, direct engine
 
@@ -59,6 +63,7 @@ cxov_pattern = gfx2_pattern_set
 cxov_patrect = gfx2_pattern_rect
 cxov_blit    = gfx2_blit
 cxov_blitm   = gfx2_blitm
+cxov_text    = font_draw        ; the runner is always mode 0: the font
 
 .endif
 
