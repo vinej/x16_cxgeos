@@ -69,6 +69,7 @@ main
     jsr test_ev_wrap
     jsr test_ev_dispatch
     jsr test_ev_null
+    jsr test_ev_joy_reset
 
     jsr test_abi_header
     jsr test_abi_table
@@ -1189,9 +1190,50 @@ test_ev_null
     sta @zeroes
     rts
 
-@table   .word @null_handler, 0, 0, 0, 0, 0, 0
+@table   .word @null_handler, 0, 0, 0, 0, 0, 0, 0, 0, 0 ; EV_COUNT vectors
 @hits    .byte 0
 @zeroes  .byte 0
+
+; EV_JOY_RESET: cx_joy_enable leaks into the NEXT app unless ev_init
+; clears it -- the tile app enabled pads, exited, and the reloaded
+; desktop's IRQ kept posting EV_JOY records its 9-entry handler table
+; never expected: the dispatch read a garbage vector from whatever
+; followed the table and jumped wild (the tile-exit desktop crash).
+; So: ev_init must clear the subscription and the remembered states,
+; and dispatching an EV_JOY through the default null table (which was
+; itself one vector short) must come back instead of jumping away.
+test_ev_joy_reset
+    lda #%0011                  ; subscribe pads 0-1, dirty the states
+    jsr ev_joy_enable
+    lda #$5A
+    sta ev_joy_prev
+    sta ev_joy_prev+7
+
+    jsr ev_init                 ; a fresh app: no inherited subscription
+
+    ldy #1
+    lda ev_joy_en
+    bne @report
+    lda ev_joy_prev
+    ora ev_joy_prev+7
+    bne @report
+
+    lda #EV_JOY                 ; an EV_JOY through the null table: the
+    ldx #0                      ; 10th vector exists and is zero, so this
+    ldy #0                      ; returns -- it does not read past the
+    jsr ev_fill                 ; table and jump into garbage
+    jsr ev_dispatch
+
+    ldy #1
+    jsr ev_count                ; consumed, nothing exploded
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "EV_JOY_RESET", 0
 
 
 ; =====================================================================

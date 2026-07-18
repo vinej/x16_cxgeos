@@ -475,12 +475,13 @@ on_key
 @done
     rts
 
-handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
+handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY
     .addr 0, 0, 0, 0, 0
     .addr on_key
     .addr on_timer
     .addr 0
     .addr on_widget
+    .addr 0                     ; JOY: EV_COUNT (10) vectors, always
 
 ; ---------------------------------------------------------------------
 widgets

@@ -95,6 +95,12 @@ ev_init
     stz ev_btn
     stz ev_timer_n
     stz ev_timer_r
+    stz ev_joy_en               ; no app inherits a joystick subscription:
+    ldx #7                      ; the last app's cx_joy_enable would keep
+@joy                            ; the IRQ posting EV_JOY records to a
+    stz ev_joy_prev,x           ; handler table that never expected them
+    dex
+    bpl @joy
     lda #$FF                    ; no pointer position yet, so the first
     sta ev_mx                   ; sample always reads as a move
     sta ev_mx+1
@@ -359,7 +365,7 @@ ev_next
     rts
 
 ev_null_table
-    .word 0, 0, 0, 0, 0, 0, 0, 0, 0 ; EV_COUNT vectors, all ignored
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ; EV_COUNT (10) vectors, all ignored
 
 ; =====================================================================
 ; the interrupt

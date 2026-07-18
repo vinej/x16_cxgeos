@@ -700,6 +700,7 @@ handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER
     .addr 0, 0, 0, 0, 0, 0, 0
     .addr on_menu               ; MENU
     .addr on_widget             ; WIDGET
+    .addr 0                     ; JOY: EV_COUNT (10) vectors, always
 
 got_item .byte $FF
 got_menu .byte 0

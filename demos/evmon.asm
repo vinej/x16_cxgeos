@@ -97,6 +97,9 @@ handlers
     .word on_dbl                ; EV_DBLCLICK
     .word on_key                ; EV_KEY
     .word on_timer              ; EV_TIMER
+    .word 0                     ; EV_MENU   } the table is EV_COUNT (10)
+    .word 0                     ; EV_WIDGET } vectors -- short and a
+    .word 0                     ; EV_JOY    } dispatch reads garbage
 
 ; Idle. An app does its background work here. This one counts, and the
 ; count only reaches the screen on a tick -- redrawing it every idle

@@ -181,12 +181,13 @@ sorry                           ; a load that came back is a load that
     ldy #<120
     jmp say
 
-handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
+handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY
     .addr 0, 0, 0, 0, 0
     .addr on_key
     .addr 0
     .addr on_menu
     .addr 0                     ; WIDGET: the shell has none
+    .addr 0                     ; JOY: EV_COUNT (10) vectors, always
 
 ; ---------------------------------------------------------------------
 ; the menu tree (docs/formats.md)

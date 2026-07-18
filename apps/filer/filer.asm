@@ -1050,12 +1050,15 @@ on_key
     stz inmenu
     rts
 
-handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
+handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY
     .addr 0, 0, 0, 0, 0
     .addr on_key
     .addr on_timer
     .addr on_menu
     .addr on_widget
+    .addr 0                     ; JOY: the table is EV_COUNT (10) vectors --
+                                ; one short and a dispatched type reads a
+                                ; garbage vector from whatever data follows
 
 ; ---------------------------------------------------------------------
 ; the menu tree and the widget list

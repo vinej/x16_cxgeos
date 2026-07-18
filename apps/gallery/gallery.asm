@@ -254,12 +254,13 @@ on_key
 @done                           ; leaving is the "exit" button or the
     rts                         ; Gallery menu -- ESC is the app's to use
 
-handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET
+handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY
     .addr 0, 0, 0, 0, 0
     .addr on_key
     .addr 0
     .addr on_menu
     .addr on_widget
+    .addr 0                     ; JOY: EV_COUNT (10) vectors, always
 
 ; ---------------------------------------------------------------------
 ; the menu tree
