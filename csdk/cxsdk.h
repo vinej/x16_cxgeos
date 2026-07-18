@@ -156,7 +156,11 @@ static void cx_clear(unsigned char color) { cx_call_a(CX_GFX_CLEAR, color); }
 /* switch the graphics mode: 0 ok, nonzero unknown. VERA is reprogrammed
  * and the screen shows the new mode's canvas -- draw everything fresh.
  * In CX_MODE_BMP8, pattern/blit calls refuse (carry) and colours are
- * 0-255 (set the palette with cx_vram_write at 0x1FA00, 2 bytes/entry). */
+ * 0-255 (set the palette with cx_vram_write at 0x1FA00, 2 bytes/entry).
+ * In CX_MODE_TEXT coordinates are cells (0-79 x 0-59): clear/rect fill
+ * cells (and set the paper), frame draws a PETSCII box, hline/vline are
+ * ruled lines, cx_line rules horizontally or vertically (diagonals
+ * refuse), and cx_say prints mixed-case ASCII at (col, row). */
 static char cx_mode(unsigned char m) { cx_call_a(CX_GFX_MODE, m); return cx_c; }
 
 typedef struct {
