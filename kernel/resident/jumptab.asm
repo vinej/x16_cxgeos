@@ -49,7 +49,7 @@ cx_jumptab
 ; --- text --------------------------------------------------------
     jmp cx_g_font_set    ; 15  A/X = CXF image -> carry set if bad
     jmp cx_g_font_style  ; 16  A = CX_BOLD | CX_UNDER
-    jmp cx_g_font_measure ; 17  A/X = string -> P0/P1 = width
+    jmp cxov_measure     ; 17  A/X = string -> P0/P1 = width
     jmp cxov_text        ; 18  P0/P1 = x, P2/P3 = y, A/X = string -> P0/P1 = pen
 
 ; --- events ------------------------------------------------------

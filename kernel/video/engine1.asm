@@ -42,6 +42,7 @@ ov1_vector                      ; the port's entry vector, slot order
     jmp gfx_blit                ; holds 2-bit colours). blit width is in
     jmp gfx_blitm               ; PIXELS; blitm's $00 is transparent
     jmp ov1_text                ; text: 8x8 charset glyphs from $1F000
+    jmp ov1_measure             ; measure: 8 pixels per glyph
     .byte 1                     ; cxov_ink -- the text ink, a palette
                                 ; index; each entry resets it to white
 
@@ -101,10 +102,33 @@ ov1_text
     sta X16_P3
     lda ov1_ts
     ldx ov1_ts+1
-    jsr gfx_text
-    clc
+    jsr gfx_text                ; advances P0/P1 8 per glyph: the pen
+    clc                         ; comes back for free
     rts
 ov1_ts .word 0
+
+; measure -- A/X = string -> P0/P1 = width in pixels (8 per glyph)
+ov1_measure
+    sta X16_TPTR0
+    stx X16_TPTR0+1
+    ldy #0
+@len
+    lda (X16_TPTR0),y
+    beq @done
+    iny
+    bne @len
+@done
+    tya                         ; width = length * 8, 16-bit
+    stz X16_P1
+    asl
+    rol X16_P1
+    asl
+    rol X16_P1
+    asl
+    rol X16_P1
+    sta X16_P0
+    clc
+    rts
 
 ov1_pset                        ; colour A -> P3 (y's dead high byte)
     sta X16_P3

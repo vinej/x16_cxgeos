@@ -149,6 +149,7 @@ ov0_vector                      ; the port's entry vector, slot order
     jmp gfx2_blit
     jmp gfx2_blitm
     jmp font_draw               ; text: the CXF proportional font
+    jmp font_measure            ; measure: CXF pixel widths
     .byte 1                     ; cxov_ink -- unused in mode 0 (the theme
                                 ; owns the GUI's text ink), carried so the
                                 ; port layout is the same in every image
@@ -250,8 +251,6 @@ cx_g_font_set    jsr gui_gate
                  jmp font_set
 cx_g_font_style  jsr gui_gate
                  jmp font_style
-cx_g_font_measure jsr gui_gate
-                 jmp font_measure
 
 ; cx_say (the font-draw slot) is NOT gated -- it routes through the
 ; port's 14th entry (cxov_text, in impl.inc), so each engine answers for

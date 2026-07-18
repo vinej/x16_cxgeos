@@ -47,6 +47,11 @@ cxov_text    = CX_OVL + 13*3    ; the 14th entry: draw a string. mode 0
                                 ; points it at the CXF font, text mode at
                                 ; its cell writer, the rest refuse -- so
                                 ; cx_say is mode-aware through the port
+cxov_measure = CX_OVL + 14*3    ; the 15th: A/X = string -> P0/P1 = its
+                                ; width in the mode's own units (CXF
+                                ; pixels in mode 0, 8-pixel glyphs in
+                                ; mode 1, cells in mode 3) -- what lets
+                                ; the toolkit lay text out in any mode
 
 ; One byte of ENGINE-LOCAL state rides just past the vector: the text
 ; ink (cx_ink). It lives in the IMAGE, so every mode entry copies the
@@ -54,7 +59,7 @@ cxov_text    = CX_OVL + 13*3    ; the 14th entry: draw a string. mode 0
 ; next, where the same number means a different colour space (a palette
 ; index in mode 1, a 16-colour attribute in mode 3; mode 0's text ink
 ; belongs to the theme and ignores this byte).
-cxov_ink     = CX_OVL + 14*3
+cxov_ink     = CX_OVL + 15*3
 
 .else                           ; the runner: no overlay, direct engine
 
@@ -72,6 +77,7 @@ cxov_patrect = gfx2_pattern_rect
 cxov_blit    = gfx2_blit
 cxov_blitm   = gfx2_blitm
 cxov_text    = font_draw        ; the runner is always mode 0: the font
+cxov_measure = font_measure
 
 .endif
 

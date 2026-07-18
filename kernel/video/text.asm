@@ -65,6 +65,7 @@ ov3_vector                      ; the 14 port entries, in slot order;
     jmp ov3_refuse              ; blit
     jmp ov3_refuse              ; masked blit
     jmp ov3_say                 ; text: print a string at a cell
+    jmp ov3_measure             ; measure: one cell per character
     .byte 1                     ; cxov_ink -- cx_say's ink attribute
                                 ; (0-15); every entry resets it to white
 
@@ -425,7 +426,27 @@ ov3_say
     iny
     bne @ch
 @done
+    tya                         ; the pen: col + characters printed
+    clc                         ; (cols are 0-79, no high byte to carry)
+    adc X16_P0
+    sta X16_P0
     plp
+    clc
+    rts
+
+; measure -- A/X = string -> P0/P1 = width in cells (its length)
+ov3_measure
+    sta X16_TPTR0
+    stx X16_TPTR0+1
+    ldy #0
+@len
+    lda (X16_TPTR0),y
+    beq @done
+    iny
+    bne @len
+@done
+    sty X16_P0
+    stz X16_P1
     clc
     rts
 

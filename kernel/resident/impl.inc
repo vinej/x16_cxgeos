@@ -36,7 +36,7 @@ cx_gfx_blitm    = cxov_blitm
 ; outside graphics mode 0 rather than draw into another mode's picture.
 cx_font_set     = cx_g_font_set
 cx_font_style   = cx_g_font_style
-cx_font_measure = cx_g_font_measure
+cx_font_measure = cxov_measure  ; mode-aware through the port, like cx_say
 cx_font_draw    = cxov_text     ; cx_say through the port's 14th entry
 
 cx_ev_handlers  = ev_handlers
