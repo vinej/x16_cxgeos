@@ -2,14 +2,18 @@
 
 ## Where UI code lives, and why
 
-The resident budget is 7,424 bytes and the kernel proper uses ~5,500 of
-it. Menus, dialogs and widgets are several kilobytes each — they do not
-fit, and they should not: they are cold code that runs when a human is
-deciding, not when pixels are moving. They live in **kernel banks**
-(banks 2–5 of the memory map), loaded at boot from `CXBANKS.BIN`, and
-are reached through the far-call trampoline below. The ABI does not
-know any of this: an app calls a fixed slot like any other, the slot
-jumps to a five-byte resident stub, and the stub crosses the bank.
+The resident budget is ~5.2 KB with ~130 bytes free. Menus, dialogs and
+widgets are several kilobytes each — they do not fit, and they should
+not: they are cold code that runs when a human is deciding, not when
+pixels are moving. They live in **kernel banks**, loaded at boot from
+`CXBANKS.BIN` (banks 2–5) and `CXBANKS2.BIN` (banks 16–19), one theme
+per bank so a new feature grows one bank and reshuffles nothing: 2 UI
+core (menu/theme/DA), 5 dialogs, 16 widgets, 17 shapes/tiles, 18
+fs/system, 19 audio/sprites (see [banks.md](banks.md) and
+[memory-map.md](memory-map.md)). They are reached through the far-call
+trampoline below. The ABI does not know any of this: an app calls a
+fixed slot like any other, the slot jumps to a five-byte resident stub,
+and the stub crosses the bank.
 
 What stays resident is what every frame or every event needs: the
 region stack (event routing must not cross a bank per mouse move), the
@@ -37,11 +41,16 @@ passing through it. Nested far-calls are safe: every parked value is
 dead by the time the inner call could clobber it. The event IRQ never
 far-calls, by rule.
 
-Each bank begins with its own jump table at `$A000` (3 bytes a slot,
-bank-local, NOT part of the ABI — only the resident stubs name these,
-and stubs and banks ship together in one build). Bank code may call
-resident code directly (low RAM is always mapped) and other banks via
-`cxb_call` like anyone else.
+Bank 2 begins with its own jump table at `$A000` (`b2_table`, 3 bytes a
+slot, bank-local, NOT part of the ABI — a historical indirection for the
+UI-core module). The newer theme banks (5, 16–19) skip the table and let
+the resident stubs far-call the routine by label directly (`.byte bank /
+.addr routine`); banks 16–19 begin with an 8-byte build signature stage-0
+verifies instead. Bank code may call resident code directly (low RAM is
+always mapped) and other banks via `cxb_call` like anyone else — but it
+must never write `RAM_BANK` to reach another bank's data (it would page
+its own window away); a resident helper does that. See
+[banks.md](banks.md) for the full contract.
 
 ## Regions (`kernel/ui/region.asm`, resident)
 

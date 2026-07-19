@@ -7,17 +7,20 @@
 ;   .\build.ps1 -Kernel        -> build\CXKERNEL.PRG
 ;
 ; against kernel/kernel.cfg, which pins the header at $8000, the jump
-; table at $8010 and this code at $8160. An app owns $0801-$7FFF and
-; reaches all of it through the table.
+; table at $8010 (135 slots reserved) and this code at $81A9. An app
+; owns $0801-$7FFF and reaches all of it through the table.
 ;
 ; The image is a PRG with a $8000 load address, so the boot stub loads
 ; it with one fs_load and jumps to the init vector in the header. Nothing
 ; here relocates: the addresses ARE the ABI.
 ;
-; The resident budget is 5,280 bytes ($8160-$95FF); $9600-$9EFF is the
+; The resident budget is ~5.2 KB ($81A9-$95FF); $9600-$9EFF is the
 ; graphics-port OVL window (kernel/video/ovl.inc), not code. ld65 fails
-; the build if the budget overflows -- it enforces itself rather than
-; being a comment someone has to remember.
+; the build if the budget overflows, and tools/mapreport.py fails it if
+; the free margin drops under 128 bytes -- the budget enforces itself
+; rather than being a comment someone has to remember. (The start moved
+; up from $8160 when the jump table widened to 135 slots, paid for by
+; banking the font cold half; see docs/banks.md.)
 ; =====================================================================
 
 .include "x16.asm"

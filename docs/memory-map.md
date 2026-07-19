@@ -22,36 +22,79 @@ file in the same commit as the code that claims or releases a region.
 | $0200–$07FF | KERNAL/DOS | untouched — the X16_Geos project died on this hill: the IRQ handler lives at $038B on stock R49; we never go near it |
 | $0801–$7FFF | application | ~30KB, loaded/reset by the kernel loader |
 | $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector |
-| $8010–$815F | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 95 slots used ($8010–$812C), reserve caps at 112 |
-| $8160–$95FF | resident kernel | 5,280-byte budget: event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard, port manager. Budget enforced by `kernel.cfg` (ld65 fails on overflow) |
+| $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 95 slots used ($8010–$812C), reserve caps at 135 (40 free) |
+| $81A5–$81A8 | build word | `CX_KBUILD` (`banks.inc`), the reserve's tail; stage-0 checks it against the banked files |
+| $81A9–$95FF | resident kernel | ~5.2 KB budget, ~130 B free: event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard, port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
 | $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` ([graphics-port.md](graphics-port.md)) |
 
-## Banked RAM ($A000–$BFFF window, bank register at $00)
+## Banked RAM ($A000–$BFFF window, bank register at $00) — the budget ledger
 
-| Banks | Owner |
-|---|---|
-| 0 | KERNAL (reserved) |
-| 1 | kernel data: desktop state, theme, font metrics, event overflow |
-| 2 | far-called kernel code (`B2CODE`): menus, dialogs, widgets, themes, DAs, the directory walk, `cx_file_load`, the `cx_vload`/`cx_bload` marshalling |
-| 3 | mode 0's engine image (`OV0CODE`: the 2bpp module + the CXF text entry) |
-| 4 | mode 1's engine image (`OV1CODE`: the 8bpp module + charset text) |
-| 5 | `B5CODE` — the mode-agnostic shapes (circle/disc/ellipse/flood) and the tile machinery — plus the mode-2 and mode-3 images (`OV2CODE`/`OV3CODE`) |
-| 6–8 | **pre-shifted glyph cache** (see below) + CXF font sources |
-| 9 | desk-accessory code (`cx_da_open` loads a .CXD here) |
-| 10–13 | clipboard (typed: text / bitmap-rect, up to 32KB) |
-| 14–15 | dialog save-unders / DA saved state |
-| 16–19 | far-called kernel code, file two (`CXBANKS2.BIN`, one theme per bank — `banks.inc`): 16 widgets, 17 shapes/tiles/dirty, 18 fs/system, 19 audio/sprites. Each opens with an 8-byte build signature stage-0 verifies |
-| 20+ | **the app's**: `cx_bload` targets land here (it refuses banks below `CX_APP_BANK_FLOOR` = 20; the floor was 16 before CXBANKS2), plus window backing store, allocations, file buffers. Sized from MEMTOP at boot (512KB → 44 free banks; 2MB → 236) |
+8 KB per bank. The kernel's code banks are two files: `CXBANKS.BIN`
+(banks 2–5, one KERNAL LOAD) and `CXBANKS2.BIN` (banks 16–19, a second
+LOAD), each 32 KB. Data banks sit between them, apps above. `tools/mapreport.py`
+prints the *used*/*free* below from every kernel build's map — the numbers
+here are the v0.5.1-restructure snapshot; run it for today's.
+
+| Bank(s) | Theme | Segment / owner | Used | Free (reserve) | Grows when you add… |
+|---|---|---|---|---|---|
+| 0 | KERNAL | reserved | — | — | never (KERNAL's) |
+| 1 | kernel data | system font ($A000), desktop state, theme, font metrics, event overflow | — | — | data, not code |
+| 2 | **UI core** | `B2CODE`: menus + theme + DA manager + the `b2_table` local jump table | ~1.8 KB | ~6.4 KB | a menu/theme/DA feature |
+| 3 | mode-0 image | `OV0CODE` (2bpp GUI engine), copied to the OVL window to run | ~2.2 KB | ~5.9 KB | a bigger mode-0 engine |
+| 4 | mode-1 image | `OV1CODE` (8bpp engine) | ~1.8 KB | ~6.4 KB | a bigger mode-1 engine |
+| 5 | **dialogs** | `B5CODE`: dialog/alert/prompt/panel + the mode-2/3 images (`OV2/OV3CODE`) | ~2.7 KB | ~5.5 KB | a dialog feature; a new small overlay image |
+| 6–8 | glyph cache | pre-shifted 2bpp cache (95 glyphs × 192 B, 42/bank) + CXF sources | — | — | a second/larger font (LRU) |
+| 9 | desk accessory | the open `.CXD` (`cx_da_open` loads it at $A000) | — | — | data, not kernel code |
+| 10–13 | clipboard | typed text / bitmap-rect, up to 32 KB | — | — | data |
+| 14–15 | save-under | dialog save-unders / DA saved state | — | — | data |
+| 16 | **widgets** | `B16CODE`: the whole toolkit (code + `wg_*` state) + `wg_paint_t` | ~3.4 KB | ~4.8 KB | **a new widget** — and nowhere else |
+| 17 | **graphics extras** | `B17CODE`: shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects | ~3.1 KB | ~5.1 KB | **a new shape** |
+| 18 | **fs / system** | `B18CODE`: dir walk + `cx_file_load` + `cx_vload`/`cx_bload` + DOS channel + the font cold half (magic/header/cache builder) + `f_magic` | ~1.2 KB | ~7.0 KB | an fs/DOS feature; cold system code |
+| 19 | **audio / sprites** | `B19CODE`: PSG + YM (with the carry shims) + hardware sprites | ~0.9 KB | ~7.3 KB | an audio/sprite feature |
+| 20+ | **the app's** | `cx_bload` targets (refuses < `CX_APP_BANK_FLOOR` = 20), window backing store, allocations, file buffers | — | — | — |
+
+**Each of banks 16–19 opens with an 8-byte signature** (`"CXB"`, bank #,
+`CX_KBUILD`, code size) at `$A000`; stage-0 verifies it after loading
+`CXBANKS2.BIN`, and `CXBANKS.BIN`'s twin lives at `2:$A040`. A hand-copied
+SD card carrying one stale file refuses at boot instead of crashing in a
+far call. The app-bank floor was 16 before CXBANKS2 claimed 16–19 (a
+pre-1.0 contract change); on 512 KB there are 44 app banks, on 2 MB, 236.
+
+### Growth policy — where a new feature goes
+
+The banks are themed so a new feature touches exactly one, and each has
+~5–7 KB of reserve so it does not reshuffle anything:
+
+- **A new widget** → bank 16, beside the toolkit (its state goes there too).
+- **A new shape** → bank 17. **A new tile op** → bank 17.
+- **A new fs / DOS / loader routine** → bank 18. Cold system code → bank 18.
+- **A new audio voice or sprite feature** → bank 19.
+- **A menu / theme / desk-accessory feature** → bank 2.
+- **A new overlay engine image** → bank 3, 4 or 5 storage (they hold ~6 KB
+  free each); the image *runs* in the OVL window, which is the tighter
+  limit (2,304 B — the mode-0 image is 2,228, only 76 B of headroom).
+- **Resident code** (IRQ / event / hot-path only) → the resident image,
+  which keeps ~130 B free; `mapreport.py` fails the build under 128 B.
+- **A new ABI slot** → the jump table has 40 free slots (cap 135); see
+  `docs/banks.md` for the append + regenerate + canary steps.
+
+When a code bank fills, it borrows reserve from a sibling (change the
+`.byte` in the stubs and the bank constant in `banks.inc`), or — past
+banks 2–5 + 16–19 — a THIRD `CXBANKS3.BIN` file needs a third boot LOAD
+and cartridge copy pass (the `docs/banks.md` "add a bank" playbook).
 
 ### The graphics port and its banks *(0.3.0)*
 
 The resident region `$9600`-`$9EFF` (2,304 bytes) is the graphics PORT:
 the current engine image lives there, copied from its bank by `cx_gfx_mode`
-([graphics-port.md](graphics-port.md)). Bank 3 = mode 0 (2bpp), bank 4 =
-mode 1 (8bpp core), bank 5 = the mode-agnostic shapes + the tile
-machinery + mode 2's image. In `CX_MODE_TILE`, VRAM `$00000` holds tile
-images and `$08000`/`$09000` the two 64x32 maps (the bitmap framebuffer
-region is free -- there is no bitmap).
+([graphics-port.md](graphics-port.md)). Bank 3 = mode 0 (2bpp) image, bank
+4 = mode 1 (8bpp) image, bank 5 = the mode-2 and mode-3 images
+(`OV2/OV3CODE`) beside the dialog code. The mode-agnostic *shapes* and the
+tile *machinery* moved to bank 17 in the restructure, but the tile
+*engine image* (OV2) stays in bank 5 storage — `cx_ov_load` reads it from
+the linker's `__OV2CODE_LOAD__`. In `CX_MODE_TILE`, VRAM `$00000` holds
+tile images and `$08000`/`$09000` the two 64x32 maps (the bitmap
+framebuffer region is free -- there is no bitmap).
 
 ## VRAM (128KB) — the contended resource
 
@@ -166,10 +209,15 @@ pulls in, the image carries whether anything calls it or not.
   wrong: the KERNAL charset is kept at VRAM `$1F000` for exactly that
   panic console, and it needs nothing of ours.)
 
-- **Banking the cold code** is still right — `font_cache` runs once at
-  boot and has no business resident. (When this was written there were
-  1,512 bytes spare and it was a choice; at v0.5.1's 20 spare bytes it
-  is a debt again, and the pre-1.0 restructure pays it.)
+- **Banking the cold code** is done — `font_cache` (and the CXF magic +
+  header parse) run once per font adopt and have no business resident, so
+  the pre-1.0 restructure moved them to bank 18. The resident image keeps
+  only the draw path; the cold half reads the font through resident peeks
+  and writes the cache through a resident poke, because bank-18 code
+  cannot page a bank into its own window. That freed 186 bytes, which the
+  jump table spent widening from ~110 to 135 slots. Resident now holds
+  ~130 free bytes and the table 40 free slots — see the ledger above and
+  `docs/banks.md`.
 
 ## The boot chain (Phase 4c)
 

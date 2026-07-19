@@ -45,7 +45,8 @@ A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
   mask**. Music loads today (ZSM via `cx_bload`); a zsmkit-based player
   is planned, not in yet. Guides in
   [docs/sdkguide.md](docs/sdkguide.md), [docs/csdkguide.md](docs/csdkguide.md)
-  and [docs/graphics-port.md](docs/graphics-port.md).
+  and [docs/graphics-port.md](docs/graphics-port.md); the kernel's bank
+  layout and how to extend it in [docs/banks.md](docs/banks.md).
 - Foundationed on [x16lib](https://github.com/vinej/x16_library): the kernel
   vendors the ca65 edition (`x16lib/`, byte-identical to the ACME reference,
   same on-target test suite).
