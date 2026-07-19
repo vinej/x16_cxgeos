@@ -25,6 +25,9 @@
 
 .ifndef CX_NO_OVERLAY
 
+X16_BITMAP_MIN = 1              ; no 8x8 glyph blitter: text is the CXF
+                               ; proportional font, rendered by ov1_ctext
+
 .segment "OV1CODE"
 
 ov1_vector                      ; the port's entry vector, slot order
@@ -41,8 +44,8 @@ ov1_vector                      ; the port's entry vector, slot order
     jmp gfx_pattern_rect        ; (full 0-255; Y's packed pair only
     jmp gfx_blit                ; holds 2-bit colours). blit width is in
     jmp gfx_blitm               ; PIXELS; blitm's $00 is transparent
-    jmp ov1_text                ; text: 8x8 charset glyphs from $1F000
-    jmp ov1_measure             ; measure: 8 pixels per glyph
+    jmp ov1_text                ; text: the CXF proportional font
+    jmp ov1_measure             ; measure: the CXF advance widths
     jmp ov1_rsave               ; rsave/rrest: 8bpp framebuffer rows <->
     jmp ov1_rrest               ; a VRAM strip (fx_copy), the toolkit's
                                 ; save-under in mode 1
@@ -104,44 +107,162 @@ ov1_no                          ; an entry this engine does not offer yet
     sec                         ; (the 8bpp save-under)
     rts
 
-; the text entry: A/X = string, P0/P1 = x, P2/P3 = y. gfx_text draws 8x8
-; charset glyphs (ASCII in, screen codes out) and wants the colour in P3
-; -- which the port uses as y's high byte, dead at 240 rows -- so the
-; ink (cxov_ink, cx_ink's byte in this image) overwrites it.
+; the text entry: A/X = string, P0/P1 = x, P2/P3 = y. Draws the system
+; CXF proportional font -- the desktop's font -- into the 8bpp
+; framebuffer, so mode 1 reads like mode 0 rather than the blocky charset.
 ov1_text
-    sta ov1_ts                  ; the string survives the ink load
-    stx ov1_ts+1
-    lda cxov_ink
-    sta X16_P3
-    lda ov1_ts
-    ldx ov1_ts+1
-    jsr gfx_text                ; advances P0/P1 8 per glyph: the pen
-    clc                         ; comes back for free
-    rts
-ov1_ts .word 0
-
-; measure -- A/X = string -> P0/P1 = width in pixels (8 per glyph)
-ov1_measure
-    sta X16_TPTR0
-    stx X16_TPTR0+1
-    ldy #0
-@len
-    lda (X16_TPTR0),y
-    beq @done
-    iny
-    bne @len
-@done
-    tya                         ; width = length * 8, 16-bit
-    stz X16_P1
-    asl
-    rol X16_P1
-    asl
-    rol X16_P1
-    asl
-    rol X16_P1
-    sta X16_P0
+    jsr ov1_ctext
     clc
     rts
+
+; measure -- the CXF's proportional widths (font_measure is mode-neutral;
+; it just sums advances, and restores the caller's bank)
+ov1_measure
+    jmp font_measure
+
+; ov1_ctext -- A/X = string, P0/P1 = pen x, P2 = y. Renders the parsed
+; system font (f_*, set at boot) glyph by glyph into VRAM $00000 (8bpp,
+; 320 bytes a row). Transparent: only set pixels take the ink, so text
+; lands over whatever paper is there. The pen advances in P0/P1. The
+; glyph bitmaps live in the font's bank, so RAM_BANK is saved and put
+; back for the toolkit caller.
+ov1_ctext
+    sta X16_TPTR0               ; the string, in a zp pointer
+    stx X16_TPTR0+1
+    lda RAM_BANK
+    sta ov1_obank
+    stz ov1_ci
+@nextchar
+    ldy ov1_ci
+    lda (X16_TPTR0),y           ; low RAM: readable under any bank
+    bne @have
+    lda ov1_obank               ; end: the caller's bank back
+    sta RAM_BANK
+    rts
+@have
+    sta ov1_ch
+    sec
+    sbc f_first
+    bcs @gefirst
+    jmp @advance                ; below the font's first codepoint
+@gefirst
+    cmp f_count
+    bcc @infont
+    jmp @advance                ; above the last: no glyph, just space
+@infont
+    tax                         ; i = ch - first; ptr = f_bmp + i*f_height
+    lda f_bmp
+    sta X16_TPTR3
+    lda f_bmp+1
+    sta X16_TPTR3+1
+    cpx #0
+    beq @gpok
+@gpadd
+    clc
+    lda X16_TPTR3
+    adc f_height
+    sta X16_TPTR3
+    bcc @gpnc
+    inc X16_TPTR3+1
+@gpnc
+    dex
+    bne @gpadd
+@gpok
+    jsr ov1_vbase               ; ov1_va = y*320 + x (the glyph's top-left)
+    ldx f_bank
+    stx RAM_BANK                ; the bitmaps live with the font
+    lda f_height
+    sta ov1_rows
+    ldy #0                      ; row within the glyph
+@row
+    lda ov1_va                  ; point VERA port 0 at the row, inc 1
+    sta VERA_ADDR_L
+    lda ov1_va+1
+    sta VERA_ADDR_M
+    lda ov1_va+2
+    ora #(VERA_INC_1 << 4)
+    sta VERA_ADDR_H
+    lda (X16_TPTR3),y           ; the 1bpp row, MSB = leftmost
+    sta ov1_bits
+    ldx #8
+@bit
+    asl ov1_bits
+    bcc @off
+    lda cxov_ink
+    sta VERA_DATA0              ; a set pixel takes the ink
+    bra @bnext
+@off
+    lda VERA_DATA0              ; transparent: just step the address on
+@bnext
+    dex
+    bne @bit
+    clc                         ; next row is 320 bytes down
+    lda ov1_va
+    adc #<320
+    sta ov1_va
+    lda ov1_va+1
+    adc #>320
+    sta ov1_va+1
+    lda ov1_va+2
+    adc #0
+    sta ov1_va+2
+    iny
+    dec ov1_rows
+    bne @row
+@advance
+    lda ov1_ch                  ; the pen moves by the glyph's advance
+    jsr f_advance
+    clc
+    adc X16_P0
+    sta X16_P0
+    bcc @anc
+    inc X16_P1
+@anc
+    inc ov1_ci
+    jmp @nextchar
+
+; ov1_vbase -- ov1_va (17-bit VRAM) = P2(y)*320 + P0/P1(x)
+ov1_vbase
+    lda X16_P2                  ; y*64
+    stz ov1_va+1
+    asl
+    rol ov1_va+1
+    asl
+    rol ov1_va+1
+    asl
+    rol ov1_va+1
+    asl
+    rol ov1_va+1
+    asl
+    rol ov1_va+1
+    asl
+    rol ov1_va+1
+    sta ov1_va
+    lda ov1_va+1                ; + y*256 (add y into the middle byte)
+    clc
+    adc X16_P2
+    sta ov1_va+1
+    lda #0
+    adc #0
+    sta ov1_va+2
+    clc                         ; + x
+    lda ov1_va
+    adc X16_P0
+    sta ov1_va
+    lda ov1_va+1
+    adc X16_P1
+    sta ov1_va+1
+    lda ov1_va+2
+    adc #0
+    sta ov1_va+2
+    rts
+
+ov1_ci    .byte 0
+ov1_ch    .byte 0
+ov1_rows  .byte 0
+ov1_bits  .byte 0
+ov1_obank .byte 0
+ov1_va    .res 3, 0
 
 ; ov1_rsave / ov1_rrest -- the toolkit's save-under in mode 1. P0/P1 =
 ; first row, P2 = row count. The 8bpp framebuffer is at VRAM $00000,
