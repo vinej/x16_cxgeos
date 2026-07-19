@@ -85,9 +85,11 @@ cx_do_menu_key
 ;         its resident stubs far-call bank 5 directly and these slots
 ;         are retired (kept as filler to hold the state block at $A030)
 ;   7 dos_cmd                                       (fs/dosglue.asm)
-;   8 wg_set   9 wg_draw  10 wg_hit                 (widget.asm)
+;   8,9,10 -- were wg_set/wg_draw/wg_hit; the widget toolkit moved to
+;         bank 16, so its resident stubs far-call bank 16 by label and
+;         these slots are retired (still filler for the state block)
 ;   11 mn_key                                       (menu.asm, keyboard)
-;   12 wg_key                                       (widget.asm, keyboard)
+;   12 -- was wg_key; also bank 16 now (see 8,9,10)
 ;   13 b2_dos_msg                                   (fs/dosglue.asm)
 ;   14,15 -- were dg_prompt/dg_panel; also bank 5 now (see 5,6)
 b2_table
@@ -99,11 +101,11 @@ b2_table
     jmp mn_off                  ; 5  retired -> dialog is bank 5 now
     jmp mn_off                  ; 6  retired -> dialog is bank 5 now
     jmp dos_cmd                 ; 7  kernel/fs/dosglue.asm
-    jmp wg_set                  ; 8
-    jmp wg_draw                 ; 9
-    jmp wg_hit                  ; 10
+    jmp mn_off                  ; 8  retired -> widgets are bank 16 now
+    jmp mn_off                  ; 9  retired -> widgets are bank 16 now
+    jmp mn_off                  ; 10 retired -> widgets are bank 16 now
     jmp mn_key                  ; 11 kernel/ui/menu.asm (keyboard)
-    jmp wg_key                  ; 12 kernel/ui/widget.asm (keyboard)
+    jmp mn_off                  ; 12 retired -> widgets are bank 16 now
     jmp b2_dos_msg              ; 13 kernel/fs/dosglue.asm
     jmp mn_off                  ; 14 retired -> dialog is bank 5 now
     jmp mn_off                  ; 15 retired -> dialog is bank 5 now

@@ -69,29 +69,31 @@ cx_do_panel
 
 .segment "B5CODE"
 
-; The dialog runs in bank 5, but these four helpers stayed in bank 2.
+; The dialog runs in bank 5, but these helpers live in other banks.
 ; A far-call trampoline reaches each; cxb_call hands over A/X/Y and
 ; brings our bank and the carry back, so a `jsr` here reads exactly like
 ; the direct call it replaced (and a `jmp` tail-calls just the same).
+; mn_ink is bank 2 (menu); the four widget helpers followed the toolkit
+; to bank 16 (banks.inc) -- only the bank byte changed.
 dlg_mn_ink
     jsr cxb_call
     .byte 2
     .addr mn_ink
 dlg_wg_setup
     jsr cxb_call
-    .byte 2
+    .byte CX_WG_BANK
     .addr wg_setup
 dlg_wg_restore
     jsr cxb_call
-    .byte 2
+    .byte CX_WG_BANK
     .addr wg_restore
 dlg_wg_key
     jsr cxb_call
-    .byte 2
+    .byte CX_WG_BANK
     .addr wg_key
 dlg_wg_hit
     jsr cxb_call
-    .byte 2
+    .byte CX_WG_BANK
     .addr wg_hit
 
 ; ---------------------------------------------------------------------

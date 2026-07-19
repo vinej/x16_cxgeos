@@ -1,13 +1,16 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/ui/widget.asm -- the widget toolkit (bank 2)
+; CXGEOS :: kernel/ui/widget.asm -- the widget toolkit (bank 16)
 ; =====================================================================
 ; A widget is a 16-byte record the APP owns (docs/formats.md). The app
 ; hands the kernel a list -- a count, then the records -- and the kernel
 ; draws them and turns clicks on them into EV_WIDGET events. The record
 ; carries the widget's own state (checked, pressed, scroll position), so
 ; the kernel writes back into the app's memory; $0801-$7FFF is always
-; mapped, so bank-2 code reaches it directly.
+; mapped, so bank-16 code reaches it directly. The toolkit's own state
+; (wg_list &c) lives in this bank too -- code and state together, which
+; is why a modal panel in bank 5 must trampoline through wg_setup rather
+; than touch wg_list itself.
 ;
 ;   cx_wg_set    A/X = the list. Draws it, pushes a region over its
 ;                bounding box so clicks route here. One list at a time.
@@ -62,24 +65,30 @@ WG_SIZE  = 16
 WG_BOX   = 12                   ; the check/radio marker box, a side
 
 ; --- the resident stubs ------------------------------------------------
+; The whole toolkit body rides bank 16 now -- its own theme bank
+; (banks.inc), where new widgets grow -- so the stubs far-call the
+; routines by label directly. (They went through bank 2's local table
+; while widgets shared that bank; the four b2_table rows they used are
+; retired to mn_off. dialog.asm's dlg_wg_* trampolines follow to
+; .byte CX_WG_BANK.)
 cx_do_wg_set
     jsr cxb_call
-    .byte 2
-    .addr $A000 + 8*3
+    .byte CX_WG_BANK
+    .addr wg_set
 cx_do_wg_draw
     jsr cxb_call
-    .byte 2
-    .addr $A000 + 9*3
+    .byte CX_WG_BANK
+    .addr wg_draw
 wg_vec
     jsr cxb_call
-    .byte 2
-    .addr $A000 + 10*3
+    .byte CX_WG_BANK
+    .addr wg_hit
 cx_do_wg_key
     jsr cxb_call
-    .byte 2
-    .addr $A000 + 12*3
+    .byte CX_WG_BANK
+    .addr wg_key
 
-.segment "B2CODE"
+.segment "B16CODE"
 
 ; ---------------------------------------------------------------------
 ; wg_setup -- A/X = the widget list. Parks it and draws it, but pushes
@@ -313,9 +322,8 @@ wg_paint
     lda cx_vmode               ; a cell canvas gets ASCII-classic widgets
     cmp #CX_MODE_TEXT          ; ([X] (o) [ok] ...), not scaled pixel boxes
     bne @gfx
-    jsr cxb_call               ; the text painter rides bank 5; tail-call
-    .byte 5                    ; it and return to wg_draw_all
-    .addr wg_paint_t
+    jmp wg_paint_t             ; the text painter shares bank 16 now --
+                               ; a plain tail-call, no trampoline
 @gfx
     ldy #WG_TYPE
     lda (CX_M_PTR),y
@@ -567,8 +575,10 @@ wg_p_field
     adc #0
     sta X16_P3
     lda th_paper                ; ink contrasts the field's paper, or the
-    jsr mn_ink                  ; text is black-on-black where the font
-                                ; honours the ink (mode 1); mode 0 ignores it
+    jsr wg_ink                  ; text is black-on-black where the font
+                                ; honours the ink (mode 1); mode 0 ignores it.
+                                ; wg_ink is the toolkit's own copy of mn_ink
+                                ; -- same bank now that menu stayed in 2
     jsr wg_label_ptr            ; X16_T0 = the buffer
     lda X16_T0
     ldx X16_T0+1
@@ -1050,13 +1060,15 @@ wg_toggle_box                   ; P0..P7 = the WG_BOX marker square
 ; The record's x/y/w/h are cells (the app authors them so), and wg_hit
 ; tests that same box, so clicks land without any of the pixel geometry.
 ;
-; It rides bank 5, not bank 2 -- the toolkit's own bank is full -- and
-; wg_paint far-calls it. Everything it touches is reachable from there:
-; the record through CX_M_PTR (low RAM), cxov_text and the theme through
+; It shares bank 16 with the rest of the toolkit, so wg_paint reaches it
+; with a plain jmp. Everything it touches is reachable from there: the
+; record through CX_M_PTR (low RAM), cxov_text and the theme through
 ; resident addresses, and its strings and locals travel with it.
+; (It rode bank 5 while widgets filled bank 2; the restructure gave the
+; toolkit its own bank and the far-call became a tail jmp.)
 ; =====================================================================
 .ifndef CX_NO_OVERLAY
-.segment "B5CODE"               ; bank 5 in the kernel; the flat runner
+.segment "B16CODE"              ; bank 16 with the toolkit; the flat runner
 .else                           ; (mode 0 only) never calls it -- park it
 .segment "CODE"                 ; in CODE so it just links
 .endif
@@ -1342,7 +1354,7 @@ wg_filled .byte 0
 wg_barx   .byte 0
 wg_prod   .word 0
 
-.segment "B2CODE"
+.segment "B16CODE"
 
 wg_label_ptr                    ; X16_T0 = the record's label pointer
     ldy #WG_LBL
