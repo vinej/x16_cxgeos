@@ -4,10 +4,11 @@
 ; =====================================================================
 ; Two kinds of pin, both checked by stage-0 (kernel/boot/auto.asm):
 ;
-;   KBUILD  the build word at $815C -- the tail of the jump-table
+;   KBUILD  the build word at $81A5 -- the tail of the jump-table
 ;           reserve, so it rides CXKERNEL.PRG and costs the resident
 ;           budget nothing. Stage-0 compares it against its own
-;           CX_KBUILD right after the CXOS magic.
+;           CX_KBUILD right after the CXOS magic. (It moves with the
+;           reserve's end; auto.asm reads the same address.)
 ;
 ;   BnnSIG  an 8-byte header at $A000 of every CXBANKS2 bank:
 ;           "CXB", the bank number, the build word, then the bank's

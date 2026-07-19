@@ -27,10 +27,10 @@ import sys
 # --- the ledger this tool asserts (mirror of kernel/kernel.cfg) --------
 
 JTAB_START = 0x8010
-JTAB_SIZE = 0x014C          # the slot reserve: JTAB_SIZE // 3 slots
-                            # ($815C-$815F is the build word, banks.inc)
-RESIDENT_START = 0x8160     # pinned: the byte after the slot reserve
-RESIDENT_SIZE = 0x14A0
+JTAB_SIZE = 0x0195          # the slot reserve: JTAB_SIZE // 3 = 135 slots
+                            # ($81A5-$81A8 is the build word, banks.inc)
+RESIDENT_START = 0x81A9     # pinned: the byte after the slot reserve
+RESIDENT_SIZE = 0x1457
 OVL_START = 0x9600
 OVL_SIZE = 0x0900           # one engine image at a time lives here
 
@@ -56,7 +56,10 @@ OVL_IMAGES = ["OV0CODE", "OV1CODE", "OV2CODE", "OV3CODE"]
 
 WARN_PCT = 85               # a region this full is worth a look
 WARN_FREE = 256             # ...as is one with less than this to give
-FAIL_FREE_RESIDENT = 0      # raised to 128 when the P5 diet lands
+FAIL_FREE_RESIDENT = 128    # the P5 diet's floor: the widened jump table
+                            # spent the reclaimed bytes, but the resident
+                            # image must keep a real margin for the next
+                            # feature that genuinely needs to be resident
 
 
 def parse_map(text: str) -> dict:
@@ -132,7 +135,7 @@ Name                   Start     End    Size  Align
 LOADADDR              007FFF  008000  000002  00001
 JUMPHDR               008000  00800F  000010  00001
 JUMPTAB               008010  00812C  00011D  00001
-CODE                  008160  0095EB  00148C  00001
+CODE                  0081A9  00951C  001373  00001
 OV0CODE               009600  009EB3  0008B4  00001
 OV1CODE               009600  009CFA  0006FB  00001
 OV2CODE               009600  009661  000062  00001
@@ -149,14 +152,14 @@ Exports list by name:
 def selftest() -> int:
     import io
     segs = parse_map(SELFTEST_MAP)
-    assert segs["CODE"] == (0x8160, 0x148C), segs["CODE"]
+    assert segs["CODE"] == (0x81A9, 0x1373), segs["CODE"]
     assert segs["B2CODE"][1] == 0x1B3C
     assert segs["JUMPTAB"][1] == 0x011D
     sink = io.StringIO()
     assert report(segs, sink) == 0, sink.getvalue()
     text = sink.getvalue()
-    assert "95 slots, 15 in reserve" in text, text
-    assert re.search(r"RESIDENT\s+5260\s+20", text), text
+    assert "95 slots, 40 in reserve" in text, text
+    assert re.search(r"RESIDENT\s+4979\s+228", text), text  # 0x1373 / 0x1457-0x1373
     assert re.search(r"BANK5\s+5731\s+2461", text), text
     # an overflowed bank must fail
     fat = dict(segs)
@@ -166,6 +169,10 @@ def selftest() -> int:
     moved = dict(segs)
     moved["CODE"] = (0x8200, 0x1000)
     assert report(moved, io.StringIO()) == 1
+    # a resident image under the 128-byte floor must fail
+    tight = dict(segs)
+    tight["CODE"] = (0x81A9, 0x1457 - 100)
+    assert report(tight, io.StringIO()) == 1
     print("mapreport: selftest OK")
     return 0
 

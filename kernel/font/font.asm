@@ -74,146 +74,86 @@ CXF_SPACING   = 9
 CXF_WIDTHS    = 16
 
 ; ---------------------------------------------------------------------
-; font_set -- adopt a CXF and build its cache.
+; font_set -- adopt a CXF and build its cache. RESIDENT FRONT-END.
 ;
 ; The CXF must be addressable at the given pointer under the RAM_BANK
-; that is live on entry -- that bank is captured here, and every later
-; read of the font (widths at draw time, rows while caching) switches
-; back to it. A font in low RAM works under any bank; a font in banked
-; RAM must sit entirely inside the $A000 window, which holds it to 8 KB.
-; The kernel's own font arrives in bank CX_SYSFONT_BANK, put there by
-; the boot loader, and costs the resident image nothing.
+; that is live on entry -- that bank is captured HERE, before the far
+; call flips it, and every later read of the font (widths at draw time,
+; rows while caching) switches back to it. A font in low RAM works under
+; any bank; a font in banked RAM must sit entirely inside the $A000
+; window, which holds it to 8 KB. The kernel's own font arrives in bank
+; CX_SYSFONT_BANK, put there by the boot loader.
+;
+; The cold half -- magic, header, cache build -- rides bank 18 (fs_parse
+; below), reached only when a font is adopted, which is boot and the
+; rare cx_font_set. It reads the CXF through the resident f_peek helpers
+; so it never has to page the font's bank in from its own window. The
+; public label stays `font_set`, so impl.inc, font_sys and the ABI are
+; unchanged.
 ; ---------------------------------------------------------------------
 font_set
     sta CX_F_CXF
     stx CX_F_CXF+1
-    lda RAM_BANK                ; where the font lives, for every read
-    sta f_bank                  ; after this one
+    lda RAM_BANK                ; where the font lives, captured BEFORE the
+    sta f_bank                  ; far call flips RAM_BANK to bank 18
     lda #1                      ; the loader restores the system font on the
     sta f_dirty                 ; next launch, so this one does not leak
-
-    ldy #3                      ; magic "CXF1"
-@magic
-    lda (CX_F_CXF),y
-    cmp f_magic,y
-    bne @bad
-    dey
-    bpl @magic
-
-    ldy #CXF_HEIGHT             ; park the header: read once, used often
-    lda (CX_F_CXF),y
-    sta f_height
-    ldy #CXF_ASCENT
-    lda (CX_F_CXF),y
-    sta f_ascent
-    ldy #CXF_FIRST
-    lda (CX_F_CXF),y
-    sta f_first
-    ldy #CXF_COUNT
-    lda (CX_F_CXF),y
-    sta f_count
-    ldy #CXF_SPACING
-    lda (CX_F_CXF),y
-    sta f_spacing
-
-    ; The bitmaps follow the header and the widths table. Both tables are
-    ; reached with (CX_F_CXF),y -- 16 + 94 still fits an 8-bit index --
-    ; so only the bitmaps need a pointer of their own.
-    clc
-    lda CX_F_CXF
-    adc #CXF_WIDTHS
-    sta f_bmp
-    lda CX_F_CXF+1
-    adc #0
-    sta f_bmp+1
-    clc
-    lda f_bmp
-    adc f_count
-    sta f_bmp
-    lda f_bmp+1
-    adc #0
-    sta f_bmp+1
-
-    lda cx_vmode                ; the pre-shifted 2bpp cache is mode 0's;
-    bne @nocache                ; the bitmap modes read the glyphs raw
-    jsr font_cache              ; (mode 1's ov1_ctext) or ignore them (2/3),
-@nocache                        ; and a non-8px cache would corrupt mode 0's
-    clc
-    rts
-@bad
-    sec
+.ifndef CX_NO_OVERLAY
+    jsr cxb_call                ; carry (bad magic) survives cxb_call
+    .byte CX_FS_BANK
+    .addr fs_parse
+.else
+    jsr fs_parse                ; the flat runner links it in CODE
+.endif
     rts
 
-f_magic .byte "CXF1"
-
 ; ---------------------------------------------------------------------
-; font_cache -- expand every glyph to 2bpp, pre-shifted to 4 phases.
-;
-; Paid once per font: 8 rows x 4 phases x 8 bit-tests per glyph, so a
-; 95-glyph font is ~24k tests -- a few frames at boot, and nothing at
-; draw time. CX_F_ROWP walks the bitmaps a glyph at a time, which keeps
-; a gi*height multiply out of the loop.
+; f_peek -- A = CXF byte Y, read under the font's bank and the caller's
+; RAM_BANK put back. RESIDENT, so the bank-18 cold half can read a font
+; that lives in a bank (the system font is in bank 1) without paging
+; that bank in from its own execution window. (Callable from bank 18
+; because resident code executes from always-mapped low RAM.)
 ; ---------------------------------------------------------------------
-font_cache
-    lda RAM_BANK                ; the caller's bank comes back at the end
+f_peek
+    lda RAM_BANK
     pha
-
-    lda f_bmp                   ; glyph 0's rows
-    sta CX_F_ROWP
-    lda f_bmp+1
-    sta CX_F_ROWP+1
-    stz f_gi
-
-@glyph
-    jsr f_slot_addr             ; RAM_BANK + CX_F_SRC = this glyph's slot
-
-    stz f_phase
-@phase
-    stz f_row
-@row
-    ldx f_bank                  ; the rows are read from the font's bank,
-    stx RAM_BANK
-    jsr f_row_cov               ; f_cov = the row's three coverage bytes
-    ldx f_cbank                 ; ...and the slot written in the cache's
-    stx RAM_BANK
-    jsr f_store_row
-    inc f_row
-    lda f_row
-    cmp f_height
-    bne @row
-
-    ; Rows past f_height are left alone: blitm is told the height, so it
-    ; never reads them.
-    inc f_phase
-    lda f_phase
-    cmp #4
-    bne @phase
-
-    clc                         ; next glyph's rows
-    lda CX_F_ROWP
-    adc f_height
-    sta CX_F_ROWP
-    bcc @nc
-    inc CX_F_ROWP+1
-@nc
-    inc f_gi
-    lda f_gi
-    cmp f_count
-    bne @glyph
-
+    lda f_bank
+    sta RAM_BANK
+    lda (CX_F_CXF),y
+    tax
     pla
     sta RAM_BANK
+    txa
+    rts
+
+; f_peek_row -- A = bitmap byte Y (of the glyph row pointer), same deal.
+f_peek_row
+    lda RAM_BANK
+    pha
+    lda f_bank
+    sta RAM_BANK
+    lda (CX_F_ROWP),y
+    tax
+    pla
+    sta RAM_BANK
+    txa
     rts
 
 ; ---------------------------------------------------------------------
-; f_slot_addr -- RAM_BANK + CX_F_SRC for glyph f_gi.
-;
-; bank = CX_F_BANK0 + gi/42, offset = (gi%42)*192. The divide is a
-; subtract loop -- three iterations at most, twice per font build.
-; The multiply is (n*3)<<6: n is under 42, so n*3 stays inside a byte
-; and the whole thing is an add and six shifts.
+; f_slot_addr -- RAM_BANK + CX_F_SRC for glyph f_gi. The HOT entry
+; (f_blit_at): compute the slot and leave RAM_BANK on its cache bank.
 ; ---------------------------------------------------------------------
 f_slot_addr
+    jsr f_slot_calc
+    ldx f_cbank
+    stx RAM_BANK
+    rts
+
+; f_slot_calc -- the pure computation: f_cbank + CX_F_SRC for glyph
+; f_gi, with NO RAM_BANK write, so the bank-18 cache builder can call it
+; and stay in its own window. bank = CX_F_BANK0 + gi/42 (a subtract
+; loop, three at most), offset = (gi%42)*192 = (n*3)<<6.
+f_slot_calc
     lda f_gi
     ldx #CX_F_BANK0
 @div
@@ -224,9 +164,7 @@ f_slot_addr
     inx
     bra @div
 @got
-    stx RAM_BANK                ; A = gi % 42
-    stx f_cbank                 ; ...remembered, so a source read between
-                                ; here and the blit can switch back
+    stx f_cbank                 ; A = gi % 42; the cache bank, remembered
 
     sta CX_F_T0                 ; n*3, at most 123
     asl
@@ -245,51 +183,16 @@ f_slot_addr
     rts
 
 ; ---------------------------------------------------------------------
-; f_row_cov -- f_cov[0..2] = row f_row of glyph f_gi, expanded to 2bpp
-; and shifted to phase f_phase.
-;
-; Source pixel c lands at screen pixel k = phase + c, which is bits
-; 6-2*(k&3) of cache byte k>>2 -- so a set bit is one table lookup and
-; an ORA, and the 24-bit shift the naive version would need never
-; happens.
-; ---------------------------------------------------------------------
-f_row_cov
-    stz f_cov
-    stz f_cov+1
-    stz f_cov+2
-
-    ldy f_row
-    lda (CX_F_ROWP),y
-    beq @done                   ; a blank row: nothing to light
-    sta f_bits
-
-    stz f_c
-@bit
-    asl f_bits                  ; leftmost pixel first
-    bcc @next
-    lda f_c
-    clc
-    adc f_phase
-    tay                         ; k = phase + c, 0..10
-    lda f_kbits,y
-    ldx f_kbyte,y
-    ora f_cov,x
-    sta f_cov,x
-@next
-    inc f_c
-    lda f_c
-    cmp #8
-    bne @bit
-@done
-    rts
-
-; ---------------------------------------------------------------------
 ; f_store_row -- write f_cov into the slot as (mask, data) pairs.
-;
-; offset = phase*48 + col*16 + row*2, at most 144+32+30 = 206, so the
-; whole index fits in Y and the slot pointer never moves.
+; RESIDENT, and it switches to the cache bank itself (restoring the
+; caller's) so the bank-18 builder can call it without leaving its own
+; window. offset = phase*48 + col*16 + row*2 fits Y.
 ; ---------------------------------------------------------------------
 f_store_row
+    lda RAM_BANK
+    pha
+    lda f_cbank                 ; the slot lives in the cache's bank
+    sta RAM_BANK
     ldx f_phase
     lda f_poff,x
     sta CX_F_T0
@@ -314,6 +217,8 @@ f_store_row
     inx
     cpx #3
     bne @col
+    pla
+    sta RAM_BANK                ; the builder's bank (18) back
     rts
 
 ; ---------------------------------------------------------------------
@@ -593,3 +498,171 @@ f_kbits   .byte $C0, $30, $0C, $03, $C0, $30, $0C, $03, $C0, $30, $0C
 f_kbyte   .byte   0,   0,   0,   0,   1,   1,   1,   1,   2,   2,   2
 
 f_poff    .byte 0, 48, 96, 144  ; phase p starts at p*48
+
+; =====================================================================
+; the cold half -- bank 18 (the fs/system theme bank, banks.inc)
+; =====================================================================
+; Adopting a font is boot and the rare cx_font_set; drawing with it is
+; every character. So the magic check, the header parse and the cache
+; build live out here, far-called once, and the resident image keeps
+; only the draw path. None of this code writes RAM_BANK: it reads the
+; CXF through f_peek/f_peek_row and writes the cache through f_store_row,
+; all resident helpers that page the right bank in and put ours back --
+; because bank-18 code cannot page a bank into the window it is running
+; from. The flat runner links the block in CODE and calls it directly.
+; ---------------------------------------------------------------------
+.ifndef CX_NO_OVERLAY
+.segment "B18CODE"
+.endif
+
+; fs_parse -- the CXF's magic and header, then the cache. Carry set if
+; the magic is wrong (font_set hands it back through cxb_call).
+fs_parse
+    ldy #3                      ; magic "CXF1", read under the font's bank
+@magic
+    jsr f_peek
+    cmp f_magic,y
+    bne @bad
+    dey
+    bpl @magic
+
+    ldy #CXF_HEIGHT             ; park the header: read once, used often
+    jsr f_peek
+    sta f_height
+    ldy #CXF_ASCENT
+    jsr f_peek
+    sta f_ascent
+    ldy #CXF_FIRST
+    jsr f_peek
+    sta f_first
+    ldy #CXF_COUNT
+    jsr f_peek
+    sta f_count
+    ldy #CXF_SPACING
+    jsr f_peek
+    sta f_spacing
+
+    ; The bitmaps follow the header and the widths table. Both tables are
+    ; reached with (CX_F_CXF),y -- 16 + 94 still fits an 8-bit index --
+    ; so only the bitmaps need a pointer of their own.
+    clc
+    lda CX_F_CXF
+    adc #CXF_WIDTHS
+    sta f_bmp
+    lda CX_F_CXF+1
+    adc #0
+    sta f_bmp+1
+    clc
+    lda f_bmp
+    adc f_count
+    sta f_bmp
+    lda f_bmp+1
+    adc #0
+    sta f_bmp+1
+
+    lda cx_vmode                ; the pre-shifted 2bpp cache is mode 0's;
+    bne @nocache                ; the bitmap modes read the glyphs raw
+    jsr font_cache              ; (mode 1's ov1_ctext) or ignore them (2/3),
+@nocache                        ; and a non-8px cache would corrupt mode 0's
+    clc
+    rts
+@bad
+    sec
+    rts
+
+f_magic .byte "CXF1"
+
+; ---------------------------------------------------------------------
+; font_cache -- expand every glyph to 2bpp, pre-shifted to 4 phases.
+;
+; Paid once per font: 8 rows x 4 phases x 8 bit-tests per glyph, so a
+; 95-glyph font is ~24k tests -- a few frames at boot, and nothing at
+; draw time. CX_F_ROWP walks the bitmaps a glyph at a time, which keeps
+; a gi*height multiply out of the loop. It never touches RAM_BANK: the
+; row reads go through f_peek_row, the slot writes through f_store_row,
+; and f_slot_calc computes the slot without paging -- so the loop stays
+; in bank 18 the whole way.
+; ---------------------------------------------------------------------
+font_cache
+    lda f_bmp                   ; glyph 0's rows
+    sta CX_F_ROWP
+    lda f_bmp+1
+    sta CX_F_ROWP+1
+    stz f_gi
+
+@glyph
+    jsr f_slot_calc             ; f_cbank + CX_F_SRC = this glyph's slot
+
+    stz f_phase
+@phase
+    stz f_row
+@row
+    jsr f_row_cov               ; f_cov = the row's three coverage bytes
+    jsr f_store_row             ; ...into the slot (it pages the cache bank)
+    inc f_row
+    lda f_row
+    cmp f_height
+    bne @row
+
+    ; Rows past f_height are left alone: blitm is told the height, so it
+    ; never reads them.
+    inc f_phase
+    lda f_phase
+    cmp #4
+    bne @phase
+
+    clc                         ; next glyph's rows
+    lda CX_F_ROWP
+    adc f_height
+    sta CX_F_ROWP
+    bcc @nc
+    inc CX_F_ROWP+1
+@nc
+    inc f_gi
+    lda f_gi
+    cmp f_count
+    bne @glyph
+    rts
+
+; ---------------------------------------------------------------------
+; f_row_cov -- f_cov[0..2] = row f_row of glyph f_gi, expanded to 2bpp
+; and shifted to phase f_phase.
+;
+; The row byte comes through f_peek_row (the font's bank, ours put
+; back); the rest is pure computation on resident tables, so this runs
+; in bank 18 without a single RAM_BANK write. Source pixel c lands at
+; screen pixel k = phase + c, bits 6-2*(k&3) of cache byte k>>2.
+; ---------------------------------------------------------------------
+f_row_cov
+    stz f_cov
+    stz f_cov+1
+    stz f_cov+2
+
+    ldy f_row
+    jsr f_peek_row
+    beq @done                   ; a blank row: nothing to light
+    sta f_bits
+
+    stz f_c
+@bit
+    asl f_bits                  ; leftmost pixel first
+    bcc @next
+    lda f_c
+    clc
+    adc f_phase
+    tay                         ; k = phase + c, 0..10
+    lda f_kbits,y
+    ldx f_kbyte,y
+    ora f_cov,x
+    sta f_cov,x
+@next
+    inc f_c
+    lda f_c
+    cmp #8
+    bne @bit
+@done
+    rts
+
+.ifndef CX_NO_OVERLAY
+.segment "CODE"
+.endif

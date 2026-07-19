@@ -67,10 +67,10 @@ boot
     dey
     bpl @magic
 
-    lda $815C                   ; ...or without the build word: the KB
+    lda $81A5                   ; ...or without the build word: the KB
     cmp #<CX_KBUILD             ; region in kernel.cfg, compared against
     bne @skew                   ; the CX_KBUILD this stage-0 was built
-    lda $815D                   ; with -- a stale CXKERNEL.PRG stops here
+    lda $81A6                   ; with -- a stale CXKERNEL.PRG stops here
     cmp #>CX_KBUILD
     bne @skew
     bra @banks
