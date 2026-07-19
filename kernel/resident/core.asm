@@ -35,11 +35,7 @@ cx_init
     jsr cx_ov_boot              ; the graphics port FIRST: mode 0's engine
                                 ; image into the overlay, before anything
                                 ; can draw through it
-    lda #CX_SYSFONT_BANK
-    sta RAM_BANK
-    lda #<CX_F_WIN
-    ldx #>CX_F_WIN
-    jsr font_set
+    jsr font_sys                ; the system font at CX_SYSFONT_BANK:$A000
     bcs @nofont
 
     jsr gfx2_init
@@ -50,6 +46,18 @@ cx_init
 @nofont
     sec
     rts
+
+; ---------------------------------------------------------------------
+; font_sys -- (re)adopt the system font at CX_SYSFONT_BANK:$A000. Carry
+; set if it is not a CXF. The loader calls this between apps so a font an
+; app changed does not leak into the next one (kernel/fs/loader.asm).
+; ---------------------------------------------------------------------
+font_sys
+    lda #CX_SYSFONT_BANK
+    sta RAM_BANK
+    lda #<CX_F_WIN
+    ldx #>CX_F_WIN
+    jmp font_set
 
 ; ---------------------------------------------------------------------
 ; cx_do_version -- A/X = the ABI version the kernel implements.

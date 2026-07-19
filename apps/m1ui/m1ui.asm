@@ -19,6 +19,8 @@ WG_SCROLL = 3
 WG_FIELD  = 4
 WG_LIST   = 5
 KEY_ESC   = $1B
+FONTCAP   = 1024                ; the font buffer (pxl8 is 871 bytes)
+nptr      = $60                 ; app zero page: the filename walker
 
 .segment "LOADADDR"
     .word $0801
@@ -42,6 +44,11 @@ main
     jsr cx_gfx_clear
     lda #1                      ; white ink for the widget labels (mode 1's
     jsr cx_ink                  ; font honours the ink; mode 0's ignores it)
+
+    lda #<s_pxl6                ; a 6px font -- the desktop's 8px pxl8 doubles
+    ldx #>s_pxl6                ; to 16 screen px at mode 1's 2:1 scale. Set
+    jsr load_font               ; IN mode 1: font_set skips the mode-0 glyph
+                                ; cache there, so the desktop's font is safe
 
     lda #<bar
     ldx #>bar
@@ -95,7 +102,40 @@ show_dialog
     jsr cx_dlg_alert            ; modal; the 8bpp save-under puts it back
     rts
 do_exit
-    jmp cx_exit
+    jmp cx_exit                 ; the loader restores the system font for the
+                                ; desktop (kernel/fs/loader.asm)
+
+; load_font -- A/X = a NUL-terminated .CXF filename; reads it into fontbuf
+; and adopts it. Silently keeps the current font if the file is missing.
+load_font
+    sta nptr
+    stx nptr+1
+    ldy #0
+@len
+    lda (nptr),y
+    beq @got
+    iny
+    bne @len
+@got
+    phy
+    lda #<fontbuf
+    sta X16_P0
+    lda #>fontbuf
+    sta X16_P1
+    lda #<FONTCAP
+    sta X16_P2
+    lda #>FONTCAP
+    sta X16_P3
+    lda nptr
+    ldx nptr+1
+    ply
+    jsr cx_file_load
+    bcs @done                   ; not there / too big -> keep the current font
+    lda #<fontbuf
+    ldx #>fontbuf
+    jsr cx_font_set
+@done
+    rts
 
 handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY
     .addr 0, 0, 0, 0, 0
@@ -217,3 +257,5 @@ s_li1   .byte "Contoso", 0
 s_li2   .byte "Fabrikam", 0
 s_li3   .byte "Adventure", 0
 s_up    .byte "M1UI UP", $0D, 0
+s_pxl6  .byte "PXL6.CXF", 0
+fontbuf .res FONTCAP, 0

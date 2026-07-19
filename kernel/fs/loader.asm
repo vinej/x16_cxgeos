@@ -190,6 +190,11 @@ cxl_load
     jsr ev_stop                 ; every app starts in the same machine:
     jsr mouse_hide              ; events off, mouse hidden, app sprites
     jsr sprites_reset           ; cleared (so none linger under the next),
+    lda f_dirty                 ; the system font if the last app changed it
+    beq @fontok                 ; (ev_stop above means no IRQ steals the
+    jsr font_sys                ; bank-1 read), so no font leaks between apps
+    stz f_dirty
+@fontok
     cli                         ; a clean ZP; interrupts back (load masked
     ldx #$FF                    ; an empty stack. The old program is
     txs                         ; gone, and so is every return address

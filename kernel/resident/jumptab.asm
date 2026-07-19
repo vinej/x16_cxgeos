@@ -47,7 +47,7 @@ cx_jumptab
     jmp cxov_blitm       ; 14  P0/P1 = x, P2/P3 = y, P4 = h, P5 = cols, P6/P7 = src
 
 ; --- text --------------------------------------------------------
-    jmp cx_g_font_set    ; 15  A/X = CXF image -> carry set if bad
+    jmp font_set         ; 15  A/X = CXF image -> carry set if bad
     jmp cx_g_font_style  ; 16  A = CX_BOLD | CX_UNDER
     jmp cxov_measure     ; 17  A/X = string -> P0/P1 = width
     jmp cxov_text        ; 18  P0/P1 = x, P2/P3 = y, A/X = string -> P0/P1 = pen

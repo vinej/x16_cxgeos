@@ -34,7 +34,9 @@ cx_gfx_blitm    = cxov_blitm
 ; the font and toolkit slots below are GUI-only: they go through the
 ; gui_gate wrappers (kernel/video/engine0.asm), which refuse with carry
 ; outside graphics mode 0 rather than draw into another mode's picture.
-cx_font_set     = cx_g_font_set
+cx_font_set     = font_set      ; ungated: fonts apply in mode 1 too, and
+                                ; font_set only sets state + (mode 0) the
+                                ; cache -- it never draws, so it is mode-safe
 cx_font_style   = cx_g_font_style
 cx_font_measure = cxov_measure  ; mode-aware through the port, like cx_say
 cx_font_draw    = cxov_text     ; cx_say through the port's 14th entry

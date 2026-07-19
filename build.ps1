@@ -236,6 +236,7 @@ function Stage-SdRoot {
     Copy-Item (Join-Path $build "CXKERNEL.PRG")  $sdroot
     Copy-Item (Join-Path $build "CXBANKS.BIN")   $sdroot
     Copy-Item (Join-Path $root  "fonts\pxl8.cxf") (Join-Path $sdroot "PXL8.CXF")
+    Copy-Item (Join-Path $root  "fonts\pxl6.cxf") (Join-Path $sdroot "PXL6.CXF")
     Copy-Item (Join-Path $build "SHELL.CXA")     $sdroot
     Copy-Item (Join-Path $build "HELLO1.CXA")    $sdroot
     Copy-Item (Join-Path $build "GALLERY.CXA")   $sdroot

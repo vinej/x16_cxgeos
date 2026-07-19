@@ -89,6 +89,8 @@ font_set
     stx CX_F_CXF+1
     lda RAM_BANK                ; where the font lives, for every read
     sta f_bank                  ; after this one
+    lda #1                      ; the loader restores the system font on the
+    sta f_dirty                 ; next launch, so this one does not leak
 
     ldy #3                      ; magic "CXF1"
 @magic
@@ -132,7 +134,10 @@ font_set
     adc #0
     sta f_bmp+1
 
-    jsr font_cache
+    lda cx_vmode                ; the pre-shifted 2bpp cache is mode 0's;
+    bne @nocache                ; the bitmap modes read the glyphs raw
+    jsr font_cache              ; (mode 1's ov1_ctext) or ignore them (2/3),
+@nocache                        ; and a non-8px cache would corrupt mode 0's
     clc
     rts
 @bad
@@ -563,6 +568,7 @@ f_bmp     .word 0               ; the glyph bitmaps
 f_style   .byte 0               ; FONT_BOLD | FONT_UNDER
 
 f_bank    .byte 0               ; where the CXF lives, from font_set
+f_dirty   .byte 0               ; an app changed the font -> loader resets it
 f_cbank   .byte 0               ; the cache bank of the glyph in hand
 f_sbank   .byte 0               ; the bank the STRING is read under (the
                                 ; caller's) -- restored before every char,
