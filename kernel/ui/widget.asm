@@ -817,10 +817,11 @@ wg_p_list
     inc X16_P3
 @yok
     pla                         ; ink contrasts the band: the selected row
-    jsr mn_ink                  ; draws reverse video where the font honours
-    lda X16_T0                  ; the ink (mode 1/3); mode 0 ignores it
-    ldx X16_T0+1
-    jsr cxov_text
+    jsr wg_ink                  ; draws reverse video where the font honours
+    lda X16_T0                  ; the ink (mode 1/3); mode 0 ignores it.
+    ldx X16_T0+1                ; wg_ink is the toolkit's same-bank copy of
+    jsr cxov_text              ; mn_ink -- calling mn_ink from bank 16 would
+                               ; jump into bank-2 territory and draw garbage
 
     inc wg_row
     jmp @rows                   ; the body is over a page
