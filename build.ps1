@@ -19,6 +19,7 @@ param(
     [switch]$Apps,         # build AUTOBOOT.X16, the shell and the hellos
     [switch]$Image,        # ...and stage a bootable SD root in build\sdroot
     [switch]$Boot,         # ...and boot it, windowed, from the staged root
+    [switch]$Cart,         # build the cartridge image (ROM banks 32-34); with -Boot, run it via -cartbin
     [int]$Scale = 1,
     [int]$TimeoutSec = 90
 )
@@ -66,6 +67,28 @@ function Build-KernelImage {
     Pop-Location
     if ($ldExit -ne 0) { Fail "ld65 failed on the kernel (over budget?)" }
     Write-Host "      $((Get-Item $p).Length) bytes + $((Get-Item (Join-Path $build 'CXBANKS.BIN')).Length) banked"
+}
+
+# The cartridge image: the same kernel, delivered in ROM instead of on SD.
+# kernel/boot/cart.asm is the bank-32 boot stub; it .incbin's the just-built
+# CXKERNEL.PRG, CXBANKS.BIN and the font by CWD-relative path, so this must
+# run after Build-KernelImage and from the repo root. Output is a raw 48 KB
+# image (ROM banks 32-34) that x16emu -cartbin loads at bank 32.
+function Build-CartImage {
+    $o   = Join-Path $build "cart.o"
+    $bin = Join-Path $build "cxgeos_cart.bin"
+    Write-Host "ca65  kernel\boot\cart.asm -> $bin"
+    Push-Location $root
+    & $ca65 --cpu 65C02 -I $lib -I $root -o $o (Join-Path $root "kernel\boot\cart.asm")
+    $ex = $LASTEXITCODE
+    if ($ex -eq 0) {
+        & $ld65 -C (Join-Path $root "kernel\boot\cart.cfg") -o $bin $o
+        $ex = $LASTEXITCODE
+    }
+    Pop-Location
+    if ($ex -ne 0) { Fail "cart image build failed" }
+    Write-Host "      $((Get-Item $bin).Length) bytes (cart ROM banks 32-34)"
+    return $bin
 }
 
 # -Apps / -Image / -Boot orchestrate several builds; the single-PRG path
@@ -365,17 +388,26 @@ if ($Test) {
     if ($text -notmatch '(?m)^CXGEOS SHELL') { Fail "boot smoke: the SD image never reached the desktop" }
     Remove-Item $img -Force -ErrorAction SilentlyContinue
     Write-Host "      boot: FAT32 image via -sdcard, desktop up" -ForegroundColor Green
+
+    # The cartridge path: the KERNAL finds "CX16" in ROM bank 32 and starts
+    # our stub, which copies the same kernel into RAM from ROM. The desktop
+    # coming up over -cartbin proves the auto-boot signature, the cross-bank
+    # copy, and cx_init from a bare (pre-BASIC) machine -- with the kernel in
+    # ROM, apps still off the staged SD root.
+    Write-Host "x16emu (boot smoke: cartridge -> kernel -> shell)"
+    $cartbin = Build-CartImage
+    $text = Invoke-Emulator @('-cartbin', $cartbin, '-fsroot', $sdroot) $TimeoutSec '(?m)^CXGEOS SHELL' "boot-cart"
+    if ($text -notmatch '(?m)^CXGEOS SHELL') { Fail "boot smoke: the cartridge never reached the desktop" }
+    Write-Host "      boot: cartridge via -cartbin, desktop up" -ForegroundColor Green
     exit 0
 }
 
-if ($Apps -or $Image -or $Boot) {
+if ($Apps -or $Image -or $Boot -or $Cart) {
     Build-KernelImage
     Build-Apps
-    if ($Image -or $Boot) {
-        $sdroot = Stage-SdRoot
-        Write-Host "sdroot: $sdroot"
-        Get-ChildItem $sdroot | ForEach-Object { Write-Host ("      {0,-14} {1,6} bytes" -f $_.Name, $_.Length) }
-    }
+    $sdroot = Stage-SdRoot
+    Write-Host "sdroot: $sdroot"
+    Get-ChildItem $sdroot | ForEach-Object { Write-Host ("      {0,-14} {1,6} bytes" -f $_.Name, $_.Length) }
     if ($Image) {
         # ...and fold the same files into one bootable FAT32 image, so a
         # real SD card (or -sdcard) boots identically to -fsroot.
@@ -385,12 +417,26 @@ if ($Apps -or $Image -or $Boot) {
         if ($LASTEXITCODE) { throw "mksd.py failed" }
         Write-Host "image: $img"
     }
+    $cartbin = $null
+    if ($Cart) {
+        # The same kernel in a cartridge (ROM banks 32-34). One SD card
+        # serves both: with the cart inserted its "CX16" auto-boot wins
+        # over AUTOBOOT.X16, so the kernel comes from ROM and the apps
+        # still come from the card.
+        $cartbin = Build-CartImage
+        Write-Host "cart: $cartbin"
+    }
     if ($Boot) {
         # -capture: x16emu does not feed the host mouse to the guest
         # without it, so the pointer would sit frozen. Interactive only;
         # the headless smoke never needs it.
-        Write-Host "x16emu (booting the staged root; -capture for the mouse)"
-        & $emu -rom $rom -fsroot $sdroot -scale $Scale -capture
+        if ($Cart) {
+            Write-Host "x16emu (booting the cartridge via -cartbin; -capture for the mouse)"
+            & $emu -rom $rom -cartbin $cartbin -fsroot $sdroot -scale $Scale -capture
+        } else {
+            Write-Host "x16emu (booting the staged root; -capture for the mouse)"
+            & $emu -rom $rom -fsroot $sdroot -scale $Scale -capture
+        }
     }
     exit 0
 }

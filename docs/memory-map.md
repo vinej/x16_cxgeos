@@ -187,6 +187,30 @@ Addresses the loader owns:
   engine for as long as the font is live. The theme record comes next
   (Phase 5).
 
+### Booting from a cartridge
+
+The same kernel also ships in ROM. `kernel/boot/cart.asm` + `cart.cfg`
+build a 48 KB image (`build/cxgeos_cart.bin`, **three cartridge ROM banks
+32–34**) that `x16emu -cartbin` loads at bank 32. After hardware init the
+stock KERNAL scans ROM bank 32 for `"CX16"` at `$C000` and jumps to
+`$C004` with interrupts disabled (Programmer's Reference: Booting from
+Cartridges) — so the cart needs neither `AUTOBOOT.X16` nor a ROM patch.
+
+The stub does exactly what stage-0 does, from ROM instead of SD: it copies
+the resident image (bank 32) to `$8000`, the font (bank 32) to RAM bank 1,
+and `CXBANKS.BIN` (banks 33–34) to RAM banks 2–5, then brings the machine
+to the state BASIC's cold start would leave (`IOINIT`/`RESTOR`/`CINT`/`cli`)
+and calls `cx_init` — the same hand-off as `auto.asm`. `CXKERNEL.PRG`,
+`CXBANKS.BIN` and the ABI are reused unchanged; the kernel runs from the
+same RAM either way. The cross-bank copy runs from low RAM (`$0400`) so it
+can page `ROM_BANK` out from under bank 32.
+
+Kernel-only for now: the desktop, apps and user files still load off the
+SD card (the cart's `"CX16"` auto-boot wins over the card's `AUTOBOOT.X16`,
+so one card serves both boot paths). `build.ps1 -Cart` builds the image and
+`-Cart -Boot` runs it; a cart chain in `-Test` boots it headless to the
+desktop. A self-contained cart with the apps embedded is a later phase.
+
 ## The glyph cache lives in banked RAM, not VRAM
 
 Phase 0 budgeted the pre-shifted glyph caches into VRAM at `$17100`.

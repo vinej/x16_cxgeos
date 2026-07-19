@@ -21,8 +21,9 @@ A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
   (circle/disc/flood, and ellipses) work in every mode; the
   widget toolkit, fonts and dialogs are desktop-only and refuse politely
   elsewhere.
-- **Stock ROM (R49+)**: boots from the SD card via `AUTOBOOT.X16`, no ROM
-  patches, no cartridge required (a cartridge build comes later).
+- **Stock ROM (R49+)**: boots from the SD card via `AUTOBOOT.X16`, or from a
+  **cartridge** (`build.ps1 -Cart`, ROM banks 32–34, the KERNAL's `"CX16"`
+  auto-boot) — no ROM patches either way.
 - **Native CMDR-DOS FAT32 files** — no .d64 images, no disk swapping.
 - **Apps in any toolchain**: a GEOS-style fixed jump-table ABI with generated
   bindings for 7 assemblers (ACME, ca65, 64tass, KickAssembler, dasm, MADS,
@@ -52,7 +53,7 @@ abi/              jump-table manifest + binding generator
 sdk/              GENERATED bindings + app skeletons (committed)
 apps/             system applications and desk accessories
 spikes/           Phase 0 throwaway risk prototypes (perf numbers in docs/perf.md)
-tools/            font converter, SD-image builder, cartridge packer
+tools/            font converter, SD-image builder, CXAP wrapper
 test/             on-target regression suites (x16lib runner pattern)
 docs/             the guides: graphics-port, sdk, csdk, formats, memory-map, perf, ui
 ```
