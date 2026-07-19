@@ -16,6 +16,9 @@
 WG_BUTTON = 0
 WG_CHECK  = 1
 WG_RADIO  = 2
+WG_SCROLL = 3
+WG_FIELD  = 4
+WG_LIST   = 5
 KEY_ESC   = $1B
 
 .segment "LOADADDR"
@@ -128,46 +131,63 @@ s_dlg   .byte "Dialog...", 0
 s_quit  .byte "Quit", 0
 s_about .byte "About", 0
 
-; --- the widgets: cell coordinates ------------------------------------
+; --- the widgets: one of every type, in cell coordinates -------------
 widgets
-    .byte 6
+    .byte 8
     .byte WG_BUTTON, 0          ; 0: Show dialog
-    .word 4, 16, 15
+    .word 4, 17, 15
     .byte 1, 0, 0
     .addr s_bdlg
     .byte 0, 0, 0
     .byte WG_BUTTON, 0          ; 1: Exit
-    .word 22, 16, 8
+    .word 22, 17, 8
     .byte 1, 0, 0
     .addr s_bexit
     .byte 0, 0, 0
-    .byte WG_CHECK, 0           ; 2
+    .byte WG_CHECK, 0           ; 2: checkbox
     .word 4, 4, 24
     .byte 1, 1, 0
     .addr s_wrap
     .byte 0, 0, 0
-    .byte WG_CHECK, 0           ; 3
-    .word 4, 6, 24
-    .byte 1, 0, 0
-    .addr s_auto
-    .byte 0, 0, 0
-    .byte WG_RADIO, 0           ; 4
-    .word 4, 9, 16
+    .byte WG_RADIO, 0           ; 3: radio (group 1)
+    .word 4, 6, 16
     .byte 1, 1, 1
     .addr s_left
     .byte 0, 0, 0
-    .byte WG_RADIO, 0           ; 5
-    .word 4, 11, 16
+    .byte WG_RADIO, 0           ; 4: radio
+    .word 4, 7, 16
     .byte 1, 0, 1
     .addr s_right
     .byte 0, 0, 0
+    .byte WG_SCROLL, 0          ; 5: slider (value 0..9, at 3)
+    .word 4, 9, 22
+    .byte 1, 3, 9
+    .addr s_none
+    .byte 0, 0, 0
+    .byte WG_FIELD, 0           ; 6: edit field (buffer, capacity 20)
+    .word 4, 11, 24
+    .byte 1, 0, 20
+    .addr fieldbuf
+    .byte 0, 0, 0
+    .byte WG_LIST, 0           ; 7: list (4 rows, row 0 selected)
+    .word 45, 4, 22
+    .byte 6, 0, 4
+    .addr listitems
+    .byte 0, 0, 0
+
+fieldbuf  .res 21, 0
+listitems .addr s_li0, s_li1, s_li2, s_li3
 
 s_bdlg  .byte "Show dialog", 0
 s_bexit .byte "Exit", 0
 s_wrap  .byte "wrap long lines", 0
-s_auto  .byte "autosave", 0
 s_left  .byte "align left", 0
 s_right .byte "align right", 0
+s_none  .byte "", 0
+s_li0   .byte "Northwind", 0
+s_li1   .byte "Contoso", 0
+s_li2   .byte "Fabrikam", 0
+s_li3   .byte "Adventure Works", 0
 
 ; --- the dialog -------------------------------------------------------
 alert

@@ -736,6 +736,7 @@ wg_p_list
 @plain
     lda th_paper
 @band
+    pha                         ; remember this row's band colour
     jsr cxov_rect
 
     ; the item's string at x0+4, row_y+1
@@ -767,7 +768,9 @@ wg_p_list
     bne @yok
     inc X16_P3
 @yok
-    lda X16_T0
+    pla                         ; ink contrasts the band: the selected row
+    jsr mn_ink                  ; draws reverse video where the font honours
+    lda X16_T0                  ; the ink (mode 1/3); mode 0 ignores it
     ldx X16_T0+1
     jsr cxov_text
 
@@ -1058,6 +1061,9 @@ wg_paint_t
     ldy #WG_GRP
     lda (CX_M_PTR),y
     sta wg_cntv
+    ldy #WG_W
+    lda (CX_M_PTR),y
+    sta wg_wv
     ldy #WG_TYPE
     lda (CX_M_PTR),y
     sta wg_typv
@@ -1074,7 +1080,7 @@ wg_paint_t
     beq wg_t_list
     cmp #WG_SCROLL
     bne @button
-    jmp wg_t_label              ; a slider: just its label on this canvas
+    jmp wg_t_scroll             ; a slider: [###----] bar
 @button
     ; BUTTON: [ label ]
     lda #<wg_s_lbrk
@@ -1129,7 +1135,36 @@ wg_t_list
     lda wg_rowv
     cmp wg_cntv
     bcs @done
-    lda wg_xv
+    lda wg_xv                   ; fill the row: full width, one cell tall,
+    sta X16_P0                  ; in its background colour. This also sets
+    lda wg_xv+1                 ; the engine's paper (t_bg), so the label
+    sta X16_P1                  ; that lands on the selected row draws in
+    clc                         ; reverse video -- a proper selection bar
+    lda wg_yv                   ; rather than a dark smudge on the paper.
+    adc wg_rowv
+    sta X16_P2
+    lda wg_yv+1
+    adc #0
+    sta X16_P3
+    lda wg_wv
+    sta X16_P4
+    stz X16_P5
+    lda #1
+    sta X16_P6
+    stz X16_P7
+    lda wg_rowv                 ; the selected row's bar is the highlight
+    cmp wg_valv
+    bne @plainbg
+    lda th_hi
+    bra @dofill
+@plainbg
+    lda th_paper
+@dofill
+    pha
+    jsr cxov_rect
+    pla
+    jsr wg_ink                  ; contrasting ink for this row's paper
+    lda wg_xv                   ; re-establish the pen (cxov_rect used P0-P7)
     sta X16_P0
     lda wg_xv+1
     sta X16_P1
@@ -1140,15 +1175,6 @@ wg_t_list
     lda wg_yv+1
     adc #0
     sta X16_P3
-    lda wg_rowv                 ; the selected row reverses
-    cmp wg_valv
-    bne @plain
-    lda th_hi
-    bra @rink
-@plain
-    lda th_paper
-@rink
-    jsr wg_ink
     lda wg_rowv                 ; label = array[row]: reload the zp ptr,
     asl                         ; read the element, THEN draw (cxov_text
     clc                         ; may clobber the ptr, not the element)
@@ -1166,9 +1192,80 @@ wg_t_list
     pla
     jsr cxov_text
     inc wg_rowv
-    bra @row
+    jmp @row
 @done
     rts
+
+; a slider: "[" + a filled/empty track + "]", filled = val*inner/max.
+; inner = W-2 track cells; each drawn as a single glyph so the pen walks.
+wg_t_scroll
+    lda #<wg_s_lbrk
+    ldx #>wg_s_lbrk
+    jsr cxov_text
+    lda wg_wv                   ; inner track width (guard tiny widgets)
+    sec
+    sbc #2
+    bcs @haveinner
+    lda #1
+@haveinner
+    sta wg_inner
+    stz wg_prod                 ; prod = val * inner
+    stz wg_prod+1
+    ldx wg_valv
+    beq @divd
+@mul
+    clc
+    lda wg_prod
+    adc wg_inner
+    sta wg_prod
+    bcc @mnc
+    inc wg_prod+1
+@mnc
+    dex
+    bne @mul
+@divd
+    ldx #0                      ; filled = prod / max (repeated subtraction)
+    lda wg_cntv
+    beq @qdone                  ; max 0 -> nothing filled
+@dloop
+    lda wg_prod+1
+    bne @sub
+    lda wg_prod
+    cmp wg_cntv
+    bcc @qdone
+@sub
+    sec
+    lda wg_prod
+    sbc wg_cntv
+    sta wg_prod
+    lda wg_prod+1
+    sbc #0
+    sta wg_prod+1
+    inx
+    bra @dloop
+@qdone
+    stx wg_filled
+    stz wg_barx                 ; walk the inner cells
+@cell
+    lda wg_barx
+    cmp wg_inner
+    bcs @endbar
+    cmp wg_filled
+    bcc @on
+    lda #<wg_s_dot
+    ldx #>wg_s_dot
+    bra @put
+@on
+    lda #<wg_s_fill
+    ldx #>wg_s_fill
+@put
+    jsr cxov_text
+    inc wg_barx
+    bra @cell
+@endbar
+    lda #<wg_s_rbrk
+    ldx #>wg_s_rbrk
+    jmp cxov_text
 
 wg_t_pos                        ; P0/P1 = x, P2/P3 = y (from the locals)
     lda wg_xv
@@ -1192,6 +1289,8 @@ wg_s_con  .byte "[X] ", 0
 wg_s_coff .byte "[ ] ", 0
 wg_s_ron  .byte "(*) ", 0
 wg_s_roff .byte "( ) ", 0
+wg_s_fill .byte "#", 0
+wg_s_dot  .byte "-", 0
 wg_lblv .word 0
 wg_valv .byte 0
 wg_typv .byte 0
@@ -1199,6 +1298,11 @@ wg_cntv .byte 0
 wg_rowv .byte 0
 wg_xv   .word 0
 wg_yv   .word 0
+wg_wv     .byte 0
+wg_inner  .byte 0
+wg_filled .byte 0
+wg_barx   .byte 0
+wg_prod   .word 0
 
 .segment "B2CODE"
 
