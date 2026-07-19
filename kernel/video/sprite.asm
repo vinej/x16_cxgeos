@@ -1,11 +1,11 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/sprite.asm -- VERA hardware sprites, in bank 2
+; CXGEOS :: kernel/video/sprite.asm -- VERA hardware sprites, in bank 19
 ; =====================================================================
-; The x16lib sprite module rides bank 2 behind resident far-call stubs,
-; the same arrangement kernel/audio/audio.asm uses and for the same
-; reason (the resident budget is full). The gate X16_USE_SPRITE stays off
-; in kernel.asm; the source is .included here inside B2CODE.
+; The x16lib sprite module rides bank 19 behind resident far-call stubs,
+; sharing the audio/sprites theme bank with kernel/audio/audio.asm
+; (banks.inc). The gate X16_USE_SPRITE stays off in kernel.asm; the
+; source is .included here inside B19CODE.
 ;
 ; Policy: sprite 0 is the KERNAL's mouse pointer (image at $13000). Apps
 ; drive sprites 1-127 and place their image data in the $1E000 VRAM region
@@ -15,7 +15,7 @@
 ; fields (image, size, position, flags) directly.
 ; =====================================================================
 
-CX_SPRITE_BANK = 2
+CX_SPRITE_BANK = CX_AUD_BANK    ; bank 19 (banks.inc)
 
 ; --- the resident far-call stubs (CODE) ------------------------------
 cx_do_sprite_image
@@ -62,7 +62,7 @@ sprites_reset
     bne @loop
     rts
 
-; --- the banked code (B2CODE) ----------------------------------------
-.segment "B2CODE"
+; --- the banked code (B19CODE) ---------------------------------------
+.segment "B19CODE"
 .include "sprite/sprite.asm"
 .segment "CODE"
