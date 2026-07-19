@@ -88,8 +88,16 @@ EV_SCANLINE   = 0               ; where the hook fires
 ; the app cares -- so they are the two bits. The other sources already
 ; have their own switches: the timer arms with cx_ev_timer, the pads
 ; with cx_joy_enable, PCM by playing.
+;
+; Sprite collision is a THIRD mask bit rather than a sampler: VERA raises
+; its own end-of-frame interrupt, so the mask bit only arms/disarms
+; VERA_IEN's collision source. The kernel's IRQ handler (x16lib) then
+; accumulates the colliding groups into irq_sprcol_mask, which the app
+; reads with cx_spr_collide -- a poll, not an event, and safe to call
+; from a game's own raster handler (it never leaves the resident image).
 EVS_MOUSE     = %00000001
 EVS_KEYS      = %00000010
+EVS_SPRCOL    = %00000100       ; arm VERA's sprite-collision interrupt
 
 ; ---------------------------------------------------------------------
 ; ev_init -- clear the queue and hook scanline 0.
@@ -118,6 +126,9 @@ ev_init
     stz ev_joy_prev,x           ; handler table that never expected them
     dex
     bpl @joy
+    lda #VERA_IRQ_SPRCOL        ; no app inherits a collision subscription:
+    trb VERA_IEN                ; the last app's EVS_SPRCOL would keep VERA
+    stz irq_sprcol_mask         ; raising the interrupt for this one
     lda #EVS_MOUSE|EVS_KEYS     ; the default sources: mouse and keyboard
     sta ev_mask                 ; sampled, exactly the pre-mask behaviour
                                 ; (and the same no-inheritance rule)
@@ -156,6 +167,8 @@ ev_init
 ; between apps: the next app calls cx_ev_init from a clean slate.
 ; ---------------------------------------------------------------------
 ev_stop
+    lda #VERA_IRQ_SPRCOL        ; disarm collisions with the line, so the
+    trb VERA_IEN                ; next app starts from a clean slate
     jmp irq_line_remove
 
 ; ---------------------------------------------------------------------
@@ -213,10 +226,45 @@ ev_handlers
     rts
 
 ; ---------------------------------------------------------------------
-; ev_set_mask -- A = the source mask (EVS_*): which samplers run.
+; ev_set_mask -- A = the source mask (EVS_*): which samplers run, plus
+; the sprite-collision bit which arms VERA's own interrupt.
 ; ---------------------------------------------------------------------
 ev_set_mask
     sta ev_mask
+    php
+    sei                         ; VERA_IEN + the mask are shared with the
+    lda ev_mask                 ; interrupt handler; touch them atomically
+    and #EVS_SPRCOL
+    beq @spr_off
+    lda #VERA_IRQ_SPRCOL        ; arm collisions, drop any stale groups so
+    tsb VERA_IEN                ; the first cx_spr_collide reads this frame's
+    stz irq_sprcol_mask
+    plp
+    rts
+@spr_off
+    lda #VERA_IRQ_SPRCOL
+    trb VERA_IEN
+    plp
+    rts
+
+; ---------------------------------------------------------------------
+; cx_do_spr_collide -- read and clear the sprite-collision groups seen
+; since the last call. Out: A = group bits (the top nibble, one bit per
+; collision group), Z set if none. The groups a sprite belongs to are
+; set with cx_sprite_flags; arm the interrupt with the EVS_SPRCOL bit of
+; cx_ev_mask first, or this always reads zero.
+;
+; Resident and self-contained: a game reads it from its own raster
+; handler (IRQ time), where a far call is forbidden. read-and-clear is
+; bracketed sei/plp so it cannot race the accumulating handler.
+; ---------------------------------------------------------------------
+cx_do_spr_collide
+    php
+    sei
+    lda irq_sprcol_mask
+    stz irq_sprcol_mask
+    plp                         ; plp restores the CALLER's flags, so
+    ora #0                      ; re-derive Z from A afterwards
     rts
 
 ev_frames

@@ -213,7 +213,7 @@ version = 1
 # ones an app does not use. The other sources keep their own switches:
 # the timer arms with cx_ev_timer, the pads with cx_joy_enable, PCM by
 # playing. cx_ev_init resets the mask to 3 (mouse + keyboard).
-87  cx_ev_mask      1   A = a bit mask of sampled sources: bit 0 = mouse, bit 1 = keyboard. With both off and the pads off, the frame tick costs only the timer/PCM gates
+87  cx_ev_mask      1   A = a bit mask of sources: bit 0 = mouse, bit 1 = keyboard (sampled each frame), bit 2 = sprite collision (arms VERA's collision interrupt; read the result with cx_spr_collide). With the samplers off and the pads off, the frame tick costs only the timer/PCM gates
 
 #= pluggable assets
 # The generic loader is how fonts and charsets become disk files: load
@@ -274,3 +274,13 @@ version = 1
 # (an ordinary app) cx_ev_stop simply stops the sampler.
 93  cx_ev_raster    1   A/X = a per-frame handler run on the raster line at scanline 0 (a game's own IRQ), or 0 to remove it. The handler runs in the IRQ (registers + VERA saved around it); keep it short, end with rts. cx_ev_init/cx_ev_stop save and restore it around a dialog
 94  cx_ev_stop      1   stop the sampler cx_ev_init started and return the raster line to the cx_ev_raster handler installed before it; no args. Pairs with cx_ev_init around a modal dialog
+
+#= sprite collision (hardware, poll)
+# VERA raises one interrupt per frame when sprites whose collision groups
+# (cx_sprite_flags, the top nibble) overlap. The kernel's frame handler
+# owns VERA's interrupt register, so it captures the colliding groups for
+# you; a game cannot read them itself. Arm it with the EVS_SPRCOL bit (2)
+# of cx_ev_mask, then read and clear the accumulated groups once a frame
+# with cx_spr_collide -- resident, so it is safe from a cx_ev_raster
+# handler. cx_ev_init disarms it, so no app inherits another's.
+95  cx_spr_collide  1   -> A = the sprite-collision groups seen since the last call (one bit per group, top nibble), Z set if none. Arm with cx_ev_mask bit 2 first

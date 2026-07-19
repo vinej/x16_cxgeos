@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 95                    ; slots
+    .word 96                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -171,7 +171,7 @@ cx_jumptab
     jmp cx_do_gfx_fellipse ; 86  same arguments, filled with spans; no clipping -- keep it on screen
 
 ; --- event sources -----------------------------------------------
-    jmp ev_set_mask      ; 87  A = a bit mask of sampled sources: bit 0 = mouse, bit 1 = keyboard. With both off and the pads off, the frame tick costs only the timer/PCM gates
+    jmp ev_set_mask      ; 87  A = a bit mask of sources: bit 0 = mouse, bit 1 = keyboard (sampled each frame), bit 2 = sprite collision (arms VERA's collision interrupt; read the result with cx_spr_collide). With the samplers off and the pads off, the frame tick costs only the timer/PCM gates
 
 ; --- pluggable assets --------------------------------------------
     jmp cx_do_file_load  ; 88  A/X = filename, Y = length, P0/P1 = destination, P2/P3 = capacity -> carry clear, P4/P5 = bytes read; carry set, A = 1 not there / 2 read error / 3 bigger than the capacity (the first P4/P5 bytes are in)
@@ -187,6 +187,9 @@ cx_jumptab
 ; --- events, cont. -- lending the IRQ to a game ------------------
     jmp ev_raster        ; 93  A/X = a per-frame handler run on the raster line at scanline 0 (a game's own IRQ), or 0 to remove it. The handler runs in the IRQ (registers + VERA saved around it); keep it short, end with rts. cx_ev_init/cx_ev_stop save and restore it around a dialog
     jmp ev_suspend       ; 94  stop the sampler cx_ev_init started and return the raster line to the cx_ev_raster handler installed before it; no args. Pairs with cx_ev_init around a modal dialog
+
+; --- sprite collision (hardware, poll) ---------------------------
+    jmp cx_do_spr_collide ; 95  -> A = the sprite-collision groups seen since the last call (one bit per group, top nibble), Z set if none. Arm with cx_ev_mask bit 2 first
 
 .popseg
 

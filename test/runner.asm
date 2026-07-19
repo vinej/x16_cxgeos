@@ -72,6 +72,7 @@ main
     jsr test_ev_null
     jsr test_ev_joy_reset
     jsr test_ev_mask
+    jsr test_spr_collide
     jsr test_ev_borrow
 
     jsr test_abi_header
@@ -1270,6 +1271,45 @@ test_ev_mask
 @name .byte "EV_MASK", 0
 
 ; ---------------------------------------------------------------------
+; SPR_COLLIDE: the EVS_SPRCOL mask bit arms/disarms VERA's collision
+; interrupt, and cx_spr_collide reads-and-clears the accumulated groups.
+; (The collision itself is hardware; here we drive the plumbing that the
+; handler and the poll share.)
+; ---------------------------------------------------------------------
+test_spr_collide
+    lda #EVS_MOUSE|EVS_KEYS|EVS_SPRCOL   ; arm collisions
+    jsr ev_set_mask
+    ldy #1
+    lda VERA_IEN                ; the collision source is enabled now
+    and #VERA_IRQ_SPRCOL
+    beq @report
+
+    lda #$50                    ; stand in for what the handler accumulates
+    sta irq_sprcol_mask         ; (groups 4 and 6, ISR bits 7:4)
+    jsr cx_do_spr_collide       ; reads them back...
+    cmp #$50
+    bne @report
+    beq @nz                     ; ...nonzero, so Z was clear
+    ldy #2
+    bne @report
+@nz
+    jsr cx_do_spr_collide       ; ...and cleared: the second read is 0, Z set
+    bne @report
+
+    lda #EVS_MOUSE|EVS_KEYS     ; disarm: the collision source goes off
+    jsr ev_set_mask
+    lda VERA_IEN
+    and #VERA_IRQ_SPRCOL
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "SPR_COLLIDE", 0
+
+; ---------------------------------------------------------------------
 ; ev_init / ev_suspend (cx_ev_stop) -- lending the raster line to a game.
 ; A game owns the line for smooth motion; cx_ev_init borrows it for a
 ; dialog and cx_ev_stop hands it back. Pin the save/restore: the single
@@ -1363,13 +1403,13 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #95                     ; 31 shipped with the table; loader, events,
+    cmp #96                     ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the
                                 ; graphics port, tiles, ellipses, asset loaders,
                                 ; the modal panel, the game raster + its
-                                ; borrow/return pair -- grew it
+                                ; borrow/return pair, sprite collision -- grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
