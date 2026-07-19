@@ -464,11 +464,13 @@ ov3_measure
 ; which ov3_init runs) puts the map at VRAM $1B000, 128-cell stride (256
 ; bytes a line). VERA port 1 does the streaming so port 0 -- the
 ; mouse's -- is undisturbed; interrupts are masked so nothing flips
-; ADDRSEL mid-copy. The store is bank 6 (the CXF glyph cache, which text
-; mode never uses); one bank holds 51 lines and a dropdown is at most a
-; dozen, so no bank wrap.
+; ADDRSEL mid-copy. The store is bank 14 (the dialog save-under bank);
+; one bank holds 51 lines and a dropdown or panel is at most that, so no
+; bank wrap. NOT bank 6: that is the CXF glyph cache, and although text
+; mode never reads it, the mode-0 desktop returned to on exit does --
+; stomping it there corrupted the desktop font after a TUI dialog.
 T3_MAPM = $B0                   ; $1B000 middle byte; low = 0, high = $01
-T3_SBANK = 6                    ; the save store (font cache, idle in text)
+T3_SBANK = 14                   ; the save store (dialog save-under bank)
 ov3_rsave
     ldx #0                      ; VRAM -> RAM
     bra ov3_sr

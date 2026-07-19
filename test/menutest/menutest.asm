@@ -694,6 +694,56 @@ main
     lda #'e'
     jmp fail
 @pn4
+    ; ---- a mode-3 dialog must not stomp the mode-0 font cache --------
+    ; The text engine's save-under once borrowed bank 6 -- the glyph
+    ; cache, idle in text mode -- but the desktop returned to on exit
+    ; reads it, so a dialog raised inside the TUI corrupted the desktop
+    ; font. Plant a sentinel in the cache, raise a dialog in mode 3, and
+    ; it must survive.
+    lda RAM_BANK
+    pha
+    lda #6
+    sta RAM_BANK
+    lda $A000
+    sta got_menu                ; keep the real cache byte
+    lda #$5A
+    sta $A000                   ; the sentinel
+    pla
+    sta RAM_BANK
+
+    lda #3                      ; into text mode
+    jsr cx_gfx_mode
+    lda #EV_KEY                 ; RETURN closes the alert on button 0
+    sta X16_P0
+    lda #$0D
+    sta X16_P1
+    stz X16_P2
+    stz X16_P3
+    stz X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jsr cx_ev_post
+    lda #<dlg1
+    ldx #>dlg1
+    jsr cx_dlg_alert
+    lda #0                      ; back to the desktop mode
+    jsr cx_gfx_mode
+
+    lda RAM_BANK
+    pha
+    lda #6
+    sta RAM_BANK
+    ldx $A000                   ; the cache byte after the excursion
+    lda got_menu
+    sta $A000                   ; the real byte back, before any branch
+    pla
+    sta RAM_BANK
+    cpx #$5A
+    beq @f3ok
+    lda #'f'
+    jmp fail
+@f3ok
 
 menu_ok
     lda #<s_ok

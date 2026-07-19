@@ -2,12 +2,6 @@
 
 A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
 
-Not a port. The earlier `X16_Geos` project migrated the original C64 GEOS 2.0
-to the X16 and proved the concept — and its ceiling: 320×200, proprietary app
-binaries, a patched KERNAL ROM. CXGEOS is the clean break:
-
-- **640×480 @ 4 colors** (VERA layer 0, 2bpp bitmap) — crisp, proportional
-  fonts everywhere, color-schemable UI. Since 0.3.0 the desktop is one of
   **four video modes** behind a pluggable graphics port (`cx_mode`, see
   [docs/graphics-port.md](docs/graphics-port.md)) — the same drawing
   calls, reinterpreted per canvas:
@@ -112,57 +106,6 @@ The kernel gates `X16_USE_BITMAP2`, which since 0.4.1 asks VERAFX for
 `_FILL` alone rather than all 2.5 KB of it. That is worth 2,162 bytes of
 the resident budget and is why the image fits.
 
-## Status
-
-- Phase 0 done — bootstrap and risk spikes all green with measured
-  numbers (`docs/perf.md`): fx_fill 1.25 frames/screen, 160 masked
-  glyphs/frame, 22–31 scanline event dispatch.
-- **Phase 1 done** — the 2bpp primitives live upstream now, as
-  x16_library's `gfx2` module (`X16_USE_BITMAP2`: init, clear, pset,
-  read, hline/vline, rect/frame, line, patterns, blits). Byte-identical
-  across all 7 assembler dialects, and ported to all 5 of x16_clib's C
-  toolchains — shipped as **x16lib 0.4.0** and **x16clib 0.3.0**.
-  CXGEOS consumes it through `x16lib/`. The kernel-side dirty-rectangle
-  list is in (`kernel/gfx2/dirty.asm`: merge + cascade, coverage never
-  drops) and the torture demo runs (`demos/torture.asm`: every primitive
-  in one scene, 40 JF — the perf regression gate in `docs/perf.md`).
-- **Phase 2 in progress** — the font engine. CXF (`docs/formats.md`),
-  `tools/fontconv.py` (BDF→CXF, 14 host tests), and `pxl8`: the X16's
-  own public-domain ISO charset made proportional by trimming each
-  cell's blank columns — 95 glyphs, 871 bytes, widths 2–8px averaging
-  5.7, so text is ~29% shorter than the 8-pixel grid.
-  `kernel/font/font.asm` caches every glyph pre-shifted to all four
-  pixel phases in banked RAM and draws through `gfx2_blitm`: **98.7
-  glyphs/frame**, a 40-character menu bar in 0.41 frames; bold (a
-  double strike) and underline cost nothing when off. See
-  `demos/specimen.asm`. Still to come: a second face, which is when
-  the cache needs eviction rather than three fixed banks.
-- **Phase 3 done** — the event system. A raster hook at scanline 0
-  samples the mouse, decodes its button edges, drains the keyboard and
-  ticks a timer; each becomes a typed record in a 16-deep queue, and
-  `ev_dispatch` hands it to the app's handler for that type. An app is
-  a table of vectors and a call to `ev_mainloop`. Buttons and keys are
-  never dropped silently (a full queue counts the loss); mouse moves
-  coalesce so the pointer cannot lag behind the hand. Milestone:
-  `demos/evmon.asm`.
-- **Phase 4 done** — the ABI, and the machine that honours it.
-  `abi/cxgeos.abi` is the manifest: 92 append-only slots (and counting), from which
-  `abi/gen_bindings.py` generates the jump table at `$8010` and
-  bindings for all 12 toolchains (7 `.inc`, 5 `.h`).
-  `kernel/resident/impl.inc` maps each ABI promise to the kernel
-  routine behind it, so code can be renamed or moved without an app
-  noticing; `.\build.ps1 -Test` fails if `sdk/` has drifted from the
-  manifest. On top of it: `AUTOBOOT.X16` boots the kernel and the
-  system font off a stock R49 SD root with no ROM patch; the CXAP app
-  format (`docs/formats.md`) turns any toolchain's stock PRG into an
-  app by prepending 32 bytes (`tools/mkcxap.py`); `cx_app_load`
-  validates before it overwrites and refuses with the caller intact;
-  `cx_exit` reloads the shell from disk, so the launch-and-return loop
-  is closed. Proven headless on every `-Test`: the committed canary
-  binary (the ABI freeze test), `apps/hello_asm` (ca65) and
-  `apps/hello_c` (llvm-mos, through the sdk's `cx_run()` veneer — see
-  `docs/formats.md` for why C must not touch `$22` on that compiler)
-  each boot, run, and come back to the shell.
 
 ## License
 
@@ -170,3 +113,5 @@ the resident budget and is why the image fits.
 upstream [x16_library](https://github.com/vinej/x16_library) license; the
 stock ROM and the emulator are third-party and not distributed here (see
 Building).
+
+![CXGEOS](cxgeos.jpg)
