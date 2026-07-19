@@ -19,10 +19,12 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 97                    ; slots
+    .word 99                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
-    .res 6, 0                   ; reserved
+cx_hdr_shell
+    .byte 0                     ; $800A desktop state, kept across app loads
+    .res 5, 0                   ; reserved
 
 .segment "JUMPTAB"
 cx_jumptab
@@ -193,6 +195,10 @@ cx_jumptab
 
 ; --- icons (a 24x24 bitmap from the built-in sheet) --------------
     jmp cx_do_icon       ; 96  A = icon id (0-7), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it)
+
+; --- palette (VERA's 256-entry colour table at $1FA00) -----------
+    jmp cx_do_pal_set    ; 97  X = index (0-255), A = low byte (Green<<4|Blue), Y = high byte (Red) -- set one entry
+    jmp cx_do_pal_load   ; 98  P0/P1 = source (2 bytes/entry, low byte first), A = first index, X = count (1-128) -- bulk-load entries from RAM
 
 .popseg
 

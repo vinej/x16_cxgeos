@@ -49,6 +49,19 @@
 #define CX_WG_FIELD   4
 #define CX_WG_LIST    5
 #define CX_WG_ICON    6         /* a 24x24 icon tile; `val` is the icon id */
+#define CX_WG_HIT     7         /* an invisible hit region the app draws itself:
+                                   `val` = shape (CX_WH_*), inscribed in x/y/w/h;
+                                   `grp` = trigger mask (CX_WH_CLICK/RELEASE/
+                                   HOVER; 0 = click). Posts EV_WIDGET(index,
+                                   phase): 2 down, 3 up, 1 hover-in, 0 hover-out */
+
+/* --- CX_WG_HIT shapes (a record's `val`) and triggers (its `grp`) --- */
+#define CX_WH_RECT    0
+#define CX_WH_CIRCLE  1         /* inscribed in the box; box <= 510 wide/tall  */
+#define CX_WH_ELLIPSE 2
+#define CX_WH_CLICK   0x01
+#define CX_WH_RELEASE 0x02
+#define CX_WH_HOVER   0x04
 
 /* --- icon ids (cx_icon / a CX_WG_ICON record's `val`) --------------- */
 #define CX_ICON_UP        0
@@ -167,7 +180,8 @@ static void cx_clear(unsigned char color) { cx_call_a(CX_GFX_CLEAR, color); }
 /* switch the graphics mode: 0 ok, nonzero unknown. VERA is reprogrammed
  * and the screen shows the new mode's canvas -- draw everything fresh.
  * In CX_MODE_BMP8, pattern/blit calls refuse (carry) and colours are
- * 0-255 (set the palette with cx_vram_write at 0x1FA00, 2 bytes/entry).
+ * 0-255 (set the palette with cx_pal_set / cx_pal_load, or a whole block
+ * with cx_vram_write at 0x1FA00, 2 bytes/entry).
  * In CX_MODE_TEXT coordinates are cells (0-79 x 0-59): clear/rect fill
  * cells (and set the paper), frame draws a PETSCII box, hline/vline are
  * ruled lines, cx_line rules horizontally or vertically (diagonals
@@ -254,6 +268,26 @@ static char cx_flood(unsigned x, unsigned y, unsigned char color) {
     CX__W(0, x); CX__W(2, y);
     cx_call_a(CX_GFX_FLOOD, color);
     return cx_c;
+}
+
+/* draw a built-in 24x24 icon (id 0-7: up folder app font accessory data
+ * image disk) at (x, y). Modes 0 and 1 only. */
+static void cx_icon(unsigned char id, unsigned x, unsigned y) {
+    CX__W(0, x); CX__W(2, y);
+    cx_call_a(CX_ICON, id);
+}
+
+/* set one VERA palette entry: `rgb` is a 12-bit 0x0RGB (0x0F00 = red). */
+static void cx_pal_set(unsigned char index, unsigned rgb) {
+    cx_y = (unsigned char)(rgb >> 8);                 /* R */
+    cx_call_ax(CX_PAL_SET, (unsigned char)rgb, index); /* A = G<<4|B, X = index */
+}
+/* bulk-load `count` (1-128) palette entries from `src` (2 bytes each,
+ * low byte first) starting at entry `first`. */
+static void cx_pal_load(const void *src, unsigned char first,
+                        unsigned char count) {
+    CX__W(0, (unsigned)src);
+    cx_call_ax(CX_PAL_LOAD, first, count);            /* A = first, X = count */
 }
 
 /* =====================================================================
@@ -452,6 +486,7 @@ static void cx_post(const cx_event *ev) {
 static void          cx_timer(unsigned char frames) { cx_call_a(CX_EV_TIMER, frames); }
 static unsigned char cx_frames(void) { return cx_ret(CX_EV_FRAMES); }
 static void          cx_mainloop(void) { cx_call(CX_EV_MAINLOOP); }
+static void          cx_dispatch(void) { cx_call(CX_EV_DISPATCH); }
 static void          cx_handlers(const void *table) { cx_call_p(CX_EV_HANDLERS, table); }
 
 /* which sources the frame tick samples (0.3.2). The mouse's SMC
@@ -644,6 +679,9 @@ static void cx_sprite_flags(unsigned char s, unsigned char flags) {
 static void cx_sprite_z(unsigned char s, unsigned char z) {
     cx_x = s; cx_call_a(CX_SPRITE_Z, z);
 }
+/* poll sprite collisions: returns the groups seen since the last call (one
+ * bit per group, top nibble), 0 if none. Arm with cx_ev_mask bit 2 first. */
+static unsigned char cx_spr_collide(void) { return cx_ret(CX_SPR_COLLIDE); }
 
 /* =====================================================================
  * loader and desk accessories

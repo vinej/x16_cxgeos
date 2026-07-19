@@ -50,6 +50,13 @@ GROWS  = 6
 PERPAGE = GCOLS * GROWS         ; 36 icons a page
 MAXICON = PERPAGE
 
+; The kernel's cx_hdr_shell header byte ($800A): resident, so unlike the
+; desktop's own RAM it survives an app launch and the cx_exit back. The
+; view mode lives here, so returning from a program lands in the same view
+; it was launched from -- the directory still resets to root (above), but
+; list-vs-icons is a preference and should stick.
+CX_SHELL_STATE = $800A
+
 ; app zero page ($60-$7F is the app's)
 poolp = $60                     ; the pool write head / a name walker
 iwp   = $62                     ; the icon record write head, (zp),y
@@ -93,8 +100,18 @@ main
     lda #<bar
     ldx #>bar
     jsr cx_menu_set
+    lda CX_SHELL_STATE          ; the view the last desktop left (0 at cold
+    and #1                      ; boot); an app launch does not clear it
+    sta viewmode
+    beq @vlist
+    jsr build_icons             ; icons: lay the grid, then install it
+    lda #<iwbuf
+    ldx #>iwbuf
+    bra @vset
+@vlist
     lda #<widgets
     ldx #>widgets
+@vset
     jsr cx_wg_set
     lda #1                      ; the arrow
     jsr cx_mouse_show
@@ -747,6 +764,7 @@ on_menu
 @view
     lda X16_P1                  ; 0 = list, 1 = icons
     sta viewmode
+    sta CX_SHELL_STATE          ; remember it across the next app launch
     stz iconpage                ; a view change starts at the first page
     jmp set_view
 @theme

@@ -291,3 +291,12 @@ version = 1
 # mode 0 blits it, mode 1 expands each 2-bit index to an 8bpp pixel.
 # ids: 0 up, 1 folder, 2 app, 3 font, 4 accessory, 5 data, 6 image, 7 disk.
 96  cx_icon         1   A = icon id (0-7), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it)
+
+#= palette (VERA's 256-entry colour table at $1FA00)
+# Program palette entries directly -- most useful to a mode-1 (8bpp) app
+# that wants a few custom colours without loading a whole 512-byte block
+# through cx_vload. A 12-bit $0RGB colour stores as byte 0 = Green<<4|Blue,
+# byte 1 = Red (so $0F00 is pure red). The table is write-only: reads
+# return the last host write, not the hardware state.
+97  cx_pal_set      1   X = index (0-255), A = low byte (Green<<4|Blue), Y = high byte (Red) -- set one entry
+98  cx_pal_load     1   P0/P1 = source (2 bytes/entry, low byte first), A = first index, X = count (1-128) -- bulk-load entries from RAM

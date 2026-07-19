@@ -82,6 +82,8 @@ main
     jsr test_rg_stack
     jsr test_rg_route
     jsr test_ev_region
+    jsr test_wg_hit
+    jsr test_wg_hit_route
     jsr test_farcall
     jsr test_vrows
     jsr test_mouse
@@ -118,6 +120,219 @@ dr_put
     dey
     bpl @copy
     jmp dr_add
+
+; WG_HIT: the ellipse hit test (kernel/ui/widget.asm). An ellipse at box
+; (100,100,80,40) -> centre (140,120), rx 40, ry 20. Points inside/outside,
+; on the edge, and one in the box but outside the ellipse.
+test_wg_hit
+    lda #<@rec
+    sta CX_M_PTR
+    lda #>@rec
+    sta CX_M_PTR+1
+    ldy #1                      ; Y = fail; cleared to 0 only if all pass
+
+    lda #140                    ; centre -> inside
+    sta X16_P2
+    stz X16_P3
+    lda #120
+    sta X16_P4
+    stz X16_P5
+    jsr wg_hit_ellipse
+    bcc @report
+
+    lda #<300                   ; far outside -> outside
+    sta X16_P2
+    lda #>300
+    sta X16_P3
+    lda #<300
+    sta X16_P4
+    lda #>300
+    sta X16_P5
+    jsr wg_hit_ellipse
+    bcs @report
+
+    lda #180                    ; the +x vertex (cx+rx) -> inside (boundary)
+    sta X16_P2
+    stz X16_P3
+    lda #120
+    sta X16_P4
+    stz X16_P5
+    jsr wg_hit_ellipse
+    bcc @report
+
+    lda #181                    ; one past the vertex -> outside
+    sta X16_P2
+    stz X16_P3
+    lda #120
+    sta X16_P4
+    stz X16_P5
+    jsr wg_hit_ellipse
+    bcs @report
+
+    lda #175                    ; inside the box, outside the ellipse
+    sta X16_P2
+    stz X16_P3
+    lda #135
+    sta X16_P4
+    stz X16_P5
+    jsr wg_hit_ellipse
+    bcs @report
+
+    ldy #0                      ; every case matched
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "WG_HIT", 0
+@rec
+    .byte WG_HIT, 0             ; type, flags
+    .word 100, 100             ; x, y
+    .word 80                   ; w
+    .byte 40                   ; h
+    .byte WH_ELLIPSE           ; WG_VAL = shape
+    .byte 0                    ; WG_GRP
+    .word 0                    ; WG_LBL
+    .byte 0, 0, 0              ; pad to WG_SIZE (16)
+
+; WG_HIT_R: the full routing over a TWO-widget list -- a synthetic mouse event
+; through wg_hit posts EV_WIDGET with the right index for a hit and nothing for
+; a miss. The second region proves wg_rec's 16-byte stride: a short record would
+; misalign it onto a real painter (the demo's original bug).
+test_wg_hit_route
+    jsr ev_init
+    lda #$FF
+    sta wg_drag                 ; no scrollbar drag in progress
+    lda #<@list
+    ldx #>@list
+    jsr wg_setup                ; two WG_HIT widgets, no-op painted
+    ldy #1
+
+    lda #EV_MOUSE_DOWN          ; a press inside widget 0 (the rect)
+    sta X16_P0
+    lda #40
+    sta X16_P2
+    stz X16_P3
+    lda #30
+    sta X16_P4
+    stz X16_P5
+    jsr wg_hit
+    jsr ev_get
+    lda X16_P0
+    cmp #EV_WIDGET
+    bne @r2
+    lda X16_P1                  ; index 0
+    bne @r2
+
+    lda #EV_MOUSE_DOWN          ; a press inside widget 1 (the ellipse centre)
+    sta X16_P0
+    lda #140
+    sta X16_P2
+    stz X16_P3
+    lda #120
+    sta X16_P4
+    stz X16_P5
+    jsr wg_hit
+    jsr ev_get
+    lda X16_P0
+    cmp #EV_WIDGET
+    bne @r2
+    lda X16_P1                  ; index 1 -- the stride is right
+    cmp #1
+    bne @r2
+
+    lda #EV_MOUSE_DOWN          ; a press outside both -> nothing
+    sta X16_P0
+    lda #<300
+    sta X16_P2
+    lda #>300
+    sta X16_P3
+    lda #<300
+    sta X16_P4
+    lda #>300
+    sta X16_P5
+    jsr wg_hit
+    jsr ev_count
+    bne @r2
+    bra @cont
+@r2
+    jmp @report                 ; the checks above are too far for a short branch
+@cont
+
+    lda #<@list                 ; re-park to reset wg_hover
+    ldx #>@list
+    jsr wg_setup
+    lda #$FF
+    sta wg_drag
+    lda #EV_MOUSE_MOVE          ; a hover-in over widget 1
+    sta X16_P0
+    lda #140
+    sta X16_P2
+    stz X16_P3
+    lda #120
+    sta X16_P4
+    stz X16_P5
+    jsr wg_hit
+    jsr ev_count                ; one enter EV_WIDGET queued?
+    cmp #1
+    bne @report
+
+    lda #<@click                ; a click-only list: hover is gated OFF, so a
+    ldx #>@click                ; MOVE over it does no work and posts nothing
+    jsr wg_setup
+    lda #$FF
+    sta wg_drag
+    lda #EV_MOUSE_MOVE
+    sta X16_P0
+    lda #40
+    sta X16_P2
+    stz X16_P3
+    lda #30
+    sta X16_P4
+    stz X16_P5
+    jsr wg_hit
+    jsr ev_count
+    bne @report                 ; expected nothing
+
+    ldy #0
+@report
+    jsr rg_reset
+    jsr ev_stop
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "WG_HIT_R", 0
+@click                          ; one WG_HIT rect, click-only (no WH_HOVER)
+    .byte 1
+    .byte WG_HIT, 0
+    .word 10, 10
+    .word 60
+    .byte 40
+    .byte WH_RECT
+    .byte WH_CLICK
+    .word 0
+    .byte 0, 0, 0
+@list
+    .byte 2
+    ; widget 0: a rect, box (10,10) 60x40
+    .byte WG_HIT, 0
+    .word 10, 10
+    .word 60
+    .byte 40
+    .byte WH_RECT
+    .byte WH_CLICK | WH_HOVER
+    .word 0
+    .byte 0, 0, 0
+    ; widget 1: an ellipse, box (100,100) 80x40 -> centre (140,120)
+    .byte WG_HIT, 0
+    .word 100, 100
+    .word 80
+    .byte 40
+    .byte WH_ELLIPSE
+    .byte WH_CLICK | WH_HOVER
+    .word 0
+    .byte 0, 0, 0
 
 ; DR_ADD: one rect stored with inclusive corners
 test_dr_add
@@ -1403,13 +1618,14 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #97                     ; 31 shipped with the table; loader, events,
+    cmp #99                     ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the
                                 ; graphics port, tiles, ellipses, asset loaders,
                                 ; the modal panel, the game raster + its
-                                ; borrow/return pair, sprite collision -- grew it
+                                ; borrow/return pair, sprite collision, the icon,
+                                ; the palette pair -- grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
@@ -2582,6 +2798,7 @@ test_font_bank
 .include "kernel/video/engine0.asm"
 .include "kernel/video/shapes.asm"
 .include "kernel/video/tiles.asm"
+.include "kernel/video/pal.asm"
 .include "kernel/video/text.asm"
 .include "kernel/fs/dosglue.asm"
 .include "kernel/event/event.asm"

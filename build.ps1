@@ -189,6 +189,7 @@ function Build-Apps {
         @{ src = "apps\hello_asm\hello.asm";    prg = "HELLO1";   name = "Hello (asm)" },
         @{ src = "test\menutest\menutest.asm";  prg = "MENUTEST"; name = "Menu test" },
         @{ src = "apps\gallery\gallery.asm";     prg = "GALLERY";  name = "Widget gallery" },
+        @{ src = "apps\hittest\hittest.asm";     prg = "HITTEST";  name = "Hit regions" },
         @{ src = "apps\cpanel\cpanel.asm";       prg = "CPANEL";   name = "Control panel" },
         @{ src = "apps\tui\tui.asm";             prg = "TUI";      name = "Toolkit (text)" },
         @{ src = "apps\m1ui\m1ui.asm";           prg = "M1UI";     name = "Toolkit (8bpp)" },
@@ -263,6 +264,7 @@ function Stage-SdRoot {
     Copy-Item (Join-Path $build "SHELL.CXA")     $sdroot
     Copy-Item (Join-Path $build "HELLO1.CXA")    $sdroot
     Copy-Item (Join-Path $build "GALLERY.CXA")   $sdroot
+    Copy-Item (Join-Path $build "HITTEST.CXA")   $sdroot
     Copy-Item (Join-Path $build "CPANEL.CXA")    $sdroot
     Copy-Item (Join-Path $build "TUI.CXA")       $sdroot
     Copy-Item (Join-Path $build "M1UI.CXA")      $sdroot

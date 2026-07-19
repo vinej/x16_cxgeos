@@ -88,6 +88,7 @@ X16_USE_SCREEN_CORE = 1         ; mode 3 (text) draws through the KERNAL
 .include "kernel/video/engine1.asm"
 .include "kernel/video/shapes.asm"
 .include "kernel/video/tiles.asm"
+.include "kernel/video/pal.asm"
 .include "kernel/video/text.asm"
 ; the fs/system modules ride bank 18 now (dir/fileload/assets/dosglue);
 ; dirty.asm rides bank 17. Only menu.asm + theme.asm + da.asm are left

@@ -50,6 +50,26 @@ WG_ICON   = 6                   ; an icon tile (the desktop's icon view):
                                 ; the cell. A single click posts
                                 ; EV_WIDGET(index, 0), a double-click
                                 ; (index, 1) -- select vs open.
+WG_HIT    = 7                   ; an INVISIBLE hit region -- a hotspot the app
+                                ; draws itself; the toolkit only routes the
+                                ; mouse. WG_VAL = shape (WH_*), inscribed in
+                                ; WG_X/Y/W/H; WG_GRP = trigger mask (bit0 click,
+                                ; bit1 release, bit2 hover; 0 = click-only). It
+                                ; posts EV_WIDGET(index, phase) where phase is
+                                ; the mouse event (2 down, 3 up, 1 hover-in,
+                                ; 0 hover-out) and paints nothing.
+
+; WG_HIT shapes (WG_VAL). Circle and ellipse are inscribed in the box; a
+; circle is just an ellipse with a square box. Semi-axes are bytes, so a
+; round region spans at most ~510 px -- a bigger one should use WH_RECT.
+WH_RECT    = 0
+WH_CIRCLE  = 1
+WH_ELLIPSE = 2
+
+; WG_HIT trigger mask (WG_GRP)
+WH_CLICK   = %001
+WH_RELEASE = %010
+WH_HOVER   = %100
 
 WG_TOP    = 13                  ; list scroll offset (a pad byte)
 WL_ROWH   = 10                  ; a list row's height
@@ -122,8 +142,9 @@ wg_setup
     ldy #0
     lda (CX_M_PTR),y            ; the count
     sta wg_n
-    lda #$FF                    ; a fresh list starts unfocused
-    sta wg_focus
+    lda #$FF                    ; a fresh list starts unfocused, and over no
+    sta wg_focus                ; hit region
+    sta wg_hover
     jmp wg_draw_all
 
 ; wg_restore -- put back the widget context wg_setup parked. The panel
@@ -290,12 +311,23 @@ wg_draw
     jmp wg_draw_all
 
 wg_draw_all
-    stz wg_i
+    stz wg_hover_on             ; recomputed here: is any WG_HIT asking for
+    stz wg_i                    ; hover? If not, the MOVE path skips its walk.
 @loop
     lda wg_i
     cmp wg_n
     bcs @done
     jsr wg_rec
+    ldy #WG_TYPE
+    lda (CX_M_PTR),y
+    cmp #WG_HIT
+    bne @paint
+    ldy #WG_GRP
+    lda (CX_M_PTR),y
+    and #WH_HOVER
+    beq @paint
+    sta wg_hover_on            ; a hit region wants hover: arm the flag
+@paint
     jsr wg_paint
     inc wg_i
     bra @loop
@@ -379,6 +411,8 @@ wg_paint
 @gfx
     ldy #WG_TYPE
     lda (CX_M_PTR),y
+    cmp #WG_HIT                 ; a hit region is invisible: the app owns the
+    beq wg_nopaint             ; pixels, the toolkit only routes the mouse
     cmp #WG_BUTTON              ; the painters are pages apart: jmp, not
     bne @nb                     ; branch, to reach them
     jmp wg_p_button
@@ -400,6 +434,8 @@ wg_paint
     jmp wg_p_icon
 @ntog
     jmp wg_p_toggle             ; check and radio share a box and a label
+wg_nopaint                      ; WG_HIT and any future invisible type
+    rts
 
 ; a push button: a framed box, its label centred, filled with the
 ; highlight when pressed (WG_VAL != 0).
@@ -1251,6 +1287,10 @@ wg_paint_t
     lda (CX_M_PTR),y
     sta wg_typv
 
+    cmp #WG_HIT                 ; a hit region is invisible in every mode
+    bne @shown
+    rts
+@shown
     jsr wg_t_pos                ; P0/P1 = x, P2/P3 = y
     lda wg_typv
     cmp #WG_CHECK
@@ -1487,6 +1527,14 @@ wg_filled .byte 0
 wg_barx   .byte 0
 wg_prod   .word 0
 
+; WG_HIT scratch + state
+wh_t      .byte 0               ; a semi-axis / a wanted trigger bit
+wh_cx     .word 0               ; a shape centre (x or y)
+wh_d      .word 0               ; a signed delta / a saved index / a phase
+wh_acc    .word 0               ; nx^2 + ny^2
+wg_hover  .byte $FF             ; the WG_HIT index the pointer is over ($FF none)
+wg_hover_on .byte 0             ; any WG_HIT wants hover? (else MOVE skips the walk)
+
 .segment "B16CODE"
 
 wg_label_ptr                    ; X16_T0 = the record's label pointer
@@ -1513,41 +1561,34 @@ wg_hit
     beq @release
     rts
 @release
-    lda wg_drag                 ; nothing dragging: done
-    bmi @none
+    lda wg_drag                 ; finishing a scrollbar drag?
+    bmi @rel_hit                ; no: it may be a WG_HIT release
     sta wg_i
     jsr wg_rec
     lda #$FF                    ; clear first, so the repaint snaps the
     sta wg_drag                 ; thumb to the (quantised) value
     jmp wg_paint
+@rel_hit
+    jsr wg_locate               ; a hit region under the point that wants UP?
+    bcc @none
+    lda #WH_RELEASE
+    ldx #EV_MOUSE_UP
+    jmp wg_hit_fire
 @drag
     lda wg_drag                 ; a scrollbar being dragged? (else $FF)
-    bmi @none
+    bmi @hover
     sta wg_i
     jsr wg_rec
     jsr wg_scroll_to           ; the thumb follows the mouse x, clamped
     jmp wg_post_val            ; A = value; EV_WIDGET(index, value)
+@hover
+    jmp wg_hit_hover           ; MOVE with no drag: WG_HIT enter/leave
 @press
     sta wg_evt                  ; which press this was, for wg_act
     lda #$FF                    ; a fresh press ends any stale drag (an UP
     sta wg_drag                 ; released outside the region is not seen)
-    ; which widget? walk the list, first whose box contains the point.
-    stz wg_i
-@find
-    lda wg_i
-    cmp wg_n
-    bcs @none
-    jsr wg_rec
-    ldy #WG_FLAGS               ; a disabled widget is not hit
-    lda (CX_M_PTR),y
-    and #WG_DISABLED
-    bne @next
-    jsr wg_inside
-    bcs @got
-@next
-    inc wg_i
-    bra @find
-@got
+    jsr wg_locate               ; the top widget whose box (+ shape) holds it
+    bcc @none
     ldy #WG_TYPE               ; a press on a scrollbar begins a drag:
     lda (CX_M_PTR),y           ; the thumb tracks the mouse until UP
     cmp #WG_SCROLL
@@ -1557,6 +1598,71 @@ wg_hit
 @act
     jmp wg_act
 @none
+    rts
+
+; wg_locate -- find the top widget under the event point (P2/P3 x, P4/P5 y):
+; carry set with wg_i = its index and CX_M_PTR = its record, else carry clear.
+; A disabled widget is skipped; a WG_HIT is refined from its box to its shape.
+wg_locate
+    stz wg_i
+@lp
+    lda wg_i
+    cmp wg_n
+    bcs @miss
+    jsr wg_rec
+    ldy #WG_FLAGS
+    lda (CX_M_PTR),y
+    and #WG_DISABLED
+    bne @skip
+    jsr wg_inside               ; in the bounding box?
+    bcc @skip
+    jsr wg_hit_refine           ; and inside the actual shape? (WG_HIT only)
+    bcs @hit
+@skip
+    inc wg_i
+    bra @lp
+@hit
+    sec
+    rts
+@miss
+    clc
+    rts
+
+; wg_hit_refine -- carry set (accept) unless CX_M_PTR is a WG_HIT whose shape
+; rejects the point. Every non-WG_HIT widget and WH_RECT accept on the box.
+wg_hit_refine
+    ldy #WG_TYPE
+    lda (CX_M_PTR),y
+    cmp #WG_HIT
+    bne @yes
+    ldy #WG_VAL                 ; the shape
+    lda (CX_M_PTR),y
+    beq @yes                    ; WH_RECT = the box itself
+    jmp wg_hit_ellipse          ; circle (square box) and ellipse share it
+@yes
+    sec
+    rts
+
+; wg_hit_fire -- A = a trigger-mask bit, X = the phase to post. If CX_M_PTR is
+; a WG_HIT whose WG_GRP enables that trigger (WG_GRP 0 means click-only), post
+; EV_WIDGET(wg_i, phase); otherwise do nothing.
+wg_hit_fire
+    sta wh_t                    ; the wanted bit
+    stx wh_d                    ; the phase
+    ldy #WG_TYPE
+    lda (CX_M_PTR),y
+    cmp #WG_HIT
+    bne @no
+    ldy #WG_GRP                 ; the trigger mask
+    lda (CX_M_PTR),y
+    bne @have
+    lda #WH_CLICK               ; 0 defaults to click-only
+@have
+    and wh_t
+    beq @no
+    lda wh_d                    ; phase -> the posted value
+    jmp wg_post_val
+@no
     rts
 
 ; wg_inside -- carry set if the event point (P2..P5) is in record
@@ -1593,6 +1699,243 @@ wg_inside
     clc
     rts
 
+; =====================================================================
+; WG_HIT shape tests + hover -- bank 16, so a hit region costs no
+; resident bytes. The event point is P2/P3 (x), P4/P5 (y).
+; =====================================================================
+
+; wg_hit_ellipse -- carry set if the point lies in the ellipse inscribed in
+; CX_M_PTR's box (a circle is the square-box case). Normalised test:
+; nx = |dx|*128/rx, ny = |dy|*128/ry; inside when nx^2 + ny^2 <= 128^2.
+wg_hit_ellipse
+    jsr wg_ell_x                ; A = nx, or carry clear = outside
+    bcc @out
+    tax
+    jsr wg_mul8                 ; wg_prod = nx*nx
+    lda wg_prod
+    sta wh_acc
+    lda wg_prod+1
+    sta wh_acc+1
+    jsr wg_ell_y
+    bcc @out
+    tax
+    jsr wg_mul8                 ; wg_prod = ny*ny
+    clc
+    lda wh_acc
+    adc wg_prod
+    sta wh_acc
+    lda wh_acc+1
+    adc wg_prod+1
+    sta wh_acc+1
+    lda wh_acc+1               ; nx^2 + ny^2 <= 16384 ($4000)?
+    cmp #$40
+    bcc @in
+    bne @out
+    lda wh_acc
+    beq @in
+@out
+    clc
+    rts
+@in
+    sec
+    rts
+
+; wg_ell_x -- A = |px-cx|*128/rx (0..128), carry set; carry clear if outside
+; the x extent. rx = WG_W>>1, cx = WG_X + rx.
+wg_ell_x
+    ldy #WG_W
+    lda (CX_M_PTR),y
+    sta wh_t
+    ldy #WG_W+1
+    lda (CX_M_PTR),y
+    lsr
+    ror wh_t                    ; wh_t = rx = WG_W>>1
+    clc
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    adc wh_t
+    sta wh_cx
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta wh_cx+1                 ; wh_cx = cx = WG_X + rx
+    sec
+    lda X16_P2
+    sbc wh_cx
+    sta wh_d
+    lda X16_P3
+    sbc wh_cx+1
+    sta wh_d+1                  ; wh_d = px - cx (signed)
+    bpl @abs
+    sec
+    lda #0
+    sbc wh_d
+    sta wh_d
+    lda #0
+    sbc wh_d+1
+    sta wh_d+1
+@abs
+    lda wh_d+1
+    bne @out                    ; |dx| > 255 -> outside (rx <= 255)
+    lda wh_d
+    ldx wh_t
+    jmp wg_norm
+@out
+    clc
+    rts
+
+; wg_ell_y -- the y axis. WG_H is a byte, so ry = WG_H>>1.
+wg_ell_y
+    ldy #WG_H
+    lda (CX_M_PTR),y
+    lsr
+    sta wh_t                    ; wh_t = ry
+    clc
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    adc wh_t
+    sta wh_cx
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta wh_cx+1                 ; wh_cx = cy = WG_Y + ry
+    sec
+    lda X16_P4
+    sbc wh_cx
+    sta wh_d
+    lda X16_P5
+    sbc wh_cx+1
+    sta wh_d+1                  ; wh_d = py - cy
+    bpl @abs
+    sec
+    lda #0
+    sbc wh_d
+    sta wh_d
+    lda #0
+    sbc wh_d+1
+    sta wh_d+1
+@abs
+    lda wh_d+1
+    bne @out
+    lda wh_d
+    ldx wh_t
+    jmp wg_norm
+@out
+    clc
+    rts
+
+; wg_norm -- A = |d| (byte), X = r (byte) -> A = d*128/r (0..128), carry set;
+; carry clear if d > r. r = 0 accepts only d = 0.
+wg_norm
+    stx wg_div
+    cpx #0
+    bne @rok
+    cmp #0
+    beq @zero
+    clc
+    rts
+@rok
+    cmp wg_div
+    beq @edge
+    bcs @out
+@edge
+    sta wg_res                  ; d*128 = d<<7 (fits 16 bits, d <= 255)
+    stz wg_res+1
+    ldx #7
+@sh
+    asl wg_res
+    rol wg_res+1
+    dex
+    bne @sh
+    jsr wg_div16                ; wg_res = (d*128) / r
+    lda wg_res
+    sec
+    rts
+@zero
+    lda #0
+    sec
+    rts
+@out
+    clc
+    rts
+
+; wg_mul8 -- A * X -> wg_prod (16-bit). Here both are <= 128, so it fits.
+wg_mul8
+    sta wg_t
+    stz wg_t+1
+    stz wg_prod
+    stz wg_prod+1
+    ldy #8
+@m
+    txa
+    lsr
+    tax
+    bcc @m2
+    clc
+    lda wg_prod
+    adc wg_t
+    sta wg_prod
+    lda wg_prod+1
+    adc wg_t+1
+    sta wg_prod+1
+@m2
+    asl wg_t
+    rol wg_t+1
+    dey
+    bne @m
+    rts
+
+; wg_hit_hover -- a MOVE with no drag: post enter/leave as the WG_HIT-hover
+; region under the pointer changes. wg_hover is the current one ($FF = none).
+; Skipped wholesale when no widget wants hover -- a click-only or non-WG_HIT
+; list pays nothing on a mouse move.
+wg_hit_hover
+    lda wg_hover_on
+    bne @scan
+    rts                         ; no hover regions: no per-move work at all
+@scan
+    jsr wg_locate
+    bcc @leaveall               ; over nothing
+    ldy #WG_TYPE
+    lda (CX_M_PTR),y
+    cmp #WG_HIT
+    bne @leaveall               ; a normal widget is not a hover target
+    ldy #WG_GRP
+    lda (CX_M_PTR),y
+    and #WH_HOVER
+    beq @leaveall               ; this region does not want hover
+    lda wg_i
+    cmp wg_hover
+    beq @done                   ; unchanged
+    sta wh_d                    ; save the new index across the leave
+    jsr wg_hover_leave          ; leave the old (clobbers wg_i)
+    lda wh_d
+    sta wg_hover
+    ldx #EV_MOUSE_MOVE          ; enter -> phase 1
+    jsr wg_hover_post
+@done
+    rts
+@leaveall
+    jsr wg_hover_leave
+    lda #$FF
+    sta wg_hover
+    rts
+
+; wg_hover_leave -- if the pointer was over a hover region, post (it, 0).
+wg_hover_leave
+    lda wg_hover
+    bmi @x
+    ldx #0                      ; leave -> phase 0
+    jsr wg_hover_post
+@x
+    rts
+
+; wg_hover_post -- A = the WG_HIT index, X = the phase. Posts EV_WIDGET.
+wg_hover_post
+    sta wg_i
+    txa
+    jmp wg_post_val
+
 ; wg_act -- the widget at wg_i / CX_M_PTR was pressed. Update it,
 ; redraw it, and post EV_WIDGET(index, value).
 wg_act
@@ -1607,9 +1950,19 @@ wg_act
     cmp #WG_LIST
     beq @list
     cmp #WG_FIELD               ; a click focuses a field so it can be typed
-    beq @focusfield
+    bne @nfield                 ; the last handlers are pages off: jmp, not beq
+    jmp @focusfield
+@nfield
     cmp #WG_ICON                ; an icon opens on double, selects on single
-    beq @icon
+    bne @nicon
+    jmp @icon
+@nicon
+    cmp #WG_HIT                 ; a hit region fires its click trigger, no paint
+    bne @button
+    lda #WH_CLICK
+    ldx #EV_MOUSE_DOWN
+    jmp wg_hit_fire
+@button
     ; button: value 1, momentary; redraw pressed then released
     lda #1
     ldy #WG_VAL
