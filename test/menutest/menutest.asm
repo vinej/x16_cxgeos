@@ -586,6 +586,71 @@ main
     jmp fail
 @daok
 
+    ; ---- the modal panel -------------------------------------------
+    ; cx_panel runs its own dispatch loop over the app's widgets: a click
+    ; toggles one INSIDE the box (proving dg_hit forwards to the widgets
+    ; while a panel is up), RETURN closes on button 0, and the pixels
+    ; under the box come back. Both events queued first, the alert pattern.
+    lda #250                    ; a witness on the box paper (box is
+    sta X16_P0                  ; 100,100,300,90 -- 90 rows fits the
+    stz X16_P1                  ; mode-0 save-under, banks 14-15)
+    lda #150
+    sta X16_P2
+    stz X16_P3
+    lda #3
+    jsr cx_gfx_pset
+
+    lda #EV_MOUSE_DOWN          ; click the panel's checkbox at (120,125):
+    sta X16_P0                  ; 12 wide, so (125,130) is on its marker
+    stz X16_P1
+    lda #125
+    sta X16_P2
+    stz X16_P3
+    lda #130
+    sta X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jsr cx_ev_post
+    lda #EV_KEY                 ; then RETURN: button 0 closes the panel
+    sta X16_P0
+    lda #$0D
+    sta X16_P1
+    stz X16_P2
+    stz X16_P3
+    stz X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jsr cx_ev_post
+
+    lda #<pnl
+    ldx #>pnl
+    jsr cx_panel
+    cmp #0                      ; RETURN picked button 0
+    beq @pn0
+    lda #'a'
+    jmp fail
+@pn0
+    lda pnl_wg + 1 + 9          ; the checkbox toggled 0 -> 1 (record 0 val)
+    cmp #1
+    beq @pn1
+    lda #'b'
+    jmp fail
+@pn1
+    lda #250                    ; the witness is back: the save-under put
+    sta X16_P0                  ; the box's rows back exactly
+    stz X16_P1
+    lda #150
+    sta X16_P2
+    stz X16_P3
+    jsr cx_gfx_read
+    cmp #3
+    beq @pn2
+    lda #'c'
+    jmp fail
+@pn2
+
 menu_ok
     lda #<s_ok
     ldx #>s_ok
@@ -749,6 +814,27 @@ wl_a  .byte "a", 0
 wl_b  .byte "b", 0
 wl_c2 .byte "c", 0
 wl_buf .res 9, 0
+
+; the modal panel: a box with one checkbox and OK/Cancel. 90 rows tall so
+; its save-under fits banks 14-15 (the mode-0 dialog strip is 96).
+pnl
+    .word 100, 100, 300         ; box x, y, w
+    .byte 90                    ; box h
+    .addr s_pnl
+    .addr pnl_wg
+    .byte 2
+    .addr s_pok, s_pcancel
+pnl_wg
+    .byte 1
+    .byte WG_CHECK, 0
+    .word 120, 125, 160
+    .byte 12, 0, 0
+    .addr s_pcb
+    .byte 0, 0, 0
+s_pnl     .byte "Form", 0
+s_pcb     .byte "option", 0
+s_pok     .byte "OK", 0
+s_pcancel .byte "Cancel", 0
 
 ; the menu tree (docs/formats.md)
 bar

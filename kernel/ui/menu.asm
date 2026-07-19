@@ -78,22 +78,23 @@ cx_do_menu_key
 ; SLOT MAP -- keep it in step with the stubs in each module's CODE half:
 ;   0 mn_set   1 mn_off   2 mn_bar   3 mn_drop     (menu.asm)
 ;   4 th_set                                        (theme.asm)
-;   5 dg_alert 6 dg_hit                             (dialog.asm)
+;   5,6 -- were dg_alert/dg_hit; the dialog module moved to bank 5, so
+;         its resident stubs far-call bank 5 directly and these slots
+;         are retired (kept as filler to hold the state block at $A030)
 ;   7 dos_cmd                                       (fs/dosglue.asm)
 ;   8 wg_set   9 wg_draw  10 wg_hit                 (widget.asm)
 ;   11 mn_key                                       (menu.asm, keyboard)
 ;   12 wg_key                                       (widget.asm, keyboard)
 ;   13 b2_dos_msg                                   (fs/dosglue.asm)
-;   14 dg_prompt                                    (dialog.asm)
-;   15 reserved
+;   14,15 -- were dg_prompt/dg_panel; also bank 5 now (see 5,6)
 b2_table
     jmp mn_set                  ; 0
     jmp mn_off                  ; 1
     jmp mn_bar                  ; 2
     jmp mn_drop                 ; 3
     jmp th_set                  ; 4
-    jmp dg_alert                ; 5
-    jmp dg_hit                  ; 6
+    jmp mn_off                  ; 5  retired -> dialog is bank 5 now
+    jmp mn_off                  ; 6  retired -> dialog is bank 5 now
     jmp dos_cmd                 ; 7  kernel/fs/dosglue.asm
     jmp wg_set                  ; 8
     jmp wg_draw                 ; 9
@@ -101,8 +102,8 @@ b2_table
     jmp mn_key                  ; 11 kernel/ui/menu.asm (keyboard)
     jmp wg_key                  ; 12 kernel/ui/widget.asm (keyboard)
     jmp b2_dos_msg              ; 13 kernel/fs/dosglue.asm
-    jmp dg_prompt               ; 14 kernel/ui/dialog.asm (the line editor)
-    jmp mn_off                  ; 15 reserved
+    jmp mn_off                  ; 14 retired -> dialog is bank 5 now
+    jmp mn_off                  ; 15 retired -> dialog is bank 5 now
 
 ; The state block, at a FIXED spot behind the 48-byte table ($A030), so
 ; a test -- or a debugger, or a desperate evening -- can peek it from

@@ -313,6 +313,8 @@ cx_g_dlg_alert   jsr menu_gate      ; dialogs lay out through the port now
                  jmp cx_do_dlg_alert
 cx_g_dlg_prompt  jsr menu_gate
                  jmp cx_do_dlg_prompt
+cx_g_panel       jsr menu_gate      ; the modal form: box + widgets + buttons
+                 jmp cx_do_panel
 cx_g_da_open     jsr gui_gate
                  jmp cx_do_da_open
 cx_g_da_close    jsr gui_gate

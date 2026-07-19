@@ -188,3 +188,32 @@ the selected row, and byte 13 (`WG_TOP`) the scroll offset the toolkit
 maintains. With the list focused, UP/DOWN move the selection (the view
 scrolls to keep it visible), RETURN posts `EV_WIDGET` with the selected
 index. It is the file browser's list.
+
+## The panel descriptor
+
+`cx_panel` (slot 92) is a modal *form*: the message box's bigger
+sibling. Where `cx_dlg_alert` shows a line of text, a panel shows a box
+of your own widgets with confirm/cancel buttons, runs its own dispatch
+loop, and returns only when a button closes it. The widget records are
+edited in place, so the app reads the values straight from its own list
+afterward. `A/X` points at the descriptor:
+
+| offset | size | field | meaning |
+|---|---|---|---|
+| 0 | word | `x` | box left, in the mode's units (pixels; cells in mode 3) |
+| 2 | word | `y` | box top |
+| 4 | word | `w` | box width |
+| 6 | byte | `h` | box height |
+| 7 | word | `title` | a heading at the top-left, or 0 for none |
+| 9 | word | `widgets` | a widget list (as above), placed at absolute coords inside the box |
+| 11 | byte | `nbtn` | 1..3 buttons along the bottom, right-aligned |
+| 12 | word × `nbtn` | `labels` | the button labels, button 0 leftmost |
+
+The panel draws the box, the widgets and the buttons itself; the app
+only places the widgets inside the box's rectangle. It returns `A` = the
+chosen button — 0 is the confirm button (also what RETURN picks), and
+the last button is what ESC picks. It works in modes 0, 1 and 3; tiles
+(mode 2) refuse. The box height is bounded by the mode's save-under —
+about 100 rows in mode 0 (banks 14–15), the VRAM strip in mode 1, ~50
+cells in mode 3 (bank 6) — the same budget the dialog draws from, so a
+form the size of a dialog always fits.

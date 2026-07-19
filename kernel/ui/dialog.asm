@@ -45,21 +45,50 @@ DG_FLD_Y = DG_Y0 + 34           ; the prompt's field: frame at 226,
 DG_FLD_W = DG_W - 24            ; 376 wide, 18 tall
 DG_PMAX  = 38                   ; the editor's hard cap (the field fits it)
 
-; the slots' resident stubs, and the modal region's
+; The slots' resident stubs, and the modal region's. The dialog code
+; lives in kernel BANK 5, not 2 -- bank 2 was full and the panel needed
+; the room -- so these far-call bank 5 directly at the routine, rather
+; than hopping through bank 2's b2_table. cxb_call restores our bank on
+; the way back either way (kernel/resident/farcall.asm).
 cx_do_dlg_alert
     jsr cxb_call
-    .byte 2
-    .addr $A000 + 5*3
+    .byte 5
+    .addr dg_alert
 dg_vec
     jsr cxb_call
-    .byte 2
-    .addr $A000 + 6*3
+    .byte 5
+    .addr dg_hit
 cx_do_dlg_prompt
     jsr cxb_call
-    .byte 2
-    .addr $A000 + 14*3
+    .byte 5
+    .addr dg_prompt
+cx_do_panel
+    jsr cxb_call
+    .byte 5
+    .addr dg_panel
 
-.segment "B2CODE"
+.segment "B5CODE"
+
+; The dialog runs in bank 5, but these four helpers stayed in bank 2.
+; A far-call trampoline reaches each; cxb_call hands over A/X/Y and
+; brings our bank and the carry back, so a `jsr` here reads exactly like
+; the direct call it replaced (and a `jmp` tail-calls just the same).
+dlg_mn_ink
+    jsr cxb_call
+    .byte 2
+    .addr mn_ink
+dlg_wg_setup
+    jsr cxb_call
+    .byte 2
+    .addr wg_setup
+dlg_wg_key
+    jsr cxb_call
+    .byte 2
+    .addr wg_key
+dlg_wg_hit
+    jsr cxb_call
+    .byte 2
+    .addr wg_hit
 
 ; ---------------------------------------------------------------------
 ; dg_alert -- A/X = the descriptor: .byte n, .addr message, then n
@@ -175,6 +204,276 @@ dg_prompt
     cmp #1
     lda dg_len                  ; carry: set only when dg_done was >= 1
     rts
+
+; =====================================================================
+; dg_panel -- the modal FORM. A/X = a panel descriptor:
+;   .word x, y, w      box position and width (the mode's units)
+;   .byte h            box height (bounded by the mode's save-under)
+;   .addr title        a heading at the top-left (high byte 0 = none)
+;   .addr widgets      a widget list, placed at absolute coords inside
+;   .byte nbtn         1..3 buttons along the bottom, right-aligned
+;   .addr labels[nbtn] the labels, button 0 leftmost (RETURN picks it)
+; Draws the box, its widgets and buttons, then runs its own dispatch
+; loop: widget clicks/keys act in place, a button closes it. Returns
+; A = the button (0 = confirm/RETURN, nbtn-1 = ESC). The widget records
+; hold the final values -- the caller reads them from its own list.
+; =====================================================================
+dg_panel
+    sta CX_M_PTR
+    stx CX_M_PTR+1
+    ldy #0
+    lda (CX_M_PTR),y            ; box x
+    sta pn_x
+    iny
+    lda (CX_M_PTR),y
+    sta pn_x+1
+    iny
+    lda (CX_M_PTR),y            ; box y
+    sta pn_y
+    iny
+    lda (CX_M_PTR),y
+    sta pn_y+1
+    iny
+    lda (CX_M_PTR),y            ; box w
+    sta pn_w
+    iny
+    lda (CX_M_PTR),y
+    sta pn_w+1
+    iny
+    lda (CX_M_PTR),y            ; box h
+    sta pn_h
+    iny
+    lda (CX_M_PTR),y            ; title
+    sta pn_title
+    iny
+    lda (CX_M_PTR),y
+    sta pn_title+1
+    iny
+    lda (CX_M_PTR),y            ; widget list
+    sta pn_wl
+    iny
+    lda (CX_M_PTR),y
+    sta pn_wl+1
+    iny
+    lda (CX_M_PTR),y            ; nbtn, clamped to what the row holds
+    cmp #DG_MAXB+1
+    bcc @nok
+    lda #DG_MAXB
+@nok
+    sta dg_n
+    ldx #0
+@labels
+    cpx dg_n
+    bcs @parsed
+    iny
+    lda (CX_M_PTR),y
+    sta dg_lab,x
+    iny
+    lda (CX_M_PTR),y
+    sta dg_lab+DG_MAXB,x
+    inx
+    bra @labels
+@parsed
+    lda pn_x                    ; the box corner drives dg_box_pxy and
+    sta dg_x0                   ; dg_msg_at, both shared with the alert
+    lda pn_x+1
+    sta dg_x0+1
+    lda pn_y
+    sta dg_y0
+    lda pn_y+1
+    sta dg_y0+1
+
+    lda wg_list                 ; borrow the single widget slot: save the
+    sta pn_swl                  ; caller's list so its own widgets still
+    lda wg_list+1               ; work after the panel closes
+    sta pn_swl+1
+    lda wg_n
+    sta pn_swn
+    lda wg_focus
+    sta pn_swf
+
+    jsr pn_geom
+    jsr pn_boxup
+    jsr dg_buttons
+    lda pn_wl
+    ldx pn_wl+1
+    jsr dlg_wg_setup                ; the panel's widgets, drawn, no region
+
+    lda #1
+    sta pn_active
+    jsr pn_wait
+    stz pn_active
+
+    lda pn_swl                  ; the caller's widget context back
+    sta wg_list
+    lda pn_swl+1
+    sta wg_list+1
+    lda pn_swn
+    sta wg_n
+    lda pn_swf
+    sta wg_focus
+    lda dg_done
+    rts
+
+; pn_geom -- dg_bty and dg_bx (the button row) from the PANEL's box,
+; the same right-aligned layout dg_geom gives the fixed dialog.
+pn_geom
+    clc                         ; dg_bty = pn_y + pn_h - dgbh - dgpad
+    lda pn_y
+    adc pn_h
+    sta dg_bty
+    lda pn_y+1
+    adc #0
+    sta dg_bty+1
+    ldx cxov_m_dgbh
+    jsr dg_bty_sub
+    ldx cxov_m_dgpad
+    jsr dg_bty_sub
+
+    clc                         ; dg_bx = pn_x + pn_w - dgpad - dgbw
+    lda pn_x                    ;         - (n-1)*dgbsp  (right-aligned)
+    adc pn_w
+    sta dg_bx
+    lda pn_x+1
+    adc pn_w+1
+    sta dg_bx+1
+    ldx cxov_m_dgpad
+    jsr dg_bx_sub
+    ldx cxov_m_dgbw
+    jsr dg_bx_sub
+    ldx dg_n
+    dex
+    beq @done
+@sp
+    phx
+    ldx cxov_m_dgbsp
+    jsr dg_bx_sub
+    plx
+    dex
+    bne @sp
+@done
+    rts
+
+; pn_boxup -- save the box's rows, then paint the box, its frame and
+; the title. Mirrors dg_boxup but sized to the panel, not the metric.
+pn_boxup
+    lda pn_y                    ; save-under: the rows the box covers
+    sta X16_P0
+    lda pn_y+1
+    sta X16_P1
+    lda pn_h
+    sta X16_P2
+    jsr cxov_rsave
+
+    jsr dg_box_pxy             ; the paper
+    lda pn_w
+    sta X16_P4
+    lda pn_w+1
+    sta X16_P5
+    lda pn_h
+    sta X16_P6
+    stz X16_P7
+    lda th_paper
+    jsr cxov_rect
+    jsr dg_box_pxy             ; the frame
+    lda pn_w
+    sta X16_P4
+    lda pn_w+1
+    sta X16_P5
+    lda pn_h
+    sta X16_P6
+    stz X16_P7
+    lda th_frame
+    jsr cxov_frame
+
+    lda pn_title+1             ; a title? (high byte 0 = none)
+    beq @notitle
+    jsr dg_msg_at
+    lda th_paper
+    jsr dlg_mn_ink
+    lda pn_title
+    ldx pn_title+1
+    jmp cxov_text
+@notitle
+    rts
+
+; pn_wait -- like dg_wait, but the table is the panel's and the pixels
+; it puts back are the panel's rows, not the fixed-metric box.
+pn_wait
+    stz X16_P0                  ; the whole canvas is the modal region
+    stz X16_P1
+    stz X16_P2
+    stz X16_P3
+    lda cx_cur_w
+    sec
+    sbc #1
+    sta X16_P4
+    lda cx_cur_w+1
+    sbc #0
+    sta X16_P5
+    lda cx_cur_h
+    sec
+    sbc #1
+    sta X16_P6
+    lda cx_cur_h+1
+    sbc #0
+    sta X16_P7
+    lda #<dg_vec
+    ldx #>dg_vec
+    jsr rg_push
+
+    lda CX_E_HND
+    sta dg_oldh
+    lda CX_E_HND+1
+    sta dg_oldh+1
+    lda #<pn_table
+    ldx #>pn_table
+    jsr ev_handlers
+
+    lda #$FF
+    sta dg_done
+@wait
+    jsr ev_dispatch
+    lda dg_done
+    bmi @wait
+
+    lda dg_oldh
+    ldx dg_oldh+1
+    jsr ev_handlers
+    jsr rg_pop
+    lda pn_y                    ; the panel's rows back through the port
+    sta X16_P0
+    lda pn_y+1
+    sta X16_P1
+    lda pn_h
+    sta X16_P2
+    jmp cxov_rrest
+
+; pn_key -- RETURN confirms (button 0), ESC cancels (the last button),
+; everything else goes to the widgets (TAB moves focus, space toggles,
+; printables type into a field).
+pn_key
+    lda X16_P1
+    cmp #$0D
+    bne @nret
+    stz dg_done
+    rts
+@nret
+    cmp #$1B
+    bne @nesc
+    lda dg_n
+    sec
+    sbc #1
+    sta dg_done
+    rts
+@nesc
+    lda X16_P1
+    jmp dlg_wg_key
+
+pn_table                        ; mouse rides the region; keys land here
+    .addr 0, 0, 0, 0, 0
+    .addr pn_key
+    .addr 0, 0, 0, 0
 
 ; ---------------------------------------------------------------------
 ; dg_geom -- dg_bx = button 0's left edge from dg_n: the row is
@@ -324,7 +623,7 @@ dg_boxup
 
     jsr dg_msg_at              ; the message, inset from the box corner
     lda th_paper               ; on the box paper: ink to contrast in text
-    jsr mn_ink
+    jsr dlg_mn_ink
     lda dg_msg
     ldx dg_msg+1
     jmp cxov_text
@@ -400,7 +699,7 @@ dg_buttons
     adc #0
     sta X16_P3
     lda th_paper                ; the label sits on the box paper: in
-    jsr mn_ink                  ; text mode it inks to contrast (mn_ink,
+    jsr dlg_mn_ink                  ; text mode it inks to contrast (mn_ink,
     ldx dg_i                    ; shared with the menu, same bank)
     lda dg_lab,x
     pha
@@ -523,7 +822,7 @@ dg_field
     adc #0
     sta X16_P3
     lda th_paper                ; contrast in text mode
-    jsr mn_ink
+    jsr dlg_mn_ink
     lda dg_buf
     ldx dg_buf+1
     jsr cxov_text               ; the pen comes back in P0/P1
@@ -615,6 +914,12 @@ dg_hit
     bcs @out
     stx dg_done
 @out
+    lda pn_active               ; a plain dialog stops here: only its
+    beq @ret                    ; buttons matter. But a modal PANEL shares
+    lda dg_done                 ; this region -- so if no button took the
+    bpl @ret                    ; event, hand it to the widgets (a click on
+    jmp dlg_wg_hit                  ; one, or a drag of a scrollbar thumb)
+@ret
     rts
 
 ; ---------------------------------------------------------------------
@@ -717,6 +1022,19 @@ dg_tab  .word 0
 dg_buf  .word 0                 ; the prompt: the caller's buffer...
 dg_len  .byte 0                 ; ...its length so far...
 dg_max  .byte 0                 ; ...and the most it may hold
+
+; --- panel (modal form) state ------------------------------------------
+pn_x    .word 0                 ; the box the caller sized (dg_x0/y0 mirror
+pn_y    .word 0                 ; the corner; pn_w/pn_h are the panel's own)
+pn_w    .word 0
+pn_h    .byte 0
+pn_title .word 0
+pn_wl   .word 0                 ; the panel's widget list
+pn_active .byte 0               ; 1 while a panel owns dg_vec: dg_hit then
+                                ; forwards non-button clicks to the widgets
+pn_swl  .word 0                 ; the caller's widget context, parked across
+pn_swn  .byte 0                 ; the panel and restored when it closes
+pn_swf  .byte 0
 dg_s_ok     .byte "ok", 0
 dg_s_cancel .byte "cancel", 0
 

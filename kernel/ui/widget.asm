@@ -82,11 +82,12 @@ cx_do_wg_key
 .segment "B2CODE"
 
 ; ---------------------------------------------------------------------
-; wg_set -- A/X = the widget list. Parks it, draws it, and pushes a
-; region over the bounding box of all the widgets so their clicks come
-; back to wg_hit. Carry set only if the region stack is full.
+; wg_setup -- A/X = the widget list. Parks it and draws it, but pushes
+; NO region. cx_wg_set adds the region on top; the modal panel manages
+; its own full-screen region instead and just needs the list live so
+; wg_hit can act on it.
 ; ---------------------------------------------------------------------
-wg_set
+wg_setup
     sta wg_list                 ; indirect reads go through CX_M_PTR, a
     stx wg_list+1               ; zero-page pointer -- wg_list itself is
     sta CX_M_PTR                ; bank-2 RAM and cannot be dereferenced
@@ -96,8 +97,16 @@ wg_set
     sta wg_n
     lda #$FF                    ; a fresh list starts unfocused
     sta wg_focus
+    jmp wg_draw_all
 
-    jsr wg_draw_all
+; ---------------------------------------------------------------------
+; wg_set -- A/X = the widget list. Parks it, draws it, and pushes a
+; region over the bounding box of all the widgets so their clicks come
+; back to wg_hit. Carry set only if the region stack is full.
+; ---------------------------------------------------------------------
+wg_set
+    jsr wg_setup                ; register + draw...
+                                ; ...then push the click region:
 
     ; the bounding box, for the region: min x0/y0, max x1/y1 over the
     ; list. A widget's own click test is exact; this is just the gate.

@@ -55,6 +55,7 @@ main
     lda #<handlers
     ldx #>handlers
     jsr cx_ev_handlers
+    jsr show_form               ; greet with the modal form; File > Form...
     jmp cx_ev_mainloop
 
 on_key
@@ -68,14 +69,22 @@ on_key
     jsr cx_wg_key
 @done
     rts
-on_menu                         ; File menu (0): 0 = Dialog, 1 = Quit
+on_menu                         ; File (0): 0 = Form, 1 = Dialog, 2 = Quit
     lda X16_P2
     bne @done
     lda X16_P1
-    beq show_dialog
+    beq show_form
     cmp #1
+    beq show_dialog
+    cmp #2
     beq do_exit
 @done
+    rts
+
+show_form
+    lda #<form
+    ldx #>form
+    jsr cx_panel                ; modal; A = 0 (OK) or 1 (Cancel)
     rts
 on_widget                       ; the Close button is index 0
     lda X16_P1
@@ -103,16 +112,49 @@ bar
     .addr s_file, file_items
     .addr s_view, view_items
 file_items
-    .byte 2
-    .addr s_dlg, s_quit
+    .byte 3
+    .addr s_form, s_dlg, s_quit
 view_items
     .byte 1
     .addr s_zoom
 s_file .byte "File", 0
 s_view .byte "View", 0
+s_form .byte "Form...", 0
 s_dlg  .byte "Dialog...", 0
 s_quit .byte "Quit", 0
 s_zoom .byte "Zoom", 0
+
+; --- the modal form: a box of widgets with OK / Cancel (320x240) ------
+form
+    .word 30, 28, 260          ; box x, y, w (pixels)
+    .byte 140                  ; box h (fits the mode-1 save-under strip)
+    .addr s_ftitle
+    .addr form_widgets
+    .byte 2
+    .addr s_fok, s_fcancel
+form_widgets
+    .byte 3
+    .byte WG_CHECK, 0
+    .word 46, 52, 180
+    .byte 14, 1, 0
+    .addr s_fsound
+    .byte 0, 0, 0
+    .byte WG_RADIO, 0          ; group 2
+    .word 46, 78, 150
+    .byte 14, 1, 2
+    .addr s_feasy
+    .byte 0, 0, 0
+    .byte WG_RADIO, 0
+    .word 46, 100, 150
+    .byte 14, 0, 2
+    .addr s_fhard
+    .byte 0, 0, 0
+s_ftitle  .byte "Preferences", 0
+s_fsound  .byte "enable sound", 0
+s_feasy   .byte "easy mode", 0
+s_fhard   .byte "hard mode", 0
+s_fok     .byte "OK", 0
+s_fcancel .byte "Cancel", 0
 
 ; --- the dialog -------------------------------------------------------
 alert

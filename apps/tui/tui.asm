@@ -46,6 +46,8 @@ main
     lda #<handlers
     ldx #>handlers
     jsr cx_ev_handlers
+    jsr show_form               ; greet with the modal form, GEOS-style;
+                                ; File > Form... reopens it
     jmp cx_ev_mainloop
 
 ; paint the whole screen: paper, heading, menu bar, widgets
@@ -81,15 +83,23 @@ on_key
 @done
     rts
 
-on_menu                         ; File menu (menu 0): 0 = Dialog, 1 = Quit
+on_menu                         ; File (0): 0 = Form, 1 = Dialog, 2 = Quit
     lda X16_P2
     bne @done
     lda X16_P1
-    beq show_dialog
+    beq show_form
     cmp #1
+    beq show_dialog
+    cmp #2
     beq do_exit
 @done
     rts
+
+show_form
+    lda #<form
+    ldx #>form
+    jsr cx_panel                ; modal; returns A = 0 (OK) or 1 (Cancel).
+    rts                         ; the widget records hold the values now
 
 on_widget                       ; 0 = Show dialog, 1 = Exit
     lda X16_P1
@@ -120,16 +130,57 @@ bar
     .addr s_file, file_items
     .addr s_help, help_items
 file_items
-    .byte 2
-    .addr s_dlg, s_quit
+    .byte 3
+    .addr s_form, s_dlg, s_quit
 help_items
     .byte 1
     .addr s_about
 s_file  .byte "File", 0
 s_help  .byte "Help", 0
+s_form  .byte "Form...", 0
 s_dlg   .byte "Dialog...", 0
 s_quit  .byte "Quit", 0
 s_about .byte "About", 0
+
+; --- the modal form: a box of widgets with OK / Cancel ----------------
+; Cells, like the rest of this mode. The widgets sit inside the box; the
+; panel draws the two buttons along the bottom itself.
+form
+    .word 12, 14, 54           ; box x, y, w (cells)
+    .byte 24                   ; box h
+    .addr s_ftitle
+    .addr form_widgets
+    .byte 2
+    .addr s_fok, s_fcancel
+form_widgets
+    .byte 4
+    .byte WG_CHECK, 0
+    .word 16, 18, 30
+    .byte 1, 1, 0
+    .addr s_fsound
+    .byte 0, 0, 0
+    .byte WG_RADIO, 0          ; group 2 (its own group in this list)
+    .word 16, 20, 20
+    .byte 1, 1, 2
+    .addr s_feasy
+    .byte 0, 0, 0
+    .byte WG_RADIO, 0
+    .word 16, 21, 20
+    .byte 1, 0, 2
+    .addr s_fhard
+    .byte 0, 0, 0
+    .byte WG_FIELD, 0
+    .word 16, 24, 34
+    .byte 1, 0, 16
+    .addr formbuf
+    .byte 0, 0, 0
+formbuf   .res 17, 0
+s_ftitle  .byte "Preferences", 0
+s_fsound  .byte "enable sound", 0
+s_feasy   .byte "easy", 0
+s_fhard   .byte "hard", 0
+s_fok     .byte "OK", 0
+s_fcancel .byte "Cancel", 0
 
 ; --- the widgets: one of every type, in cell coordinates -------------
 widgets

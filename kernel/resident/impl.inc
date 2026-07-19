@@ -115,3 +115,4 @@ cx_file_load    = cx_do_file_load
 cx_ink          = cx_do_ink
 cx_vload        = cx_do_vload
 cx_bload        = cx_do_bload
+cx_panel        = cx_g_panel

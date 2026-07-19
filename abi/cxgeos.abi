@@ -235,3 +235,18 @@ version = 1
 # at $BFFF on its own. P3 bit 0 = the file is RAW (headerless).
 90  cx_vload        1   A/X = filename, Y = length, P0/P1 = VRAM address, P2 = VRAM bank (0/1), P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte; carry set, A = the KERNAL error
 91  cx_bload        1   A/X = filename, Y = length, P0 = RAM bank (16+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error
+
+#= modal panel (a form: your widgets in a box, with confirm/cancel)
+# cx_panel is cx_dlg_alert's bigger sibling: instead of a fixed message
+# box it takes a box rect, a title, a WIDGET LIST placed inside it, and
+# up to three buttons along the bottom. It is SYNCHRONOUS and modal --
+# the call runs its own dispatch loop, so widget edits and button
+# clicks are handled inside, and it does not return until a button
+# closes it. The widget records are updated in place, so the app reads
+# the values straight from its own list afterward. RETURN is button 0
+# (confirm), ESC the last button (cancel). Works in modes 0, 1 and 3;
+# tiles (mode 2) refuse. The box height is bounded by the mode's
+# save-under (mode 0 ~100 rows, mode 3 ~50 cells). Descriptor
+# (docs/formats.md): .word x,y,w .byte h .addr title,widgets .byte nbtn
+# .addr labels[nbtn].
+92  cx_panel        1   A/X = a panel descriptor (docs/formats.md); SYNCHRONOUS -- draws the box and its widgets, runs modal, returns A = the chosen button (0 = the confirm/RETURN button)
