@@ -1,6 +1,6 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.6.1** · ABI version 1 · 97 slots (append-only)
+**Release 0.7.0** · ABI version 1 · 99 slots (append-only)
 
 This documents `sdk/include_<compiler>/cxgeos.h` — the **generated**, low-level
 binding to the kernel. It is what every CXGEOS app ultimately calls. C
@@ -111,7 +111,7 @@ python tools/mkcxap.py build/MYAPP.PRG build/MYAPP.CXA --name "My App"
 | name | value | meaning |
 |---|---|---|
 | `CX_ABI_VERSION` | `1` | the ABI version these bindings were cut from |
-| `CX_ABI_SLOTS` | `97` | the number of slots defined (indices 0–96) |
+| `CX_ABI_SLOTS` | `99` | the number of slots defined (indices 0–98) |
 
 Query the *running* kernel's version with `cx_version` (slot 0); the loader
 refuses an app whose min-ABI exceeds it.
@@ -315,6 +315,19 @@ one directly. *(Added in 0.6.1.)*
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
 | 96 | `CX_ICON` | `$8130` | A=icon id (0–7), P0/P1=x, P2/P3=y | draw a 24×24 icon at that pixel (modes 0 and 1) |
+
+### Palette — VERA's 256-entry table at `$1FA00`
+
+Program palette entries directly — most useful to a mode-1 (8bpp) app that
+wants a few custom colours without loading a full 512-byte block through
+`CX_VLOAD`. A 12-bit `$0RGB` colour stores as byte 0 = `Green<<4 | Blue`,
+byte 1 = `Red` (so `$0F00` is pure red). The table is write-only. *(Added in
+0.7.0.)*
+
+| slot | name | addr | args → result | purpose |
+|---|---|---|---|---|
+| 97 | `CX_PAL_SET` | `$8133` | X=index (0–255), A=low (`G<<4\|B`), Y=high (`R`) | set one palette entry |
+| 98 | `CX_PAL_LOAD` | `$8136` | P0/P1=source (2 B/entry, low first), A=first index, X=count (1–128) | bulk-load entries from RAM |
 
 ### PCM audio — the VERA 4 KB FIFO
 

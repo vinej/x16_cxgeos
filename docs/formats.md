@@ -151,15 +151,17 @@ the toolkit stores each widget's state back into its record).
 
 ```
 0   type    .byte    0 button, 1 checkbox, 2 radio, 3 h-scrollbar,
-                     4 text field, 5 list
+                     4 text field, 5 list, 6 icon, 7 hit region
 1   flags   .byte    bit0 = disabled (drawn, but not clickable)
 2   x       .word
 4   y       .word
 6   w       .word
 8   h       .byte
-9   value   .byte    checkbox/radio 0-1; scrollbar 0..max
-10  group   .byte    radio: the group id; scrollbar: the max value
-11  label   .word    a zero-terminated string
+9   value   .byte    checkbox/radio 0-1; scrollbar 0..max;
+                     icon: the id 0-7; hit region: the shape (WH_*)
+10  group   .byte    radio: the group id; scrollbar: the max value;
+                     hit region: the trigger mask (WH_CLICK/RELEASE/HOVER)
+11  label   .word    a zero-terminated string (unused by a hit region)
 13  --      3 bytes  reserved, zero
 ```
 
@@ -188,6 +190,22 @@ the selected row, and byte 13 (`WG_TOP`) the scroll offset the toolkit
 maintains. With the list focused, UP/DOWN move the selection (the view
 scrolls to keep it visible), RETURN posts `EV_WIDGET` with the selected
 index. It is the file browser's list.
+
+### The icon and hit-region widgets (types 6, 7)
+
+`WG_ICON` (type 6) draws a built-in 24×24 icon — `WG_VAL` is the icon id
+(0–7, `kernel/ui/icon.asm`) — with `WG_LBL` centred beneath it; the
+desktop's icon view is a grid of them. A single click posts
+`EV_WIDGET(index, 0)`, a double-click `(index, 1)` — select versus open.
+
+`WG_HIT` (type 7) is an **invisible hit region** — a hotspot the app draws
+itself; the toolkit paints nothing and only routes the mouse. `WG_VAL` is
+the shape (`WH_RECT`=0, `WH_CIRCLE`=1, `WH_ELLIPSE`=2; circle and ellipse
+are inscribed in the box, so keep it ≤ 510 px), and `WG_GRP` a trigger mask
+(`WH_CLICK`=1, `WH_RELEASE`=2, `WH_HOVER`=4; 0 means click-only). It posts
+`EV_WIDGET(index, phase)` where phase is the mouse event — 2 down, 3 up,
+1 hover-in, 0 hover-out. Hover routing is skipped entirely when no region
+in the list asks for it, so a click-only list costs nothing on a move.
 
 ## The panel descriptor
 

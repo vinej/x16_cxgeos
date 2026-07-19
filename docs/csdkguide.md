@@ -1,6 +1,6 @@
 # CXGEOS csdk Guide — the friendly C wrapper
 
-**Release 0.6.1** · header: `csdk/cxsdk.h`
+**Release 0.7.0** · header: `csdk/cxsdk.h`
 
 The csdk turns the low-level [ABI](sdkguide.md) into clean, named `cx_*`
 functions, a typed event record, the shared constants, immediate-mode widget
@@ -51,11 +51,20 @@ Named `CX_ET_*` (event **t**ype), distinct from the generated header's
 ### Widget types — a descriptor's `type` (`CX_WG_*`)
 
 `CX_WG_BUTTON`=0, `CX_WG_CHECK`=1, `CX_WG_RADIO`=2, `CX_WG_SCROLL`=3,
-`CX_WG_FIELD`=4, `CX_WG_LIST`=5, `CX_WG_ICON`=6.
+`CX_WG_FIELD`=4, `CX_WG_LIST`=5, `CX_WG_ICON`=6, `CX_WG_HIT`=7.
 
 `CX_WG_ICON` draws a 24×24 icon (its `val` is the icon id 0–7) with the label
 centred beneath it; a single click posts `EV_WIDGET(index, 0)`, a double-click
 `(index, 1)` — select versus open. The desktop's icon view is a grid of these.
+
+`CX_WG_HIT` is an **invisible hit region** — a hotspot the app draws itself
+while the toolkit only routes the mouse. Its `val` is the shape (`CX_WH_RECT`,
+`CX_WH_CIRCLE`, `CX_WH_ELLIPSE` — circle/ellipse are inscribed in `x/y/w/h`),
+and its `grp` is a trigger mask (`CX_WH_CLICK | CX_WH_RELEASE | CX_WH_HOVER`;
+0 means click-only). It posts `EV_WIDGET(index, phase)` where phase is the mouse
+event — 2 down, 3 up, 1 hover-in, 0 hover-out — and paints nothing. Build a list
+of these over your own drawing (an image map / clickable shapes) and read the
+region from the event's `detail`. See `apps/hittest` for a worked demo.
 
 ### Font style flags
 
@@ -589,6 +598,13 @@ CURRENT mode: a palette index in `CX_MODE_BMP8` (whose `cx_say` draws
 Mode-local by construction: every mode switch resets it to white, so an
 ink set in one mode never leaks into another where the same number is a
 different colour space.
+
+**`void cx_pal_set(unsigned char index, unsigned rgb)`** *(0.7.0)* -- set one
+VERA palette entry; `rgb` is a 12-bit `0x0RGB` (`0x0F00` = red). **`void
+cx_pal_load(const void *src, unsigned char first, unsigned char count)`** --
+bulk-load `count` (1-128) entries from `src` (2 bytes each, low byte first).
+Handiest in `CX_MODE_BMP8`, where a few custom colours beat loading a whole
+512-byte block.
 
 ## Shapes *(0.3.0)* -- every bitmap mode
 

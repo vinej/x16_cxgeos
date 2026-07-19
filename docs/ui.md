@@ -143,6 +143,17 @@ hit-tests the individual widgets inside that box. The text field (a
 caret, selection, keyboard focus) and the list view ride a later pass
 that adds the focus model the click widgets do without.
 
+**`WG_HIT` — invisible hit regions.** A hotspot the *app* draws itself: the
+toolkit paints nothing and only routes the mouse. The record's `WG_VAL` picks
+the shape (`WH_RECT`/`WH_CIRCLE`/`WH_ELLIPSE`, circle and ellipse inscribed in
+the box) and `WG_GRP` a trigger mask (click / release / hover). Since every
+mouse type 1–4 already reaches `wg_hit` through the region, all three triggers
+cost **zero resident bytes** — the shape math (a normalised `nx²+ny² ≤ 128²`
+test, reusing the bank-16 multiply/divide) and the enter/leave hover tracking
+live entirely in bank 16. It posts `EV_WIDGET(index, phase)`. The desktop's
+icon grid and this share the same `WG_*` record; a hit region is just one that
+draws nothing. (`apps/hittest` demos rect/circle/ellipse hotspots.)
+
 ## The bank-2 jump table
 
 `menu.asm` owns the bank-local jump table at `$A000` — 16 three-byte

@@ -21,8 +21,8 @@ file in the same commit as the code that claims or releases a region.
 | $0100–$01FF | CPU stack | kernel ≤48 bytes below caller SP per API call, ≤16 in IRQ |
 | $0200–$07FF | KERNAL/DOS | untouched — the X16_Geos project died on this hill: the IRQ handler lives at $038B on stock R49; we never go near it |
 | $0801–$7FFF | application | ~30KB, loaded/reset by the kernel loader |
-| $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector |
-| $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 95 slots used ($8010–$812C), reserve caps at 135 (40 free) |
+| $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector, `cx_hdr_shell` ($800A) desktop-state byte (survives app loads) |
+| $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 99 slots used ($8010–$8138), reserve caps at 135 (36 free) |
 | $81A5–$81A8 | build word | `CX_KBUILD` (`banks.inc`), the reserve's tail; stage-0 checks it against the banked files |
 | $81A9–$95FF | resident kernel | ~5.2 KB budget, ~130 B free: event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard, port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
 | $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` ([graphics-port.md](graphics-port.md)) |
@@ -47,8 +47,8 @@ here are the v0.6.0 snapshot; run it for today's.
 | 9 | desk accessory | the open `.CXD` (`cx_da_open` loads it at $A000) | — | — | data, not kernel code |
 | 10–13 | clipboard | typed text / bitmap-rect, up to 32 KB | — | — | data |
 | 14–15 | save-under | dialog save-unders / DA saved state | — | — | data |
-| 16 | **widgets** | `B16CODE`: the whole toolkit (code + `wg_*` state) + `wg_paint_t` | ~3.4 KB | ~4.8 KB | **a new widget** — and nowhere else |
-| 17 | **graphics extras** | `B17CODE`: shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects | ~3.1 KB | ~5.1 KB | **a new shape** |
+| 16 | **widgets** | `B16CODE`: the whole toolkit (code + `wg_*` state) + `wg_paint_t`; includes the icon and `WG_HIT` widgets | ~4.1 KB | ~4.1 KB | **a new widget** — and nowhere else |
+| 17 | **graphics extras** | `B17CODE`: shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects + the icon sheet + the palette API | ~4.3 KB | ~3.9 KB | **a new shape** |
 | 18 | **fs / system** | `B18CODE`: dir walk + `cx_file_load` + `cx_vload`/`cx_bload` + DOS channel + the font cold half (magic/header/cache builder) + `f_magic` | ~1.2 KB | ~7.0 KB | an fs/DOS feature; cold system code |
 | 19 | **audio / sprites** | `B19CODE`: PSG + YM (with the carry shims) + hardware sprites | ~0.9 KB | ~7.3 KB | an audio/sprite feature |
 | 20+ | **the app's** | `cx_bload` targets (refuses < `CX_APP_BANK_FLOOR` = 20), window backing store, allocations, file buffers | — | — | — |
@@ -75,7 +75,7 @@ The banks are themed so a new feature touches exactly one, and each has
   limit (2,304 B — the mode-0 image is 2,228, only 76 B of headroom).
 - **Resident code** (IRQ / event / hot-path only) → the resident image,
   which keeps ~130 B free; `mapreport.py` fails the build under 128 B.
-- **A new ABI slot** → the jump table has 40 free slots (cap 135); see
+- **A new ABI slot** → the jump table has 36 free slots (cap 135); see
   `docs/banks.md` for the append + regenerate + canary steps.
 
 When a code bank fills, it borrows reserve from a sibling (change the
@@ -219,7 +219,7 @@ pulls in, the image carries whether anything calls it or not.
   and writes the cache through a resident poke, because bank-18 code
   cannot page a bank into its own window. That freed 186 bytes, which the
   jump table spent widening from ~110 to 135 slots. Resident now holds
-  ~130 free bytes and the table 40 free slots — see the ledger above and
+  ~130 free bytes and the table 36 free slots — see the ledger above and
   `docs/banks.md`.
 
 ## The boot chain (Phase 4c)
