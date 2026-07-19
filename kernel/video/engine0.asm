@@ -101,8 +101,7 @@ cx_do_gfx_init
 ; the mode's default back in: an ink set here never leaks into a mode
 ; where the same number is a different colour space.
 cx_do_ink
-    sta cxov_ink
-    clc
+    sta cxov_ink                ; a void slot: no carry contract to set
     rts
 
 ; --- cx_gfx_mode (slot 76) -- A = the mode; carry set if unknown ------
@@ -253,9 +252,23 @@ cx_ov_bounds
 ; ORIGINAL caller -- the same polite refusal the drawing entries give,
 ; instead of a jump into whatever now occupies the port. Internal kernel
 ; callers use the routines directly and never pay this.
+; menu_gate -- the guard for slots the toolkit lays out in any mode's
+; units: the menu draws through the port, so it is allowed in mode 3
+; (the text TUI) as well as mode 0. Mode 3 passes here; anything else
+; falls into gui_gate, which passes mode 0 and refuses the rest. The
+; bitmap modes still refuse -- a menu there wants an 8bpp save-under
+; that is future work.
+menu_gate
+    pha
+    lda cx_vmode
+    cmp #CX_MODE_TEXT
+    bne gg_saved                ; not mode 3: judge it as gui_gate (A is
+    pla                         ; already saved); mode 3 falls through to
+    rts                         ; allow
 gui_gate
     pha                         ; the entry's A is an argument (a pointer
-    lda cx_vmode                ; byte, a key) -- save it across the check
+gg_saved
+    lda cx_vmode                ; byte, a key) -- saved across the check
     bne @refuse
     pla                         ; mode 0: A back, on to the wrapper's jmp
     rts
@@ -278,11 +291,11 @@ cx_g_font_style  jsr gui_gate
 ; itself: mode 0 the CXF proportional font, text mode the cell writer,
 ; the bitmap modes refuse. That is the whole "mode-aware text" story, in
 ; the same seam as the drawing calls.
-cx_g_menu_set    jsr gui_gate
+cx_g_menu_set    jsr menu_gate
                  jmp cx_do_menu_set
-cx_g_menu_off    jsr gui_gate
+cx_g_menu_off    jsr menu_gate
                  jmp cx_do_menu_off
-cx_g_menu_key    jsr gui_gate
+cx_g_menu_key    jsr menu_gate
                  jmp cx_do_menu_key
 cx_g_wg_set      jsr gui_gate
                  jmp cx_do_wg_set

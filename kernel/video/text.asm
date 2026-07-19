@@ -475,6 +475,8 @@ ov3_sr
     php
     sei
     stx t_dir
+    lda RAM_BANK                ; the caller's bank comes back at the end --
+    sta t_obank                 ; the menu code that called us runs banked
     lda #T3_SBANK
     sta RAM_BANK                ; the save store
     stz X16_T4                  ; the RAM walker = bank window $A000
@@ -521,6 +523,8 @@ ov3_sr
     bne @row
     lda #VERA_CTRL_ADDRSEL      ; ADDRSEL back to 0, the mouse IRQ's world
     trb VERA_CTRL
+    lda t_obank                 ; the caller's bank back
+    sta RAM_BANK
     plp
     clc
     rts
@@ -532,8 +536,9 @@ t_row .byte 0
 t_bg  .byte 0
 t_sl  .byte 0
 t_sh  .byte 0
-t_dir .byte 0
-t_vm  .byte 0
+t_dir   .byte 0
+t_vm    .byte 0
+t_obank .byte 0
 
 .segment "CODE"
 
