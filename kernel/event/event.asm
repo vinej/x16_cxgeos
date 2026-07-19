@@ -102,6 +102,14 @@ ev_init
     stz ev_len
     stz ev_lost
     stz ev_btn
+    jsr irq_frames              ; the double-click clock, a full window in
+    sec                         ; the past: a fresh app must not read its
+    sbc #EV_DBL                 ; first press as a double. The frame clock
+    sta ev_last                 ; is stopped across an app load, so the
+                                ; press that launched the app kept its
+                                ; timestamp and the desktop's next click
+                                ; landed inside the window -- and double-
+                                ; clicked whatever was under the pointer
     stz ev_timer_n
     stz ev_timer_r
     stz ev_joy_en               ; no app inherits a joystick subscription:

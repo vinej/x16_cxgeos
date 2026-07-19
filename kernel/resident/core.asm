@@ -95,12 +95,23 @@ cx_do_version
 ; the frozen mouse.) 80x60 eight-pixel cells = our fixed 640x480.
 ; ---------------------------------------------------------------------
 cx_do_mouse_show
-    pha
+    pha                         ; the sprite number, held for MOUSE_CONFIG
     lda #VERA_VIDEO_SPRITES_EN
     tsb VERA_DC_VIDEO
-    pla
+    ; the mouse field is the mode's PIXEL size, so the pointer covers the
+    ; whole screen and its coords ARE the mode's. Mode 1 is a 2:1-scaled
+    ; 320x240 -- sprites scale with the layer, so a 640-wide field would
+    ; leave the pointer stuck in the left half; a 40x30 (320x240) field
+    ; tracks it. Modes 0 and 3 are 640x480 (80x60 cells).
     ldx #80
     ldy #60
+    lda cx_vmode
+    cmp #1
+    bne @cfg
+    ldx #40
+    ldy #30
+@cfg
+    pla
     jmp MOUSE_CONFIG
 
 cx_do_exit

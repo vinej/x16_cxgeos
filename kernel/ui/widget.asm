@@ -366,7 +366,7 @@ wg_p_button
     sta X16_P3
     lda X16_T0
     ldx X16_T0+1
-    jmp font_draw
+    jmp cxov_text
 
 ; a checkbox / radio: a small marker box on the left, then the label.
 ; checked = the box filled with the frame colour.
@@ -445,7 +445,7 @@ wg_p_toggle
     jsr wg_label_ptr
     lda X16_T0
     ldx X16_T0+1
-    jmp font_draw
+    jmp cxov_text
 
 ; a horizontal scrollbar: a framed trough, and a thumb whose left edge
 ; is val/max across the inner width. A short fixed thumb width.
@@ -1622,7 +1622,7 @@ wg_refocus_frame
 wg_draw_frame
     jsr wg_frame_box
     lda th_hi
-    jmp gfx2_frame
+    jmp cxov_frame
 wg_clr_frame
     jsr wg_frame_box            ; a paper margin, then the widget back
     lda th_paper

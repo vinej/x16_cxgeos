@@ -319,8 +319,10 @@ cx_g_da_close    jsr gui_gate
                  jmp cx_do_da_close
 
 cx_vmode .byte 0                ; the engine in the port right now
-cx_cshift .byte 0, 1, 0, 3      ; mouse pixel >> this per mode: 0 GUI,
-                                ; 1 BMP8 (320-wide), - tiles, 3 TEXT cells
+cx_cshift .byte 0, 0, 0, 3      ; mouse coord >> this per mode. Mode 1's
+                                ; mouse is already its 320-wide field (see
+                                ; cx_do_mouse_show), so only text (mode 3,
+                                ; a 640 field of 8px cells) shifts, by 3
 cx_cur_w .word 640              ; the live canvas, kept current by
 cx_cur_h .word 480              ; cx_ov_bounds (the flat runner keeps
                                 ; the mode-0 defaults)
