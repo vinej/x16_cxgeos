@@ -1,6 +1,6 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.6.0** · ABI version 1 · 97 slots (append-only)
+**Release 0.6.1** · ABI version 1 · 97 slots (append-only)
 
 This documents `sdk/include_<compiler>/cxgeos.h` — the **generated**, low-level
 binding to the kernel. It is what every CXGEOS app ultimately calls. C
@@ -310,7 +310,7 @@ One 2bpp definition per icon serves both bitmap modes: mode 0 blits it, mode
 1 expands each 2-bit index to an 8bpp pixel (tiles/text ignore it). The eight
 ids are 0 up, 1 folder, 2 app, 3 font, 4 accessory, 5 data, 6 image, 7 disk.
 The desktop's icon view and the `CX_WG_ICON` widget draw these; an app can blit
-one directly. *(Added in 0.7.0.)*
+one directly. *(Added in 0.6.1.)*
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
