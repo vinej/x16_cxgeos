@@ -39,11 +39,30 @@ circle, disc, ellipse, filled ellipse and flood are one copy of code in
 bank 5 drawing **through the vector itself**, with bounds from
 `cx_cur_w/h`, so they are correct in every bitmap mode automatically.
 
-**Mode-0-only, enforced:** the toolkit, fonts, dialogs, menus, desk
-accessories, and the save-under machinery. Their ABI entries refuse with
-carry (via `gui_gate`) outside mode 0, so a mistaken call in a bitmap or
-tile app is a clean no-op, not a crash. Text in tile mode is font *tiles*
-(`cx_tile_cell` with a glyph's tile index), the classic approach.
+**The toolkit through the port:** the menu, widgets and dialogs draw
+through the port vector (not the mode-0 engine's labels), measure text
+through a 15th `measure` entry, and save what a transient element covers
+through `rsave`/`rrest` entries — so the same toolkit code lays out in
+any mode's units. The per-mode geometry (bar height, row height, the
+insets, the title air) rides each engine image as nine metric bytes
+after the ink; the frame thicknesses are "one unit" in every mode and
+stay literal.
+
+The **menu** is the first to cross: `cx_menu_set`/`off`/`key` run in
+mode 0 *and* mode 3 (a real text-mode TUI — the bar, drop-downs as
+framed PETSCII boxes, items in cells; mode 3 stashes the covered cells
+in bank 6, mode 0 the pixel rows in banks 14–15). `menu_gate` allows
+those two modes; the bitmap modes still refuse (an 8bpp save-under is
+future). Keyboard nav works today; mouse-in-TUI needs event-coordinate
+scaling (deferred). *Known gap: a highlighted row draws its label in the
+mode's ink over the highlight paper, which reads white-on-white in text
+mode until the theme maps roles to per-mode text colours.*
+
+**Still mode-0-only:** fonts (`cx_font_set`/`style`), widgets, dialogs,
+and desk accessories — held to mode 0 by `gui_gate` until they cross the
+same way. A mistaken call outside mode 0 refuses with carry, a clean
+no-op, not a crash. Text in tile mode is font *tiles* (`cx_tile_cell`
+with a glyph's tile index), the classic approach.
 
 ## How to add mode N
 
