@@ -302,11 +302,11 @@ cx_g_menu_off    jsr menu_gate
                  jmp cx_do_menu_off
 cx_g_menu_key    jsr menu_gate
                  jmp cx_do_menu_key
-cx_g_wg_set      jsr gui_gate
+cx_g_wg_set      jsr menu_gate      ; widgets render ASCII-classic in text
                  jmp cx_do_wg_set
-cx_g_wg_draw     jsr gui_gate
+cx_g_wg_draw     jsr menu_gate
                  jmp cx_do_wg_draw
-cx_g_wg_key      jsr gui_gate
+cx_g_wg_key      jsr menu_gate
                  jmp cx_do_wg_key
 cx_g_theme_set   jsr gui_gate
                  jmp cx_do_theme_set

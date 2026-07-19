@@ -275,6 +275,13 @@ wg_x1y1
 ; painting -- one widget, from its record at CX_M_PTR
 ; =====================================================================
 wg_paint
+    lda cx_vmode               ; a cell canvas gets ASCII-classic widgets
+    cmp #CX_MODE_TEXT          ; ([X] (o) [ok] ...), not scaled pixel boxes
+    bne @gfx
+    jsr cxb_call               ; the text painter rides bank 5; tail-call
+    .byte 5                    ; it and return to wg_draw_all
+    .addr wg_paint_t
+@gfx
     ldy #WG_TYPE
     lda (CX_M_PTR),y
     cmp #WG_BUTTON              ; the painters are pages apart: jmp, not
@@ -994,6 +1001,206 @@ wg_toggle_box                   ; P0..P7 = the WG_BOX marker square
     sta X16_P6
     stz X16_P7
     rts
+
+; =====================================================================
+; wg_paint_t -- the widget in ASCII, for a cell canvas. Reads the record
+; and draws a line at its (x, y):  button [label]   check [X]/[ ] label
+; radio (*)/( ) label   field [text]   scroll label   list its rows.
+; The record's x/y/w/h are cells (the app authors them so), and wg_hit
+; tests that same box, so clicks land without any of the pixel geometry.
+;
+; It rides bank 5, not bank 2 -- the toolkit's own bank is full -- and
+; wg_paint far-calls it. Everything it touches is reachable from there:
+; the record through CX_M_PTR (low RAM), cxov_text and the theme through
+; resident addresses, and its strings and locals travel with it.
+; =====================================================================
+.ifndef CX_NO_OVERLAY
+.segment "B5CODE"               ; bank 5 in the kernel; the flat runner
+.else                           ; (mode 0 only) never calls it -- park it
+.segment "CODE"                 ; in CODE so it just links
+.endif
+
+wg_ink                          ; A = the paper -> cxov_ink contrasts (a
+    cmp th_hi                   ; local copy of mn_ink; that one is bank 2)
+    bne @onpaper
+    lda th_paper
+    sta cxov_ink
+    rts
+@onpaper
+    lda th_hi
+    sta cxov_ink
+    rts
+
+wg_paint_t
+    lda th_paper                ; light-on-paper text, like the menu items
+    jsr wg_ink
+    ldy #WG_LBL                 ; PRE-READ the record: the KERNAL screen
+    lda (CX_M_PTR),y            ; routines clobber CX_M_PTR ($44/$45), so
+    sta wg_lblv                 ; nothing may re-read it once cxov_text runs
+    ldy #WG_LBL+1
+    lda (CX_M_PTR),y
+    sta wg_lblv+1
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    sta wg_valv
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    sta wg_xv
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    sta wg_xv+1
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    sta wg_yv
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    sta wg_yv+1
+    ldy #WG_GRP
+    lda (CX_M_PTR),y
+    sta wg_cntv
+    ldy #WG_TYPE
+    lda (CX_M_PTR),y
+    sta wg_typv
+
+    jsr wg_t_pos                ; P0/P1 = x, P2/P3 = y
+    lda wg_typv
+    cmp #WG_CHECK
+    beq wg_t_toggle
+    cmp #WG_RADIO
+    beq wg_t_toggle
+    cmp #WG_FIELD
+    beq wg_t_field
+    cmp #WG_LIST
+    beq wg_t_list
+    cmp #WG_SCROLL
+    bne @button
+    jmp wg_t_label              ; a slider: just its label on this canvas
+@button
+    ; BUTTON: [ label ]
+    lda #<wg_s_lbrk
+    ldx #>wg_s_lbrk
+    jsr cxov_text
+    jsr wg_t_label
+    lda #<wg_s_rbrk
+    ldx #>wg_s_rbrk
+    jmp cxov_text
+
+wg_t_toggle                     ; check/radio: the marker, then the label
+    ldx wg_valv
+    lda wg_typv
+    cmp #WG_RADIO
+    beq @rad
+    cpx #0
+    beq @coff
+    lda #<wg_s_con
+    ldx #>wg_s_con
+    bra @mk
+@coff
+    lda #<wg_s_coff
+    ldx #>wg_s_coff
+    bra @mk
+@rad
+    cpx #0
+    beq @roff
+    lda #<wg_s_ron
+    ldx #>wg_s_ron
+    bra @mk
+@roff
+    lda #<wg_s_roff
+    ldx #>wg_s_roff
+@mk
+    jsr cxov_text               ; the 4-cell marker; the pen advances
+    jmp wg_t_label
+
+wg_t_field                      ; [ text ]
+    lda #<wg_s_lbrk
+    ldx #>wg_s_lbrk
+    jsr cxov_text
+    jsr wg_t_label
+    lda #<wg_s_rbrk
+    ldx #>wg_s_rbrk
+    jmp cxov_text
+
+; the list: each row's label down the column, the selected one reversed.
+; wg_lblv is the array base; every field is already in a bank-2 local.
+wg_t_list
+    stz wg_rowv
+@row
+    lda wg_rowv
+    cmp wg_cntv
+    bcs @done
+    lda wg_xv
+    sta X16_P0
+    lda wg_xv+1
+    sta X16_P1
+    clc
+    lda wg_yv
+    adc wg_rowv
+    sta X16_P2
+    lda wg_yv+1
+    adc #0
+    sta X16_P3
+    lda wg_rowv                 ; the selected row reverses
+    cmp wg_valv
+    bne @plain
+    lda th_hi
+    bra @rink
+@plain
+    lda th_paper
+@rink
+    jsr wg_ink
+    lda wg_rowv                 ; label = array[row]: reload the zp ptr,
+    asl                         ; read the element, THEN draw (cxov_text
+    clc                         ; may clobber the ptr, not the element)
+    adc wg_lblv
+    sta X16_TPTR0
+    lda wg_lblv+1
+    adc #0
+    sta X16_TPTR0+1
+    ldy #0
+    lda (X16_TPTR0),y
+    pha
+    iny
+    lda (X16_TPTR0),y
+    tax
+    pla
+    jsr cxov_text
+    inc wg_rowv
+    bra @row
+@done
+    rts
+
+wg_t_pos                        ; P0/P1 = x, P2/P3 = y (from the locals)
+    lda wg_xv
+    sta X16_P0
+    lda wg_xv+1
+    sta X16_P1
+    lda wg_yv
+    sta X16_P2
+    lda wg_yv+1
+    sta X16_P3
+    rts
+
+wg_t_label                      ; the saved label ptr, at the pen
+    lda wg_lblv
+    ldx wg_lblv+1
+    jmp cxov_text
+
+wg_s_lbrk .byte "[", 0
+wg_s_rbrk .byte "]", 0
+wg_s_con  .byte "[X] ", 0
+wg_s_coff .byte "[ ] ", 0
+wg_s_ron  .byte "(*) ", 0
+wg_s_roff .byte "( ) ", 0
+wg_lblv .word 0
+wg_valv .byte 0
+wg_typv .byte 0
+wg_cntv .byte 0
+wg_rowv .byte 0
+wg_xv   .word 0
+wg_yv   .word 0
+
+.segment "B2CODE"
 
 wg_label_ptr                    ; X16_T0 = the record's label pointer
     ldy #WG_LBL
