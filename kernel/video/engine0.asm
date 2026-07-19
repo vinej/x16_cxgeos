@@ -264,24 +264,23 @@ cx_ov_bounds
 ; bitmap modes still refuse -- a menu there wants an 8bpp save-under
 ; that is future work.
 menu_gate
-    pha
-    lda cx_vmode
-    cmp #CX_MODE_TEXT
-    bne gg_saved                ; not mode 3: judge it as gui_gate (A is
-    pla                         ; already saved); mode 3 falls through to
-    rts                         ; allow
-gui_gate
-    pha                         ; the entry's A is an argument (a pointer
-gg_saved
-    lda cx_vmode                ; byte, a key) -- saved across the check
-    bne @refuse
-    pla                         ; mode 0: A back, on to the wrapper's jmp
+    pha                         ; the entry's A is an argument -- saved
+    lda cx_vmode                ; across the check
+    cmp #2                      ; only tiles (mode 2) have no framebuffer
+    beq gg_refuse               ; for the toolkit; 0, 1 and 3 all draw
+    pla                         ; through the port
     rts
-@refuse
-    pla                         ; not mode 0: drop the saved A and the
-    pla                         ; wrapper's return address, then land the
-    pla                         ; rts on the app with carry set (X and Y
-    sec                         ; are untouched throughout)
+gui_gate
+    pha                         ; still mode-0-only: fonts, DAs
+    lda cx_vmode
+    bne gg_refuse
+    pla
+    rts
+gg_refuse
+    pla                         ; drop the saved A and the wrapper's
+    pla                         ; return address, then land the rts on the
+    pla                         ; app with carry set (X and Y untouched)
+    sec
     rts
 
 ; the gated ABI entries -- one per GUI-only slot. impl.inc points the
@@ -320,6 +319,8 @@ cx_g_da_close    jsr gui_gate
                  jmp cx_do_da_close
 
 cx_vmode .byte 0                ; the engine in the port right now
+cx_cshift .byte 0, 1, 0, 3      ; mouse pixel >> this per mode: 0 GUI,
+                                ; 1 BMP8 (320-wide), - tiles, 3 TEXT cells
 cx_cur_w .word 640              ; the live canvas, kept current by
 cx_cur_h .word 480              ; cx_ov_bounds (the flat runner keeps
                                 ; the mode-0 defaults)

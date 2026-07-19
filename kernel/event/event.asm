@@ -433,22 +433,22 @@ ev_do_mouse
     jsr mouse_get               ; P0/P1 = x, P2/P3 = y, A = buttons
     sta ev_btn_now
 
-    ; In a CELL mode the pointer's pixels become cells (>>3), so events
-    ; report the same units the toolkit and app draw in -- the menu's
-    ; hit-test compares cell coords, and a click lands on a cell. The
-    ; sprite still moves in pixels; only the reported position scales.
-    lda cx_vmode
-    cmp #CX_MODE_TEXT
-    bne @pixels
-    ldx #3
-@cellshift
+    ; The pointer is always in 640x480 space (MOUSE_CONFIG 80x60), but a
+    ; mode draws in its own units, so the reported position is shifted
+    ; down to them: mode 1 is 320x240 (>>1), mode 3 is 80x60 cells (>>3),
+    ; mode 0 matches (>>0). The toolkit and app then hit-test in the same
+    ; units they draw in; the sprite still moves in pixels.
+    ldy cx_vmode
+    ldx cx_cshift,y
+    beq @noscale
+@shift
     lsr X16_P1
     ror X16_P0
     lsr X16_P3
     ror X16_P2
     dex
-    bne @cellshift
-@pixels
+    bne @shift
+@noscale
 
     lda X16_P0                  ; stamp every record with where the
     sta ev_rec+2                ; pointer is, whatever its type

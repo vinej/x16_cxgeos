@@ -43,13 +43,17 @@ ov1_vector                      ; the port's entry vector, slot order
     jmp gfx_blitm               ; PIXELS; blitm's $00 is transparent
     jmp ov1_text                ; text: 8x8 charset glyphs from $1F000
     jmp ov1_measure             ; measure: 8 pixels per glyph
-    jmp ov1_no                  ; rsave: 8bpp save-under is future work
-    jmp ov1_no                  ; rrest
+    jmp ov1_rsave               ; rsave/rrest: 8bpp framebuffer rows <->
+    jmp ov1_rrest               ; a VRAM strip (fx_copy), the toolkit's
+                                ; save-under in mode 1
     .byte 1                     ; cxov_ink -- the text ink, a palette
                                 ; index; each entry resets it to white
-    .byte 12, 10,  8, 16,  2,  4,  8,  4,  1   ; UI metrics (toolkit gated off)
-    .word 400
-    .byte 96, 72, 16, 80, 12, 34               ; dialog metrics (gated off)
+    ; UI metrics in pixels: the menu's are the mode-0 values (the 8x8
+    ; font fits a 12px bar, a 10px row), but the dialog box is sized to
+    ; the 320x240 screen -- 280 wide, not 400
+    .byte 12, 10,  8, 16,  2,  4,  8,  4,  1
+    .word 280
+    .byte 80, 72, 16, 80, 12, 30               ; dgh dgbw dgbh dgbsp dgpad dgfldy
 
 .assert ov1_vector = CX_OVL, error, "OV1CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 
@@ -138,6 +142,86 @@ ov1_measure
     sta X16_P0
     clc
     rts
+
+; ov1_rsave / ov1_rrest -- the toolkit's save-under in mode 1. P0/P1 =
+; first row, P2 = row count. The 8bpp framebuffer is at VRAM $00000,
+; 320 bytes a row; fx_copy moves the covered rows to a strip in the free
+; VRAM above the picture ($13100, past the mouse sprite) and back --
+; VRAM-to-VRAM, no bank consumed. Row and count are small (a dropdown or
+; a dialog), so row*320 and count*320 stay within 16 bits.
+M1_STRIP = $13100
+ov1_rsave
+    ldx #1                      ; framebuffer -> strip
+    bra ov1_su
+ov1_rrest
+    ldx #0                      ; strip -> framebuffer
+ov1_su
+    stx ov1_sdir
+    lda X16_P0                  ; the framebuffer offset = first_row * 320
+    jsr ov1_mul320
+    lda ov1_r
+    sta ov1_off
+    lda ov1_r+1
+    sta ov1_off+1
+    lda X16_P2                  ; the byte count = count * 320
+    jsr ov1_mul320
+    lda ov1_r
+    sta X16_P6
+    lda ov1_r+1
+    sta X16_P7
+    lda ov1_sdir
+    beq @rest
+    lda ov1_off                 ; save: fb[off] -> strip
+    sta X16_P0
+    lda ov1_off+1
+    sta X16_P1
+    stz X16_P2
+    lda #<M1_STRIP
+    sta X16_P3
+    lda #>M1_STRIP
+    sta X16_P4
+    lda #^M1_STRIP
+    sta X16_P5
+    jmp fx_copy
+@rest
+    lda #<M1_STRIP              ; restore: strip -> fb[off]
+    sta X16_P0
+    lda #>M1_STRIP
+    sta X16_P1
+    lda #^M1_STRIP
+    sta X16_P2
+    lda ov1_off
+    sta X16_P3
+    lda ov1_off+1
+    sta X16_P4
+    stz X16_P5
+    jmp fx_copy
+
+ov1_mul320                      ; A = k -> ov1_r (word) = k * 320
+    sta ov1_t                   ; k*320 = k*256 + k*64
+    stz ov1_r+1
+    asl
+    rol ov1_r+1
+    asl
+    rol ov1_r+1
+    asl
+    rol ov1_r+1
+    asl
+    rol ov1_r+1
+    asl
+    rol ov1_r+1
+    asl
+    rol ov1_r+1                 ; ov1_r+1:A = k*64
+    sta ov1_r
+    lda ov1_t                   ; + k*256 (k into the high byte)
+    clc
+    adc ov1_r+1
+    sta ov1_r+1
+    rts
+ov1_sdir .byte 0
+ov1_t    .byte 0
+ov1_r    .word 0
+ov1_off  .word 0
 
 ov1_pset                        ; colour A -> P3 (y's dead high byte)
     sta X16_P3
