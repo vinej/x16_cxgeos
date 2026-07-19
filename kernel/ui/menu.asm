@@ -201,6 +201,23 @@ mn_bandy                        ; A = row i -> A = the row's band y:
     adc #1
     rts
 
+; mn_ink -- A = the paper a label is about to land on. Sets cxov_ink to
+; the CONTRASTING theme role (reverse video): a label on the highlight
+; draws in the paper colour, a label on the paper draws in the highlight
+; colour. Mode 3's text writer honours cxov_ink, so this is what keeps
+; the highlighted row legible there; mode 0's font ignores the byte and
+; uses the theme, so this is a no-op on the desktop.
+mn_ink
+    cmp th_hi
+    bne @onpaper
+    lda th_paper                ; on the highlight: the dark paper colour
+    sta cxov_ink
+    rts
+@onpaper
+    lda th_hi                   ; on the paper: the light highlight colour
+    sta cxov_ink
+    rts
+
 ; ---------------------------------------------------------------------
 ; mn_draw_bar -- the strip and the titles, and the hit spans the bar
 ; click will search. Title m starts 8px in, then measured width plus
@@ -276,6 +293,8 @@ mn_draw_bar
     lda cxov_m_barty
     sta X16_P2
     stz X16_P3
+    lda th_paper                ; a bar title sits on the paper strip
+    jsr mn_ink
     lda mn_t2
     ldx mn_t2+1
     jsr cxov_text               ; hands back the pen in P0/P1
@@ -357,6 +376,8 @@ mn_title_band
     lda (CX_M_PTR),y
     stx CX_M_PTR
     sta CX_M_PTR+1
+    lda mn_band                 ; the title's band: th_hi open, th_paper closed
+    jsr mn_ink
     lda CX_M_PTR
     ldx CX_M_PTR+1
     jmp cxov_text
@@ -554,6 +575,8 @@ mn_drop_open
     adc cxov_m_itemdy
     sta X16_P2
     stz X16_P3
+    lda th_paper                ; a fresh item sits on the box paper
+    jsr mn_ink
     lda CX_M_PTR
     ldx CX_M_PTR+1
     jsr cxov_text
@@ -897,6 +920,8 @@ mn_row_paint
     adc cxov_m_itemdy
     sta X16_P2
     stz X16_P3
+    lda mn_t2                   ; the row's band: th_hi hot, th_paper not
+    jsr mn_ink
     lda CX_M_PTR
     ldx CX_M_PTR+1
     jmp cxov_text
