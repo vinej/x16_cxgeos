@@ -56,13 +56,12 @@ OVL_IMAGES = ["OV0CODE", "OV1CODE", "OV2CODE", "OV3CODE"]
 
 WARN_PCT = 85               # a region this full is worth a look
 WARN_FREE = 256             # ...as is one with less than this to give
-FAIL_FREE_RESIDENT = 64     # the hard floor. P5 set this at 128; the
-                            # sprite-collision feature (cx_spr_collide +
-                            # the EVS_SPRCOL arming) then spent ~46 B of
-                            # that headroom. INTERIM 64 until the planned
-                            # x16_library granularity reclaim (unused IRQ/
-                            # VERA/SCREEN/INPUT code, ~110-160 B) restores
-                            # the margin -- then this goes back to 128.
+FAIL_FREE_RESIDENT = 128    # the P5 diet's floor: the resident image must
+                            # keep a real margin for the next feature that
+                            # genuinely needs to be resident. (The sprite-
+                            # collision feature spent ~46 B; the x16_library
+                            # 0.6.0 gate reclaim -- dropping vera_copy,
+                            # vsync_wait, key_wait/peek -- gave it back.)
 
 
 def parse_map(text: str) -> dict:
@@ -174,7 +173,7 @@ def selftest() -> int:
     assert report(moved, io.StringIO()) == 1
     # a resident image under the free-byte floor must fail
     tight = dict(segs)
-    tight["CODE"] = (0x81A9, 0x1457 - 50)   # 50 free < FAIL_FREE_RESIDENT
+    tight["CODE"] = (0x81A9, 0x1457 - 100)  # 100 free < FAIL_FREE_RESIDENT
     assert report(tight, io.StringIO()) == 1
     print("mapreport: selftest OK")
     return 0

@@ -322,13 +322,17 @@ irq_frames
 ;
 ; Frame-locked: it waits for the counter to change rather than polling
 ; VERA, so it cannot miss a frame or spin twice within one. Requires
-; irq_install, and interrupts enabled -- it will hang otherwise.
+; irq_install, and interrupts enabled -- it will hang otherwise. A
+; program that drives its own loop from irq_frames does not need it, so
+; it is behind X16_USE_IRQ_VSYNC (X16_USE_IRQ still pulls it, for compat).
 ; ---------------------------------------------------------------------
+.ifdef X16_USE_IRQ_VSYNC
 vsync_wait
     lda irq_frame_count
 @wait
     cmp irq_frame_count
     beq @wait
     rts
+.endif
 
 ; (end zone)
