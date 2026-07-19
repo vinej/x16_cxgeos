@@ -10,7 +10,7 @@ a new mode never moves a slot, changes a signature, or touches an app.
 
 | piece | where | what |
 |---|---|---|
-| the region (`OVL`) | `$9500`–`$9EFF` resident RAM (`kernel.cfg`, `CX_OVL` in `kernel/video/ovl.inc`) | 2,560 bytes the current engine occupies |
+| the region (`OVL`) | `$9600`–`$9EFF` resident RAM (`kernel.cfg`, `CX_OVL` in `kernel/video/ovl.inc`) | 2,304 bytes the current engine occupies |
 | the entry vector | the region's first 42 bytes | 14 × `jmp`, one per gfx slot, in slot order: init, clear, pset, read, hline, vline, rect, frame, line, pattern set, pattern rect, blit, masked blit, **text**. The 14th (text) is `cx_say`: mode 0 points it at the CXF font, text mode at its cell writer, the rest refuse — so `cx_say` is mode-aware through the port, not a special case. One byte of ENGINE state follows at `CX_OVL+42`: `cxov_ink`, the text ink `cx_ink` sets — it rides the image, so every mode entry resets it to that mode's default and a value never leaks across a switch |
 | an engine image | an ld65 overlay segment: `run = OVL`, `load =` a kernel bank | the vector + the engine + any argument adapters |
 | the manager | `kernel/video/engine0.asm` (resident) | `cx_ov_load` copies image *n* from `cx_mbank[n]` / `cx_msrc[n]` (interrupts masked); `cx_gfx_mode` = copy + the new engine's init; `cx_gfx_init` **forces mode 0**, so `cx_exit` → shell always restores the desktop |

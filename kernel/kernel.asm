@@ -7,22 +7,23 @@
 ;   .\build.ps1 -Kernel        -> build\CXKERNEL.PRG
 ;
 ; against kernel/kernel.cfg, which pins the header at $8000, the jump
-; table at $8010 and this code at $8200. An app owns $0801-$7FFF and
+; table at $8010 and this code at $8160. An app owns $0801-$7FFF and
 ; reaches all of it through the table.
 ;
 ; The image is a PRG with a $8000 load address, so the boot stub loads
 ; it with one fs_load and jumps to the init vector in the header. Nothing
 ; here relocates: the addresses ARE the ABI.
 ;
-; The resident budget is 7,424 bytes ($8200-$9EFF). ld65 fails the build
-; if this overflows -- the budget enforces itself rather than being a
-; comment someone has to remember.
+; The resident budget is 5,280 bytes ($8160-$95FF); $9600-$9EFF is the
+; graphics-port OVL window (kernel/video/ovl.inc), not code. ld65 fails
+; the build if the budget overflows -- it enforces itself rather than
+; being a comment someone has to remember.
 ; =====================================================================
 
 .include "x16.asm"
 .include "kernel/resident/zp.inc"
 
-; Only what is called. A gate here is 76 to 2,502 bytes of a 7,424-byte
+; Only what is called. A gate here is 76 to 2,502 bytes of a 5,280-byte
 ; budget, and x16lib is one translation unit -- what a gate pulls in,
 ; the image carries whether anything calls it or not. SCREEN, LOAD and
 ; BANK were 821 bytes between them and nothing called any of them:

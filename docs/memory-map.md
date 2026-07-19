@@ -21,9 +21,10 @@ file in the same commit as the code that claims or releases a region.
 | $0100–$01FF | CPU stack | kernel ≤48 bytes below caller SP per API call, ≤16 in IRQ |
 | $0200–$07FF | KERNAL/DOS | untouched — the X16_Geos project died on this hill: the IRQ handler lives at $038B on stock R49; we never go near it |
 | $0801–$7FFF | application | ~30KB, loaded/reset by the kernel loader |
-| $8000–$800F | ABI header | magic `CXOS`, ABI version word |
-| $8010–$81FF | jump table | 3-byte JMP slots, append-only, address fixed forever |
-| $8200–$9EFF | resident kernel | ~7.4KB: gfx2 hot paths, glyph blitter, event core, bank trampoline. Budget enforced by `kernel.cfg` |
+| $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector |
+| $8010–$815F | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 95 slots used ($8010–$812C), reserve caps at 112 |
+| $8160–$95FF | resident kernel | 5,280-byte budget: event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard, port manager. Budget enforced by `kernel.cfg` (ld65 fails on overflow) |
+| $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` ([graphics-port.md](graphics-port.md)) |
 
 ## Banked RAM ($A000–$BFFF window, bank register at $00)
 
@@ -43,8 +44,8 @@ file in the same commit as the code that claims or releases a region.
 
 ### The graphics port and its banks *(0.3.0)*
 
-The resident region `$9500`-`$9EFF` is the graphics PORT: the current
-engine image lives there, copied from its bank by `cx_gfx_mode`
+The resident region `$9600`-`$9EFF` (2,304 bytes) is the graphics PORT:
+the current engine image lives there, copied from its bank by `cx_gfx_mode`
 ([graphics-port.md](graphics-port.md)). Bank 3 = mode 0 (2bpp), bank 4 =
 mode 1 (8bpp core), bank 5 = the mode-agnostic shapes + the tile
 machinery + mode 2's image. In `CX_MODE_TILE`, VRAM `$00000` holds tile
@@ -104,8 +105,14 @@ the same size:
   with a modal alert. NOT banks 6-8 — those are the font cache, and a
   dialog that saved there ate its own message glyphs.
 
-Placement is proven: `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$806C`
-(93 bytes = 31 slots × 3), `CODE` at `$8200`.
+Placement is proven: `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$812C`
+(285 bytes = 95 slots × 3, reserve to `$815F`), `CODE` at `$8160`–`$95EB`.
+
+*(2026-07 note: the table above is the 0.4-era history. After the
+graphics-port refactor the resident region is `$8160`–`$95FF` = 5,280
+bytes with the OVL window at `$9600`; at v0.5.1 the image used 5,260 of
+them — the 20 spare bytes are why the pre-1.0 memory restructure exists.
+This section becomes a per-bank budget ledger at the end of that work.)*
 
 **Two thirds of the image was the library, and most of it was unused.**
 Measured, one gate at a time, when it first failed to fit:
@@ -159,8 +166,9 @@ pulls in, the image carries whether anything calls it or not.
   panic console, and it needs nothing of ours.)
 
 - **Banking the cold code** is still right — `font_cache` runs once at
-  boot and has no business resident — but with 1,512 spare it is now a
-  choice rather than a debt.
+  boot and has no business resident. (When this was written there were
+  1,512 bytes spare and it was a choice; at v0.5.1's 20 spare bytes it
+  is a debt again, and the pre-1.0 restructure pays it.)
 
 ## The boot chain (Phase 4c)
 

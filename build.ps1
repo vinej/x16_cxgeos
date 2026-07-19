@@ -45,9 +45,10 @@ foreach ($tool in @($ca65, $ld65, $emu, $rom)) {
 if (-not (Test-Path $build)) { New-Item -ItemType Directory -Path $build | Out-Null }
 
 # -Kernel builds the resident image: the header at $8000, the jump table
-# at $8010 and the code at $8200, which are the addresses every app is
-# built against. ld65 fails the link if the code overruns $9EFF, so the
-# budget enforces itself. See docs/memory-map.md for the ledger.
+# at $8010 and the code at $8160, which are the addresses every app is
+# built against. ld65 fails the link if the code overruns $95FF, so the
+# budget enforces itself -- and mapreport.py prints how close it came.
+# See docs/memory-map.md for the ledger.
 if ($Kernel) {
     $Source = "kernel\kernel.asm"
     $Config = "kernel\kernel.cfg"
@@ -67,6 +68,13 @@ function Build-KernelImage {
     Pop-Location
     if ($ldExit -ne 0) { Fail "ld65 failed on the kernel (over budget?)" }
     Write-Host "      $((Get-Item $p).Length) bytes + $((Get-Item (Join-Path $build 'CXBANKS.BIN')).Length) banked"
+    # the budget, read back from the map: what each region used, what is
+    # left, and which wall is nearest (tools/mapreport.py)
+    $pyc = Get-Command python -ErrorAction SilentlyContinue
+    if ($pyc) {
+        & $pyc.Source (Join-Path $root "tools\mapreport.py") (Join-Path $build "CXKERNEL.map")
+        if ($LASTEXITCODE -ne 0) { Fail "mapreport: a memory region is over budget or a pin moved" }
+    }
 }
 
 # The cartridge image: the same kernel, delivered in ROM instead of on SD.
@@ -291,7 +299,9 @@ if ($Test) {
         if ($LASTEXITCODE -ne 0) { Fail "fontconv: selftest failed" }
         & $py.Source (Join-Path $root "tools\mkcxap.py") --selftest | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail "mkcxap: selftest failed" }
-        Write-Host "abi + fontconv + mkcxap: host checks pass"
+        & $py.Source (Join-Path $root "tools\mapreport.py") --selftest | Out-Null
+        if ($LASTEXITCODE -ne 0) { Fail "mapreport: selftest failed" }
+        Write-Host "abi + fontconv + mkcxap + mapreport: host checks pass"
     } else {
         Write-Host "python not found: skipping the host checks" -ForegroundColor Yellow
     }
