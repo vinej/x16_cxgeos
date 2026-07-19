@@ -70,6 +70,23 @@ cxov_rrest   = CX_OVL + 16*3    ; and restore them: the toolkit's
 ; belongs to the theme and ignores this byte).
 cxov_ink     = CX_OVL + 17*3
 
+; The toolkit's per-mode geometry rides the image right after the ink
+; byte -- nine constants, the whole difference between laying the menu
+; (and later the widgets and dialogs) out in mode 0's pixels or mode 3's
+; cells. The frame thicknesses it also uses are "one unit" in every mode
+; and stay literal. Read straight from these fixed addresses, like the
+; ink; no resident copy (the budget has no room, and only the current
+; image is ever resident, so its metrics are always the live ones).
+cxov_m_barh    = CX_OVL + 17*3 + 1   ; bar height / dropdown top
+cxov_m_rowh    = CX_OVL + 17*3 + 2   ; dropdown item row height
+cxov_m_barx    = CX_OVL + 17*3 + 3   ; bar title pen start
+cxov_m_airx    = CX_OVL + 17*3 + 4   ; air between bar titles
+cxov_m_barty   = CX_OVL + 17*3 + 5   ; title y within the bar
+cxov_m_bandpad = CX_OVL + 17*3 + 6   ; open-title band padding, each side
+cxov_m_boxwpad = CX_OVL + 17*3 + 7   ; dropdown box width extra
+cxov_m_itemx   = CX_OVL + 17*3 + 8   ; item label x inset
+cxov_m_itemdy  = CX_OVL + 17*3 + 9   ; item label y, below the band
+
 .else                           ; the runner: no overlay, direct engine
 
 cxov_init    = gfx2_init

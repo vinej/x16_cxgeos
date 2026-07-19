@@ -66,10 +66,13 @@ ov3_vector                      ; the 14 port entries, in slot order;
     jmp ov3_refuse              ; masked blit
     jmp ov3_say                 ; text: print a string at a cell
     jmp ov3_measure             ; measure: one cell per character
-    jmp ov3_refuse              ; rsave: text-cell save-under -- lands
-    jmp ov3_refuse              ; rrest: with the menu conversion
+    jmp ov3_rsave               ; rsave/rrest: text-cell rows <-> a bank
+    jmp ov3_rrest
     .byte 1                     ; cxov_ink -- cx_say's ink attribute
                                 ; (0-15); every entry resets it to white
+    ; the UI metrics, in CELLS (barh rowh barx airx barty bandpad
+    ; boxwpad itemx itemdy) -- the menu laid out on the text grid
+    .byte  1,  1,  1,  2,  0,  1,  2,  1,  0
 
 .assert ov3_vector = CX_OVL, error, "OV3CODE must start at CX_OVL"
 
@@ -452,6 +455,73 @@ ov3_measure
     clc
     rts
 
+; ov3_rsave / ov3_rrest -- the toolkit's save-under, in text cells.
+; The vrows contract: A = destination bank, P0/P1 = first row, P2 = row
+; count. A "row" is a full 80-cell text line = 160 bytes; the KERNAL's
+; default screen (CINT, which ov3_init runs) puts the map at VRAM
+; $1B000, 128-cell stride (256 bytes a line). VERA port 1 does the
+; streaming so port 0 -- the mouse's -- is undisturbed; interrupts are
+; masked so nothing flips ADDRSEL mid-copy. One bank holds 51 lines and
+; a dropdown is at most a dozen, so no bank wrap.
+T3_MAPM = $B0                   ; $1B000 middle byte; low = 0, high = $01
+ov3_rsave
+    ldx #0                      ; VRAM -> RAM
+    bra ov3_sr
+ov3_rrest
+    ldx #1                      ; RAM -> VRAM
+ov3_sr
+    php
+    sei
+    stx t_dir
+    sta RAM_BANK                ; the destination bank
+    stz X16_T4                  ; the RAM walker = bank window $A000
+    lda #$A0
+    sta X16_T5
+    lda #VERA_CTRL_ADDRSEL      ; steer ADDR writes at port 1
+    tsb VERA_CTRL
+    lda X16_P0                  ; the running middle byte = $B0 + row
+    clc
+    adc #T3_MAPM
+    sta t_vm
+    ldx X16_P2                  ; row count
+@row
+    stz VERA_ADDR_L
+    lda t_vm
+    sta VERA_ADDR_M
+    lda #($01 | (VERA_INC_1 << 4))
+    sta VERA_ADDR_H
+    ldy #160                    ; 80 cells x 2 bytes
+    lda t_dir
+    bne @rest
+@save
+    lda VERA_DATA1
+    sta (X16_T4)
+    inc X16_T4
+    bne @s2
+    inc X16_T5
+@s2
+    dey
+    bne @save
+    bra @next
+@rest
+    lda (X16_T4)
+    sta VERA_DATA1
+    inc X16_T4
+    bne @r2
+    inc X16_T5
+@r2
+    dey
+    bne @rest
+@next
+    inc t_vm                    ; the next line is 256 bytes on = M + 1
+    dex
+    bne @row
+    lda #VERA_CTRL_ADDRSEL      ; ADDRSEL back to 0, the mouse IRQ's world
+    trb VERA_CTRL
+    plp
+    clc
+    rts
+
 t_cnt .byte 0
 t_chr .byte 0
 t_h   .byte 0
@@ -459,6 +529,8 @@ t_row .byte 0
 t_bg  .byte 0
 t_sl  .byte 0
 t_sh  .byte 0
+t_dir .byte 0
+t_vm  .byte 0
 
 .segment "CODE"
 

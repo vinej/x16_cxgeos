@@ -47,6 +47,7 @@ ov1_vector                      ; the port's entry vector, slot order
     jmp ov1_no                  ; rrest
     .byte 1                     ; cxov_ink -- the text ink, a palette
                                 ; index; each entry resets it to white
+    .byte 12, 10,  8, 16,  2,  4,  8,  4,  1   ; UI metrics (toolkit gated off)
 
 .assert ov1_vector = CX_OVL, error, "OV1CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 

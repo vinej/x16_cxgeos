@@ -62,6 +62,7 @@ ov2_vector
     jmp ov2_no                  ; rrest
     .byte 1                     ; cxov_ink -- unused here, carried so the
                                 ; port layout is the same in every image
+    .byte 0, 0, 0, 0, 0, 0, 0, 0, 0            ; UI metrics (toolkit gated off)
 
 .assert ov2_vector = CX_OVL, error, "OV2CODE must start at CX_OVL"
 

@@ -155,6 +155,9 @@ ov0_vector                      ; the port's entry vector, slot order
     .byte 1                     ; cxov_ink -- unused in mode 0 (the theme
                                 ; owns the GUI's text ink), carried so the
                                 ; port layout is the same in every image
+    ; the UI metrics, in pixels (barh rowh barx airx barty bandpad
+    ; boxwpad itemx itemdy) -- the toolkit's current mode-0 constants
+    .byte 12, 10,  8, 16,  2,  4,  8,  4,  1
 
 .assert ov0_vector = CX_OVL, error, "OV0CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 
