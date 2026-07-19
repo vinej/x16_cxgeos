@@ -55,8 +55,7 @@ main
     lda #<handlers
     ldx #>handlers
     jsr cx_ev_handlers
-    jsr show_form               ; greet with the modal form; File > Form...
-    jmp cx_ev_mainloop
+    jmp cx_ev_mainloop          ; File > Form... opens the modal panel
 
 on_key
     lda X16_P1

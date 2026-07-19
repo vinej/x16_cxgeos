@@ -46,9 +46,7 @@ main
     lda #<handlers
     ldx #>handlers
     jsr cx_ev_handlers
-    jsr show_form               ; greet with the modal form, GEOS-style;
-                                ; File > Form... reopens it
-    jmp cx_ev_mainloop
+    jmp cx_ev_mainloop          ; File > Form... opens the modal panel
 
 ; paint the whole screen: paper, heading, menu bar, widgets
 paint

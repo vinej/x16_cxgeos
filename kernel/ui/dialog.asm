@@ -81,6 +81,10 @@ dlg_wg_setup
     jsr cxb_call
     .byte 2
     .addr wg_setup
+dlg_wg_restore
+    jsr cxb_call
+    .byte 2
+    .addr wg_restore
 dlg_wg_key
     jsr cxb_call
     .byte 2
@@ -283,35 +287,19 @@ dg_panel
     lda pn_y+1
     sta dg_y0+1
 
-    lda wg_list                 ; borrow the single widget slot: save the
-    sta pn_swl                  ; caller's list so its own widgets still
-    lda wg_list+1               ; work after the panel closes
-    sta pn_swl+1
-    lda wg_n
-    sta pn_swn
-    lda wg_focus
-    sta pn_swf
-
     jsr pn_geom
     jsr pn_boxup
     jsr dg_buttons
-    lda pn_wl
-    ldx pn_wl+1
-    jsr dlg_wg_setup                ; the panel's widgets, drawn, no region
+    lda pn_wl                    ; the panel borrows the single widget slot;
+    ldx pn_wl+1                  ; wg_setup parks the caller's context (it is
+    jsr dlg_wg_setup             ; bank-2 RAM this bank-5 code cannot touch)
 
     lda #1
     sta pn_active
     jsr pn_wait
     stz pn_active
 
-    lda pn_swl                  ; the caller's widget context back
-    sta wg_list
-    lda pn_swl+1
-    sta wg_list+1
-    lda pn_swn
-    sta wg_n
-    lda pn_swf
-    sta wg_focus
+    jsr dlg_wg_restore           ; the caller's widgets answer clicks again
     lda dg_done
     rts
 
@@ -1032,9 +1020,8 @@ pn_title .word 0
 pn_wl   .word 0                 ; the panel's widget list
 pn_active .byte 0               ; 1 while a panel owns dg_vec: dg_hit then
                                 ; forwards non-button clicks to the widgets
-pn_swl  .word 0                 ; the caller's widget context, parked across
-pn_swn  .byte 0                 ; the panel and restored when it closes
-pn_swf  .byte 0
+                                ; (the caller's widget context is parked in
+                                ; bank 2 by wg_setup, not here)
 dg_s_ok     .byte "ok", 0
 dg_s_cancel .byte "cancel", 0
 

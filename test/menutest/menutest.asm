@@ -650,6 +650,50 @@ main
     lda #'c'
     jmp fail
 @pn2
+    ; the panel handed the widget slot back: the app's OWN checkbox (at
+    ; 50,100, in wg_list) must answer a click again. This is the bug where
+    ; the panel, running in bank 5, left the bank-2 wg_list on its own list.
+    lda wg_list + 1 + 9         ; note its value now, to prove the click flips it
+    sta got_wg                  ; (a spent byte, reused as scratch)
+    lda #EV_MOUSE_DOWN
+    sta X16_P0
+    stz X16_P1
+    lda #55
+    sta X16_P2
+    stz X16_P3
+    lda #105
+    sta X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jsr cx_ev_post
+    jsr drain
+    lda wg_list + 1 + 9         ; toggled -> different from before the click
+    cmp got_wg
+    bne @pn3
+    lda #'d'
+    jmp fail
+@pn3
+    ; a MOUSE click selects a list row too, via the mode-aware hit-test:
+    ; click row 0 of the list (record 5) and WG_VAL returns to 0 from 2.
+    lda #EV_MOUSE_DOWN
+    sta X16_P0
+    stz X16_P1
+    lda #60
+    sta X16_P2
+    stz X16_P3
+    lda #243                    ; box_y (240) + into row 0
+    sta X16_P4
+    stz X16_P5
+    stz X16_P6
+    stz X16_P7
+    jsr cx_ev_post
+    jsr drain
+    lda wg_list + 1 + 5*16 + 9  ; the list's selected row = 0 (clicked)
+    beq @pn4
+    lda #'e'
+    jmp fail
+@pn4
 
 menu_ok
     lda #<s_ok

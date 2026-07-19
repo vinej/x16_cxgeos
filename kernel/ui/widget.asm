@@ -88,6 +88,18 @@ cx_do_wg_key
 ; wg_hit can act on it.
 ; ---------------------------------------------------------------------
 wg_setup
+    pha                         ; park the OLD context first, so a modal
+    phx                         ; panel that borrows this single slot can
+    lda wg_list                 ; hand it back with wg_restore. wg_list &c
+    sta wg_svlist               ; are bank-2 RAM the dialog's bank-5 code
+    lda wg_list+1               ; cannot touch, so the save lives here.
+    sta wg_svlist+1
+    lda wg_n
+    sta wg_svn
+    lda wg_focus
+    sta wg_svf
+    plx
+    pla
     sta wg_list                 ; indirect reads go through CX_M_PTR, a
     stx wg_list+1               ; zero-page pointer -- wg_list itself is
     sta CX_M_PTR                ; bank-2 RAM and cannot be dereferenced
@@ -98,6 +110,20 @@ wg_setup
     lda #$FF                    ; a fresh list starts unfocused
     sta wg_focus
     jmp wg_draw_all
+
+; wg_restore -- put back the widget context wg_setup parked. The panel
+; calls it (through a trampoline) when it closes, so the app's own
+; widgets answer clicks again.
+wg_restore
+    lda wg_svlist
+    sta wg_list
+    lda wg_svlist+1
+    sta wg_list+1
+    lda wg_svn
+    sta wg_n
+    lda wg_svf
+    sta wg_focus
+    rts
 
 ; ---------------------------------------------------------------------
 ; wg_set -- A/X = the widget list. Parks it, draws it, and pushes a
@@ -540,6 +566,9 @@ wg_p_field
     lda (CX_M_PTR),y
     adc #0
     sta X16_P3
+    lda th_paper                ; ink contrasts the field's paper, or the
+    jsr mn_ink                  ; text is black-on-black where the font
+                                ; honours the ink (mode 1); mode 0 ignores it
     jsr wg_label_ptr            ; X16_T0 = the buffer
     lda X16_T0
     ldx X16_T0+1
@@ -1463,17 +1492,22 @@ wg_act
     bra @post
 
 @list
-    ; the row under the pointer: (y - box_y - 1) / ROWH + top. The
-    ; high byte needs no math -- wg_inside proved y is in the box, so
-    ; the difference fits the row byte.
+    ; the row under the pointer, then + top. The graphical list frames
+    ; the box and stacks WL_ROWH-tall rows inside; mode 3's ASCII list
+    ; has no frame and one CELL per row, so there the difference IS the
+    ; row. wg_inside proved y is in the box, so it fits the row byte.
     ldy #WG_Y
     lda X16_P4
     sec
-    sbc (CX_M_PTR),y
-    beq @row0                   ; on the frame line: row 0
+    sbc (CX_M_PTR),y            ; d = click_y - box_y
+    ldy cx_vmode
+    cpy #3
+    bne @gridrows
+    jmp @haverow                ; mode 3: d is the row (1 cell, no frame)
+@gridrows
+    beq @haverow                ; on the frame line: row 0
     sec
     sbc #1
-@row0
     ldx #0
 @div
     cmp #WL_ROWH
@@ -1483,6 +1517,7 @@ wg_act
     bra @div
 @rowed
     txa
+@haverow
     ldy #WG_TOP
     clc
     adc (CX_M_PTR),y
@@ -1935,6 +1970,9 @@ wg_scroll_to
 ; --- bank 2 state ------------------------------------------------------
 wg_list  .word 0
 wg_n     .byte 0
+wg_svlist .word 0               ; the context wg_setup parks for a panel
+wg_svn   .byte 0
+wg_svf   .byte 0
 wg_i     .byte 0
 wg_t     .word 0
 wg_t2    .word 0
