@@ -3,7 +3,7 @@
 This guide sets up a Visual Studio Code workspace for writing a CXGEOS
 application, building it, and deploying it to the emulator (or a real SD
 card). It assumes you have the repository checked out and the toolchain
-in place (see [README.md](README.md) → Building).
+in place (see [README.md](../README.md) → Building).
 
 A CXGEOS *application* is a small 65C02 program wrapped as a **`.CXA`**
 file. The desktop lists `.CXA` files and launches one when you open it;
@@ -11,8 +11,28 @@ the app talks to the kernel entirely through a fixed **jump table** (the
 ABI), draws through the graphics port, and returns to the desktop with
 `cx_exit`. You never link the kernel into your app — you call it.
 
-You can write apps in **assembly** (ca65) or **C** (llvm-mos). Both are
-covered below.
+### Which toolchain?
+
+Because an app only calls fixed addresses, the ABI is language-neutral,
+and `abi/gen_bindings.py` emits a binding header for a **spread of
+assemblers and C compilers**. They live under `sdk/`:
+
+| | Bindings shipped in `sdk/` | Fully supported today |
+|---|---|---|
+| **Assembly** (7) | `ca65`, `acme`, `64tass`, `kick`, `dasm`, `mads`, `vasm` | **all** — each header is just address constants; you set the parameter block and `jsr` the slot, identical logic in any of them |
+| **C** (5) | `llvm` (llvm-mos), `cc65`, `kickc`, `oscar64`, `vbcc` | **llvm-mos only** |
+
+For assembly, pick whichever dialect you already use — swap the include
+in the examples below (`sdk/include_ca65/…` → `sdk/include_acme/…`, etc.)
+and assemble with that tool. This guide uses **ca65**, the dialect the
+sample apps and `build.ps1` are written in.
+
+For C, use **llvm-mos**. Its header carries the friendly `cx_*` calls,
+and the `csdk/` wrappers (a typed `cx_event`, `cx_rect`, `cx_say`, …) are
+llvm-mos-only. The other four C headers are, for now, **partial stubs** —
+the slot constants plus a bare `cx_call(slot)` that runs no-argument
+slots but cannot yet pass the `A` register — so they are not a complete
+API. Assembly, or C on llvm-mos, are the two paths covered below.
 
 ---
 
@@ -232,9 +252,9 @@ msg .byte "hello, cxgeos", 0
   and the parameter block `X16_P0..X16_P7` (zero page), per the ABI.
 - **`cx_exit` is the only clean way out** — it reloads the desktop. Never
   fall off the end or `rts`.
-- Real examples: [apps/hello_asm/hello.asm](apps/hello_asm/hello.asm)
-  (minimal), [apps/gallery/gallery.asm](apps/gallery/gallery.asm)
-  (menus + widgets), [apps/tui/tui.asm](apps/tui/tui.asm) (the full
+- Real examples: [apps/hello_asm/hello.asm](../apps/hello_asm/hello.asm)
+  (minimal), [apps/gallery/gallery.asm](../apps/gallery/gallery.asm)
+  (menus + widgets), [apps/tui/tui.asm](../apps/tui/tui.asm) (the full
   toolkit).
 
 A GUI app that uses the event loop follows this shape:
@@ -276,8 +296,8 @@ int main(void) {
 
 - The **csdk** (`csdk/cxsdk.h`) turns the raw ABI into named calls
   (`cx_rect`, `cx_say`, `cx_poll`, a typed `cx_event`) so you don't hand-
-  pack the parameter block. See [apps/hello_c/hello.c](apps/hello_c/hello.c)
-  and [apps/calc/calc.c](apps/calc/calc.c).
+  pack the parameter block. See [apps/hello_c/hello.c](../apps/hello_c/hello.c)
+  and [apps/calc/calc.c](../apps/calc/calc.c).
 - Build with `-Os -mreserve-zp=90`. The csdk header plants a constructor
   that moves the C soft stack out of the kernel's way — include it and
   don't fight it.
@@ -286,8 +306,8 @@ int main(void) {
 
 - The full slot list (every `cx_*` you can call): **`abi/cxgeos.abi`**.
 - Descriptor byte-layouts (menu bar, widget list, dialog, the modal
-  **panel**): **[docs/formats.md](docs/formats.md)**.
-- Graphics modes, the toolkit, save-under, banks: **[docs/ui.md](docs/ui.md)**
+  **panel**): **[docs/formats.md](formats.md)**.
+- Graphics modes, the toolkit, save-under, banks: **[docs/ui.md](ui.md)**
   and the in-repo demos.
 
 ---
