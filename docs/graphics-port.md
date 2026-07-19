@@ -49,9 +49,10 @@ after the ink; the frame thicknesses are "one unit" in every mode and
 stay literal.
 
 The **menu, dialogs and widgets** all cross: `menu_gate` admits their
-slots to mode 0 *and* mode 3 (a real text-mode TUI), and none of them
-carries a mode-branch in its logic — only the drawing goes through the
-port.
+slots to every mode that has a framebuffer — mode 0 (the desktop), mode
+1 (the 320×240 8bpp bitmap) and mode 3 (the text TUI); only tiles
+(mode 2) refuse. None of them carries a mode-branch in its logic — only
+the drawing goes through the port.
 
 - **Menu** — the bar, drop-downs as framed PETSCII boxes, items in
   cells, reverse-video highlights. Laid out from the port metrics
@@ -68,18 +69,20 @@ port.
   `wg_paint` far-calls it.
 
 Highlights stay legible because the toolkit sets `cxov_ink` to the
-contrasting theme role before each label — mode 3's text writer honours
-it, mode 0's font ignores it and inks from the theme, so the desktop is
-unchanged. Save-unders go through the port too: mode 0 to banks 14–15
-(pixel rows), mode 3 to a bank of text cells. Mouse events scale to
-cells in mode 3 (`ev_do_mouse >> 3`), so clicks land on the same box the
-widgets were pushed with — keyboard and mouse both drive the TUI.
+contrasting theme role before each label — the bitmap engines' fonts and
+mode 3's text writer honour it, and mode 0's proportional font inks from
+the theme instead, so the desktop is unchanged. Save-unders go through
+the port too: mode 0 to banks 14–15 (pixel rows), mode 1 to a VRAM strip
+(fx_copy), mode 3 to a bank of text cells. The pointer is always in
+640×480 space, so `ev_do_mouse` shifts it down to each mode's units
+(mode 1 `>>1`, mode 3 `>>3`), and clicks land on the same box the widgets
+were pushed with — keyboard and mouse both drive every mode.
 
 **Still mode-0-only:** fonts (`cx_font_set`/`style`) and desk
-accessories, and the bitmap modes refuse the toolkit (an 8bpp
-save-under is future). A mistaken call there refuses with carry, a clean
-no-op, not a crash. Text in tile mode is font *tiles* (`cx_tile_cell`
-with a glyph's tile index), the classic approach.
+accessories. Tiles (mode 2) refuse the whole toolkit — a map is not a
+framebuffer. A mistaken call there refuses with carry, a clean no-op,
+not a crash. Text in tile mode is font *tiles* (`cx_tile_cell` with a
+glyph's tile index), the classic approach.
 
 ## How to add mode N
 
