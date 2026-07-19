@@ -1,6 +1,6 @@
 # CXGEOS csdk Guide — the friendly C wrapper
 
-**Release 0.4.x** · header: `csdk/cxsdk.h`
+**Release 0.5.x** · header: `csdk/cxsdk.h`
 
 The csdk turns the low-level [ABI](sdkguide.md) into clean, named `cx_*`
 functions, a typed event record, the shared constants, immediate-mode widget
@@ -298,6 +298,31 @@ apps; never returns).
 **`void cx_handlers(const void *table)`** — register a `CX_ET_TYPES`-entry
 handler-vector table (advanced / asm interop).
 
+### Lending the raster line to a game *(0.5.1)*
+
+A game owns the raster IRQ for smooth, frame-locked motion and reads input
+directly, never starting the sampler. To ask the user something it borrows the
+events for one modal dialog, then takes the line back.
+
+**`void cx_ev_raster(void (*handler)(void))`** — install a per-frame handler on
+scanline 0 (the top of the frame), or pass 0 to remove it. The handler runs
+**inside the IRQ** — registers and the VERA address port are saved around it,
+but it shares the app's zero page and soft stack, so keep it tiny (bump a
+counter, poke VERA) or mark it `__attribute__((interrupt))`. It also chains the
+KERNAL IRQ, so `GETIN` and the DOS keep working during play.
+
+**`void cx_ev_stop(void)`** — stop the sampler `cx_ev_init` started and hand the
+raster line back to the `cx_ev_raster` handler installed before it.
+```c
+cx_ev_raster(game_irq);          /* own the line; play, game_irq animates */
+for (;;) { if (want_menu()) break; /* ... GETIN / cx_joy ... */ }
+cx_ev_init();                    /* borrow: the kernel samples (irq saved) */
+cx_panel(&options);              /* a modal dialog the kernel's IRQ drives  */
+cx_ev_stop();                    /* the line returns to game_irq; resume    */
+```
+A top-of-frame handler is fully restored; a mid-screen raster split re-installs
+its scanline after `cx_ev_stop`.
+
 ## Pointer
 
 **`void cx_mouse_show(unsigned char sprite)`** — show the pointer (1 = the
@@ -357,6 +382,16 @@ if (cx_alert(&confirm) == 1) do_delete();   /* button 1 = "delete" */
 ```c
 char name[24] = "";
 if (cx_prompt("New folder:", name, sizeof name) >= 0) make_folder(name);
+```
+
+**`unsigned char cx_panel(const void *desc)`** *(0.5)* — a **synchronous** modal
+panel: a box with a title, a widget list, and up to three buttons along the
+bottom. It runs its own dispatch loop and returns the chosen button (0 =
+confirm/RETURN, last = cancel/ESC). The widget records update **in place**, so
+read your values straight back from the descriptor afterward. Works in modes 0,
+1 and 3. Descriptor layout: [formats.md](formats.md).
+```c
+if (cx_panel(&options) == 0) apply(options_widgets);  /* OK, not Cancel */
 ```
 
 ## Loader & desk accessories

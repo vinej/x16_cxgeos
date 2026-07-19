@@ -452,6 +452,27 @@ static void          cx_handlers(const void *table) { cx_call_p(CX_EV_HANDLERS, 
 #define CX_EVS_KEYS  2
 static void cx_ev_mask(unsigned char sources) { cx_call_a(CX_EV_MASK, sources); }
 
+/* --- lending the raster line to a game (0.5.1) -----------------------
+ * A game owns the raster IRQ for smooth, frame-locked motion and reads
+ * input directly (cx_joy, GETIN); it installs a per-frame handler with
+ * cx_ev_raster and never starts the sampler. To ask the user something it
+ * borrows the events for one modal dialog and takes the line back:
+ *
+ *     cx_ev_raster(game_irq);      // own the line (scanline 0)
+ *     for (;;) { ... play, game_irq animates ... if (open) break; }
+ *     cx_ev_init();                // borrow: kernel samples (irq saved)
+ *     cx_panel(&opts);             // a modal dialog it drives
+ *     cx_ev_stop();                // the line returns to game_irq
+ *
+ * The handler runs INSIDE the IRQ: registers and the VERA address port are
+ * saved around it, but it shares the app's zero page and soft stack, so
+ * keep it tiny (bump a counter, poke VERA) -- on llvm-mos mark it
+ * __attribute__((interrupt)) or write it in asm. Pass 0 to remove it. */
+static void cx_ev_raster(void (*handler)(void)) {
+    cx_call_p(CX_EV_RASTER, (const void *)handler);
+}
+static void cx_ev_stop(void) { cx_call(CX_EV_STOP); }
+
 /* =====================================================================
  * pointer, menus, widgets
  * ===================================================================== */
@@ -488,6 +509,15 @@ static int cx_prompt(const char *msg, char *buf, unsigned char cap) {
     cx_p[2] = cap;
     cx_call_p(CX_DLG_PROMPT, msg);
     return cx_c ? -1 : (int)(unsigned char)cx_a;
+}
+/* modal options panel (0.5): a box, a widget list, up to three buttons.
+ * Runs its own dispatch loop and returns the chosen button (0 = confirm /
+ * RETURN, last = cancel / ESC). The widget records update in place, so
+ * read your values straight back from the descriptor afterward. Modes 0,
+ * 1 and 3. Descriptor: docs/formats.md. */
+static unsigned char cx_panel(const void *desc) {
+    cx_call_p(CX_PANEL, desc);
+    return cx_a;
 }
 
 /* =====================================================================

@@ -1,6 +1,6 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.4.x** · ABI version 1 · 92 slots (append-only)
+**Release 0.5.x** · ABI version 1 · 95 slots (append-only)
 
 This documents `sdk/include_<compiler>/cxgeos.h` — the **generated**, low-level
 binding to the kernel. It is what every CXGEOS app ultimately calls. C
@@ -157,6 +157,7 @@ is what comes back. `carry` means `cx_c`.
 | 16 | `CX_FONT_STYLE` | `$8040` | A=`CX_BOLD`\|`CX_UNDER` | set the text style |
 | 17 | `CX_FONT_MEASURE` | `$8043` | A/X=string → P0/P1=width | pixel width of a string |
 | 18 | `CX_FONT_DRAW` | `$8046` | P0/P1=x, P2/P3=y, A/X=string → P0/P1=pen | draw text; returns the pen x past it |
+| 89 | `CX_INK` | `$811B` | A=ink for the CURRENT mode | text ink: a palette index (mode 1), an attribute 0–15 (mode 3); mode 0's ink is the theme's |
 
 ### Events
 
@@ -172,9 +173,20 @@ is what comes back. `carry` means `cx_c`.
 | 26 | `CX_EV_FRAMES` | `$805E` | → A=counter | the free-running frame counter |
 | 32 | `CX_EV_INIT` | `$8070` | — | clear the queue and hook the raster (call first) |
 | 54 | `CX_EV_NEXT` | `$80B2` | → P0..P7=next non-mouse event; carry if none | pull an event, routing mouse to the toolkit first |
+| 87 | `CX_EV_MASK` | `$8115` | A=source mask (bit0=mouse, bit1=keys) | which sources the frame tick samples |
+| 93 | `CX_EV_RASTER` | `$8127` | A/X=a per-frame handler (scanline 0), or 0 to remove | a game owns the raster IRQ; `CX_EV_INIT`/`CX_EV_STOP` save + restore it |
+| 94 | `CX_EV_STOP` | `$812A` | — | stop the sampler; return the line to the `CX_EV_RASTER` handler installed before `CX_EV_INIT` |
 
 An 8-byte event record: `P0`=type (`EV_*`), `P1`=detail (key / widget index /
 menu item), `P2/P3`=x, `P4/P5`=y, `P6`=frame stamp, `P7`=0.
+
+**Lending the IRQ to a game.** A game installs its own per-frame handler
+with `CX_EV_RASTER` and reads input directly, never starting the sampler. To
+show a dialog it borrows the events for the length of one modal call, then
+takes the line back: `CX_EV_RASTER(game_irq)` → play → `CX_EV_INIT` →
+`CX_PANEL`/`CX_DLG_ALERT` → `CX_EV_STOP`. The kernel saves the game's handler
+across the borrow and returns it on scanline 0. See
+[apps/gameloop/gameloop.asm](../apps/gameloop/gameloop.asm).
 
 ### Dirty rectangles
 
@@ -213,6 +225,7 @@ menu item), `P2/P3`=x, `P4/P5`=y, `P6`=frame stamp, `P7`=0.
 | 37 | `CX_THEME_SET` | `$807F` | A/X=a 12-byte theme record | swap the palette + role colours instantly |
 | 38 | `CX_DLG_ALERT` | `$8082` | A/X=dialog descriptor → A=chosen button | **synchronous** modal alert; RETURN picks button 0 |
 | 48 | `CX_DLG_PROMPT` | `$80A0` | A/X=message, P0/P1=buffer, P2=capacity → A=length, carry if cancelled | **synchronous** one-line editor; RETURN=ok, ESC=cancel |
+| 92 | `CX_PANEL` | `$8124` | A/X=a panel descriptor → A=chosen button | **synchronous** modal panel: a box, a widget list, up to 3 buttons; widgets update in place. Modes 0/1/3 |
 
 ### Widgets
 
@@ -338,6 +351,8 @@ correct in mode 0 and mode 1 alike. *(Added in 0.3.0.)*
 | 78 | `CX_GFX_CIRCLE` | `$80FA` | P0/P1=cx, P2/P3=cy, P4=r, A=colour | an outline (clips with pset) |
 | 79 | `CX_GFX_DISC` | `$80FD` | same | filled; no clipping |
 | 80 | `CX_GFX_FLOOD` | `$8100` | P0/P1=x, P2/P3=y, A=colour -> carry if the seed stack overflowed | scanline fill, fenced by pixels and the canvas |
+| 85 | `CX_GFX_ELLIPSE` | `$810F` | P0/P1=cx, P2/P3=cy, P4=rx, P5=ry, A=colour | an axis-aligned outline (clips with pset) |
+| 86 | `CX_GFX_FELLIPSE` | `$8112` | same | filled with spans; no clipping |
 
 ### Tiles -- mode 2 only
 
@@ -352,6 +367,17 @@ in 0.3.0.)*
 | 82 | `CX_TILE_SCROLL` | `$8106` | A=layer, P0/P1=h, P2/P3=v | hardware scroll |
 | 83 | `CX_TILE_CELL` | `$8109` | A=layer, X=col, Y=row, P0/P1=cell | one map cell |
 | 84 | `CX_TILE_FILL` | `$810C` | A=layer, P0/P1=cell | the whole map |
+
+### Asset loaders
+
+Read a file off the SD straight into RAM, VRAM, or a banked buffer — how
+fonts, charsets, bitmaps and sample data come off the disk. *(Added in 0.4.0.)*
+
+| slot | name | addr | args → result | purpose |
+|---|---|---|---|---|
+| 88 | `CX_FILE_LOAD` | `$8118` | A/X=name, Y=len, P0/P1=dst, P2/P3=cap → carry clear, P4/P5=bytes; carry set, A=1 missing / 2 read error / 3 too big | load a file into a RAM buffer |
+| 90 | `CX_VLOAD` | `$811E` | A/X=name, Y=len, P0/P1=VRAM addr, P2=VRAM bank, P3 bit0=raw → P4/P5=end; carry set, A=KERNAL error | load into VRAM |
+| 91 | `CX_BLOAD` | `$8121` | A/X=name, Y=len, P0=RAM bank (16+), P1/P2=addr, P3 bit0=raw → P4/P5=end, P6=end bank; carry set, A=error | load into a banked buffer |
 
 ---
 
