@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 93                    ; slots
+    .word 95                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -183,6 +183,10 @@ cx_jumptab
 
 ; --- modal panel (a form: your widgets in a box, with confirm/cancel) 
     jmp cx_g_panel       ; 92  A/X = a panel descriptor (docs/formats.md); SYNCHRONOUS -- draws the box and its widgets, runs modal, returns A = the chosen button (0 = the confirm/RETURN button)
+
+; --- events, cont. -- lending the IRQ to a game ------------------
+    jmp ev_raster        ; 93  A/X = a per-frame handler run on the raster line at scanline 0 (a game's own IRQ), or 0 to remove it. The handler runs in the IRQ (registers + VERA saved around it); keep it short, end with rts. cx_ev_init/cx_ev_stop save and restore it around a dialog
+    jmp ev_suspend       ; 94  stop the sampler cx_ev_init started and return the raster line to the cx_ev_raster handler installed before it; no args. Pairs with cx_ev_init around a modal dialog
 
 .popseg
 

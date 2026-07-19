@@ -255,7 +255,8 @@ msg .byte "hello, cxgeos", 0
 - Real examples: [apps/hello_asm/hello.asm](../apps/hello_asm/hello.asm)
   (minimal), [apps/gallery/gallery.asm](../apps/gallery/gallery.asm)
   (menus + widgets), [apps/tui/tui.asm](../apps/tui/tui.asm) (the full
-  toolkit).
+  toolkit), [apps/gameloop/gameloop.asm](../apps/gameloop/gameloop.asm) (a
+  game that owns the raster IRQ and borrows the events for a dialog).
 
 A GUI app that uses the event loop follows this shape:
 
@@ -267,6 +268,28 @@ A GUI app that uses the event loop follows this shape:
     lda #<handlers / ldx #>handlers / jsr cx_ev_handlers
     jmp cx_ev_mainloop      ; the kernel dispatches menu/widget/key events
 ```
+
+A **game** that wants the raster IRQ for smooth motion inverts this: it
+installs its own per-frame handler with `cx_ev_raster`, reads input
+directly (`cx_joy_get`, `GETIN`), and never starts the sampler. To ask
+the user something it borrows the events for one modal dialog, then takes
+the line back — the kernel saves the game's handler across the borrow:
+
+```asm
+    lda #<game_irq / ldx #>game_irq / jsr cx_ev_raster   ; own the line
+gloop
+    jsr GETIN               ; play, reading input directly; game_irq animates
+    cmp #KEY_OPTIONS / bne * + ...
+    ; --- pause to ask something ---
+    jsr cx_ev_init          ; borrow: the kernel samples (game_irq saved)
+    lda #<panel / ldx #>panel / jsr cx_panel     ; a modal dialog
+    jsr cx_ev_stop          ; the line returns to game_irq; play resumes
+```
+
+See [apps/gameloop/gameloop.asm](../apps/gameloop/gameloop.asm) for the
+whole thing (the field pulses under the game's IRQ and freezes while the
+panel is up). A top-of-frame handler is fully restored; a mid-screen
+raster split re-arms its scanline after `cx_ev_stop`.
 
 ### 4.2 C skeleton (llvm-mos)
 

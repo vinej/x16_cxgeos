@@ -170,7 +170,8 @@ function Build-Apps {
         @{ src = "apps\gallery\gallery.asm";     prg = "GALLERY";  name = "Widget gallery" },
         @{ src = "apps\cpanel\cpanel.asm";       prg = "CPANEL";   name = "Control panel" },
         @{ src = "apps\tui\tui.asm";             prg = "TUI";      name = "Toolkit (text)" },
-        @{ src = "apps\m1ui\m1ui.asm";           prg = "M1UI";     name = "Toolkit (8bpp)" }
+        @{ src = "apps\m1ui\m1ui.asm";           prg = "M1UI";     name = "Toolkit (8bpp)" },
+        @{ src = "apps\gameloop\gameloop.asm";    prg = "GAMELOOP"; name = "Game + dialog" }
     )) {
         $p = Build-Prg $app.src $app.prg
         & $py $mkcxap $p (Join-Path $build "$($app.prg).CXA") --name $app.name
@@ -243,6 +244,7 @@ function Stage-SdRoot {
     Copy-Item (Join-Path $build "CPANEL.CXA")    $sdroot
     Copy-Item (Join-Path $build "TUI.CXA")       $sdroot
     Copy-Item (Join-Path $build "M1UI.CXA")      $sdroot
+    Copy-Item (Join-Path $build "GAMELOOP.CXA")  $sdroot
     if (Test-Path (Join-Path $build "HELLO2.CXA")) {
         Copy-Item (Join-Path $build "HELLO2.CXA") $sdroot
     }

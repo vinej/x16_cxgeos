@@ -71,6 +71,7 @@ main
     jsr test_ev_null
     jsr test_ev_joy_reset
     jsr test_ev_mask
+    jsr test_ev_borrow
 
     jsr test_abi_header
     jsr test_abi_table
@@ -1267,6 +1268,64 @@ test_ev_mask
     jmp t_result
 @name .byte "EV_MASK", 0
 
+; ---------------------------------------------------------------------
+; ev_init / ev_suspend (cx_ev_stop) -- lending the raster line to a game.
+; A game owns the line for smooth motion; cx_ev_init borrows it for a
+; dialog and cx_ev_stop hands it back. Pin the save/restore: the single
+; irq_line_vec slot must return to the game's handler, and with no prior
+; handler cx_ev_stop must take the line down instead.
+; ---------------------------------------------------------------------
+test_ev_borrow
+    lda #<t_game_irq            ; a game takes the raster line, cx_ev_raster
+    ldx #>t_game_irq
+    jsr ev_raster
+    ldy #1                      ; it holds the armed line now
+    lda irq_line_armed
+    beq @report
+    lda irq_line_vec
+    cmp #<t_game_irq
+    bne @report
+    lda irq_line_vec+1
+    cmp #>t_game_irq
+    bne @report
+
+    jsr ev_init                 ; borrow the line: ev_irq samples now,
+    ldy #2                      ; ...and the sampler holds the slot
+    lda irq_line_vec
+    cmp #<ev_irq
+    bne @report
+    lda irq_line_vec+1
+    cmp #>ev_irq
+    bne @report
+
+    jsr ev_suspend              ; cx_ev_stop: the game's handler is back
+    ldy #3
+    lda irq_line_vec
+    cmp #<t_game_irq
+    bne @report
+    lda irq_line_vec+1
+    cmp #>t_game_irq
+    bne @report
+
+    lda #0                      ; cx_ev_raster(0) removes it; an ordinary
+    ldx #0                      ; app then has no handler, so cx_ev_stop
+    jsr ev_raster               ; must take the line down, not restore a
+    jsr ev_init                 ; stale one
+    jsr ev_suspend
+    ldy #4
+    lda irq_line_armed
+    bne @report
+
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "EV_BORROW", 0
+t_game_irq                      ; a stand-in game handler; never runs here
+    rts
+
 
 ; =====================================================================
 ; the ABI (abi/cxgeos.abi -> kernel/resident/jumptab.asm).
@@ -1303,12 +1362,13 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #93                     ; 31 shipped with the table; loader, events,
+    cmp #95                     ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the
                                 ; graphics port, tiles, ellipses, asset loaders,
-                                ; the modal panel -- grew it
+                                ; the modal panel, the game raster + its
+                                ; borrow/return pair -- grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0

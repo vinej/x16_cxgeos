@@ -133,14 +133,76 @@ ev_init
     jsr rg_reset                ; the region stack is event state: an
     plp                         ; app inherits no stale rectangles
 
+    ; Remember the raster-line handler already installed, if any. A game
+    ; that owns the IRQ for smooth motion installs its own line handler,
+    ; then calls cx_ev_init to borrow CXGEOS's events for a dialog; the
+    ; single line slot below is about to be ours, so save theirs and let
+    ; cx_ev_stop hand it back (kernel/event/event.asm ev_suspend).
+    lda irq_line_vec
+    sta ev_saved_line
+    lda irq_line_vec+1
+    sta ev_saved_line+1
+    lda irq_line_armed
+    sta ev_saved_armed
+
     stz X16_P0                  ; scanline 0
     stz X16_P1
     lda #<ev_irq
     ldx #>ev_irq
     jmp irq_line_install        ; installs the CINV chain too
 
+; ---------------------------------------------------------------------
+; ev_stop -- take the raster line down entirely. The loader's teardown
+; between apps: the next app calls cx_ev_init from a clean slate.
+; ---------------------------------------------------------------------
 ev_stop
     jmp irq_line_remove
+
+; ---------------------------------------------------------------------
+; ev_suspend (cx_ev_stop) -- stop the sampler cx_ev_init started and give
+; the raster line back to the handler that held it before (a game's), on
+; the scanline cx_ev_init used -- 0, the top of the frame, where a
+; frame-locked game handler belongs. If nothing was there, just stop.
+;
+; The pair is cx_ev_init / cx_ev_stop: borrow the events for a modal
+; dialog, then return the line to the game loop. A game whose handler
+; ran on a mid-screen scanline re-arms it with irq_line_install after
+; this call; a top-of-frame one is fully restored here.
+; ---------------------------------------------------------------------
+ev_suspend
+    lda ev_saved_armed
+    beq @off                    ; no handler to return the line to
+    lda ev_saved_line           ; swap our sampler out for theirs; the
+    sta irq_line_vec            ; line stays armed at scanline 0, so the
+    lda ev_saved_line+1         ; game's handler runs again next frame
+    sta irq_line_vec+1
+    rts
+@off
+    jmp irq_line_remove
+
+; ---------------------------------------------------------------------
+; ev_raster (cx_ev_raster) -- A/X = a per-frame handler installed on the
+; raster line at scanline 0 (the top of the frame), so a game can own the
+; IRQ for smooth motion. A/X = 0 takes the line back down.
+;
+; This is how a game installs its handler THROUGH the kernel: the event
+; system's one raster slot is the kernel's, and an app cannot reach it any
+; other way, so cx_ev_init / cx_ev_stop can save and restore the handler
+; around a borrowed dialog. The handler runs inside the IRQ -- A/X/Y and
+; the VERA address port are saved around it -- so keep it short and end it
+; with rts. Hooking the line also chains the KERNAL IRQ, so GETIN and the
+; DOS keep working during play without CXGEOS's events.
+; ---------------------------------------------------------------------
+ev_raster
+    cpx #0
+    bne @install
+    cmp #0
+    bne @install
+    jmp irq_line_remove         ; A/X = 0: take the line down
+@install
+    stz X16_P0                  ; scanline 0; stz leaves A/X = the handler
+    stz X16_P1
+    jmp irq_line_install        ; installs the CINV chain too
 
 ; ---------------------------------------------------------------------
 ; ev_handlers -- A/X = EV_COUNT vectors, indexed by type.
@@ -714,3 +776,6 @@ ev_last    .byte 0              ; the frame of the last left press
 
 ev_timer_n .byte 0              ; frames until the next EV_TIMER
 ev_timer_r .byte 0              ; and the reload
+
+ev_saved_line  .word 0          ; the raster handler cx_ev_init displaced,
+ev_saved_armed .byte 0          ; returned to it by cx_ev_stop (a game's)

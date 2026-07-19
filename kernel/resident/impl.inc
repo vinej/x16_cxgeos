@@ -118,3 +118,5 @@ cx_ink          = cx_do_ink
 cx_vload        = cx_do_vload
 cx_bload        = cx_do_bload
 cx_panel        = cx_g_panel
+cx_ev_raster    = ev_raster
+cx_ev_stop      = ev_suspend
