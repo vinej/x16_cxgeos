@@ -1,5 +1,7 @@
 # CXGEOS
 
+V0.5.0 see /docs for more guides.
+
 A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
 
   **four video modes** behind a pluggable graphics port (`cx_mode`, see
@@ -16,7 +18,7 @@ A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
     `cx_hline`/`cx_vline`/`cx_line`, and mixed-case `cx_say`.
 
   Sprites, audio, events, joysticks, files and the **shapes**
-  (circle/disc/flood, and ellipses since 0.3.1) work in every mode; the
+  (circle/disc/flood, and ellipses) work in every mode; the
   widget toolkit, fonts and dialogs are desktop-only and refuse politely
   elsewhere.
 - **Stock ROM (R49+)**: boots from the SD card via `AUTOBOOT.X16`, no ROM
@@ -27,9 +29,9 @@ A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
   vasm) and 5 C compilers (cc65, llvm-mos, KickC, Oscar64, vbcc).
 - **A documented SDK**: a friendly header-only C wrapper (`csdk/`) over the
   ABI — graphics, text, events, widgets, dialogs, themes, files, clipboard,
-  (0.2.0) **audio** (VERA PSG, the YM2151 FM chip, streamed PCM) and
+   **audio** (VERA PSG, the YM2151 FM chip, streamed PCM) and
   **hardware sprites**, (0.3.0) **joysticks**, the four video modes
-  above, and the mode-agnostic **shapes**, and (0.4.0) **pluggable fonts
+  above, and the mode-agnostic **shapes**, and **pluggable fonts
   and charsets**, the **asset loaders** (`cx_file_load`, and
   `cx_vload`/`cx_bload` for the VLOAD-shaped binaries every X16 graphics
   tool exports), **mode-1 text** with `cx_ink`, and the **event source
@@ -102,7 +104,7 @@ ride bank 5 with the rest of the shape machinery; no ABI slots expose
 them yet.
 Update it by re-copying the tree and noting the new version here.
 
-The kernel gates `X16_USE_BITMAP2`, which since 0.4.1 asks VERAFX for
+The kernel gates `X16_USE_BITMAP2`, which asks VERAFX for
 `_FILL` alone rather than all 2.5 KB of it. That is worth 2,162 bytes of
 the resident budget and is why the image fits.
 
