@@ -50,13 +50,14 @@ stay literal.
 
 The **menu** is the first to cross: `cx_menu_set`/`off`/`key` run in
 mode 0 *and* mode 3 (a real text-mode TUI — the bar, drop-downs as
-framed PETSCII boxes, items in cells; mode 3 stashes the covered cells
-in bank 6, mode 0 the pixel rows in banks 14–15). `menu_gate` allows
-those two modes; the bitmap modes still refuse (an 8bpp save-under is
-future). Keyboard nav works today; mouse-in-TUI needs event-coordinate
-scaling (deferred). *Known gap: a highlighted row draws its label in the
-mode's ink over the highlight paper, which reads white-on-white in text
-mode until the theme maps roles to per-mode text colours.*
+framed PETSCII boxes, items in cells, reverse-video highlights; mode 3
+stashes the covered cells in bank 6, mode 0 the pixel rows in banks
+14–15). `menu_gate` allows those two modes; the bitmap modes still
+refuse (an 8bpp save-under is future). Highlights stay legible because
+the menu sets `cxov_ink` to the contrasting theme role before each
+label — mode 3's text writer honours it, mode 0's font ignores it and
+inks from the theme, so the desktop is unchanged. Keyboard nav works
+today; mouse-in-TUI needs event-coordinate scaling (deferred).
 
 **Still mode-0-only:** fonts (`cx_font_set`/`style`), widgets, dialogs,
 and desk accessories — held to mode 0 by `gui_gate` until they cross the
