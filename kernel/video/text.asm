@@ -73,6 +73,9 @@ ov3_vector                      ; the 14 port entries, in slot order;
     ; the UI metrics, in CELLS (barh rowh barx airx barty bandpad
     ; boxwpad itemx itemdy) -- the menu laid out on the text grid
     .byte  1,  1,  1,  2,  0,  1,  2,  1,  0
+    ; dialog metrics: dgw(word) dgh dgbw dgbh dgbsp dgpad dgfldy
+    .word 44
+    .byte 14, 10,  3, 12,  1,  4
 
 .assert ov3_vector = CX_OVL, error, "OV3CODE must start at CX_OVL"
 

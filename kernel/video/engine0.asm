@@ -157,6 +157,9 @@ ov0_vector                      ; the port's entry vector, slot order
     ; the UI metrics, in pixels (barh rowh barx airx barty bandpad
     ; boxwpad itemx itemdy) -- the toolkit's current mode-0 constants
     .byte 12, 10,  8, 16,  2,  4,  8,  4,  1
+    ; dialog metrics: dgw(word) dgh dgbw dgbh dgbsp dgpad dgfldy
+    .word 400
+    .byte 96, 72, 16, 80, 12, 34
 
 .assert ov0_vector = CX_OVL, error, "OV0CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 
@@ -197,6 +200,8 @@ cx_do_gfx_mode
     rts
 cxov_ink .byte 1                ; flat build: the ink byte is just a byte
 cx_flatmet .byte 12, 10, 8, 16, 2, 4, 8, 4, 1   ; the mode-0 UI metrics
+    .word 400                                    ; dgw
+    .byte 96, 72, 16, 80, 12, 34                 ; dgh dgbw dgbh dgbsp dgpad dgfldy
 cx_do_ink
     sta cxov_ink
     clc
@@ -305,9 +310,9 @@ cx_g_wg_key      jsr gui_gate
                  jmp cx_do_wg_key
 cx_g_theme_set   jsr gui_gate
                  jmp cx_do_theme_set
-cx_g_dlg_alert   jsr gui_gate
+cx_g_dlg_alert   jsr menu_gate      ; dialogs lay out through the port now
                  jmp cx_do_dlg_alert
-cx_g_dlg_prompt  jsr gui_gate
+cx_g_dlg_prompt  jsr menu_gate
                  jmp cx_do_dlg_prompt
 cx_g_da_open     jsr gui_gate
                  jmp cx_do_da_open

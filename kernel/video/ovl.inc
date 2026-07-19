@@ -86,6 +86,15 @@ cxov_m_bandpad = CX_OVL + 17*3 + 6   ; open-title band padding, each side
 cxov_m_boxwpad = CX_OVL + 17*3 + 7   ; dropdown box width extra
 cxov_m_itemx   = CX_OVL + 17*3 + 8   ; item label x inset
 cxov_m_itemdy  = CX_OVL + 17*3 + 9   ; item label y, below the band
+; dialog metrics -- the box is centred, so its origin derives from
+; cx_cur_w/h and these sizes. dgw is a WORD (mode 0's box is 400 wide).
+cxov_m_dgw     = CX_OVL + 17*3 + 10  ; dialog box width (word)
+cxov_m_dgh     = CX_OVL + 17*3 + 12  ; dialog box height
+cxov_m_dgbw    = CX_OVL + 17*3 + 13  ; dialog button width
+cxov_m_dgbh    = CX_OVL + 17*3 + 14  ; dialog button height
+cxov_m_dgbsp   = CX_OVL + 17*3 + 15  ; dialog button spacing (pitch)
+cxov_m_dgpad   = CX_OVL + 17*3 + 16  ; dialog edge / message pad
+cxov_m_dgfldy  = CX_OVL + 17*3 + 17  ; prompt field y, below the box top
 
 .else                           ; the runner: no overlay, direct engine
 
@@ -117,6 +126,13 @@ cxov_m_bandpad = cx_flatmet + 5
 cxov_m_boxwpad = cx_flatmet + 6
 cxov_m_itemx   = cx_flatmet + 7
 cxov_m_itemdy  = cx_flatmet + 8
+cxov_m_dgw     = cx_flatmet + 9
+cxov_m_dgh     = cx_flatmet + 11
+cxov_m_dgbw    = cx_flatmet + 12
+cxov_m_dgbh    = cx_flatmet + 13
+cxov_m_dgbsp   = cx_flatmet + 14
+cxov_m_dgpad   = cx_flatmet + 15
+cxov_m_dgfldy  = cx_flatmet + 16
 
 .endif
 

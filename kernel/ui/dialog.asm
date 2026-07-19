@@ -150,18 +150,19 @@ dg_prompt
     jsr dg_boxup
     jsr dg_buttons
 
-    lda #<(DG_X0+12)            ; the field's frame
+    lda dg_fx                   ; the field's frame: fx, fy, fw, dgbh tall
     sta X16_P0
-    lda #>(DG_X0+12)
+    lda dg_fx+1
     sta X16_P1
-    lda #<DG_FLD_Y
+    lda dg_fy
     sta X16_P2
-    stz X16_P3
-    lda #<DG_FLD_W
+    lda dg_fy+1
+    sta X16_P3
+    lda dg_fw
     sta X16_P4
-    lda #>DG_FLD_W
+    lda dg_fw+1
     sta X16_P5
-    lda #18
+    lda cxov_m_dgbh
     sta X16_P6
     stz X16_P7
     lda th_frame
@@ -180,23 +181,109 @@ dg_prompt
 ; right-aligned, x0+W-12 - n*80 + 8 (72 wide, 8 apart).
 ; ---------------------------------------------------------------------
 dg_geom
-    lda #0
+    sec                         ; dg_x0 = (cur_w - dgw) >> 1  (centred)
+    lda cx_cur_w
+    sbc cxov_m_dgw
+    sta dg_x0
+    lda cx_cur_w+1
+    sbc cxov_m_dgw+1
+    sta dg_x0+1
+    lsr dg_x0+1
+    ror dg_x0
+    sec                         ; dg_y0 = (cur_h - dgh) >> 1
+    lda cx_cur_h
+    sbc cxov_m_dgh
+    sta dg_y0
+    lda cx_cur_h+1
+    sbc #0
+    sta dg_y0+1
+    lsr dg_y0+1
+    ror dg_y0
+
+    clc                         ; dg_bty = dg_y0 + dgh - dgbh - dgpad
+    lda dg_y0
+    adc cxov_m_dgh
+    sta dg_bty
+    lda dg_y0+1
+    adc #0
+    sta dg_bty+1
+    ldx cxov_m_dgbh             ; - dgbh, then - dgpad
+    jsr dg_bty_sub
+    ldx cxov_m_dgpad
+    jsr dg_bty_sub
+
+    clc                         ; dg_bx = dg_x0 + dgw - dgpad - dgbw
+    lda dg_x0                   ;         - (n-1)*dgbsp  (right-aligned)
+    adc cxov_m_dgw
+    sta dg_bx
+    lda dg_x0+1
+    adc cxov_m_dgw+1
     sta dg_bx+1
-    lda dg_n
-    asl                         ; n*80 = n*64 + n*16
-    asl
-    asl
-    asl
-    sta dg_t                    ; n*16
-    asl
-    asl
-    adc dg_t                    ; n*80 (n<=3: fits, carry clear)
-    sta dg_t
+    ldx cxov_m_dgpad
+    jsr dg_bx_sub
+    ldx cxov_m_dgbw
+    jsr dg_bx_sub
+    ldx dg_n                    ; (n-1) times dgbsp
+    dex
+    beq @bxdone
+@sp
+    phx
+    ldx cxov_m_dgbsp
+    jsr dg_bx_sub
+    plx
+    dex
+    bne @sp
+@bxdone
+
+    clc                         ; the prompt field: fx = x0 + dgpad
+    lda dg_x0
+    adc cxov_m_dgpad
+    sta dg_fx
+    lda dg_x0+1
+    adc #0
+    sta dg_fx+1
+    clc                         ; fy = y0 + dgfldy
+    lda dg_y0
+    adc cxov_m_dgfldy
+    sta dg_fy
+    lda dg_y0+1
+    adc #0
+    sta dg_fy+1
+    sec                         ; fw = dgw - 2*dgpad
+    lda cxov_m_dgw
+    sbc cxov_m_dgpad
+    sta dg_fw
+    lda cxov_m_dgw+1
+    sbc #0
+    sta dg_fw+1
     sec
-    lda #<(DG_X0+DG_W-12+8)
+    lda dg_fw
+    sbc cxov_m_dgpad
+    sta dg_fw
+    lda dg_fw+1
+    sbc #0
+    sta dg_fw+1
+    rts
+
+dg_bty_sub                      ; dg_bty -= X
+    sec
+    txa
+    sta dg_t
+    lda dg_bty
+    sbc dg_t
+    sta dg_bty
+    lda dg_bty+1
+    sbc #0
+    sta dg_bty+1
+    rts
+dg_bx_sub                       ; dg_bx -= X
+    sec
+    txa
+    sta dg_t
+    lda dg_bx
     sbc dg_t
     sta dg_bx
-    lda #>(DG_X0+DG_W-12+8)
+    lda dg_bx+1
     sbc #0
     sta dg_bx+1
     rts
@@ -206,57 +293,71 @@ dg_geom
 ; and the message at +12,+12.
 ; ---------------------------------------------------------------------
 dg_boxup
-    lda #<DG_Y0
-    sta X16_P0
-    stz X16_P1
-    lda #DG_H
-    sta X16_P2
-    lda #DG_BANK
-    jsr vrows_save
-
-    lda #<DG_X0
-    sta X16_P0
-    lda #>DG_X0
+    lda dg_y0                   ; save the rows the box covers, through
+    sta X16_P0                  ; the port -- mode 0 to banks 14-15, mode
+    lda dg_y0+1                 ; 3 to text cells
     sta X16_P1
-    lda #<DG_Y0
+    lda cxov_m_dgh
     sta X16_P2
-    stz X16_P3
-    lda #<DG_W
+    jsr cxov_rsave
+
+    jsr dg_box_pxy             ; the box: x0,y0,dgw,dgh
+    lda cxov_m_dgw
     sta X16_P4
-    lda #>DG_W
+    lda cxov_m_dgw+1
     sta X16_P5
-    lda #DG_H
+    lda cxov_m_dgh
     sta X16_P6
     stz X16_P7
     lda th_paper
     jsr cxov_rect
-    lda #<DG_X0
-    sta X16_P0
-    lda #>DG_X0
-    sta X16_P1
-    lda #<DG_Y0
-    sta X16_P2
-    stz X16_P3
-    lda #<DG_W
+    jsr dg_box_pxy
+    lda cxov_m_dgw
     sta X16_P4
-    lda #>DG_W
+    lda cxov_m_dgw+1
     sta X16_P5
-    lda #DG_H
+    lda cxov_m_dgh
     sta X16_P6
     stz X16_P7
     lda th_frame
     jsr cxov_frame
 
-    lda #<(DG_X0+12)            ; the message
-    sta X16_P0
-    lda #>(DG_X0+12)
-    sta X16_P1
-    lda #<(DG_Y0+12)
-    sta X16_P2
-    stz X16_P3
+    jsr dg_msg_at              ; the message, inset from the box corner
+    lda th_paper               ; on the box paper: ink to contrast in text
+    jsr mn_ink
     lda dg_msg
     ldx dg_msg+1
-    jmp font_draw
+    jmp cxov_text
+
+; dg_box_pxy -- P0/P1 = dg_x0, P2/P3 = dg_y0 (the box corner)
+dg_box_pxy
+    lda dg_x0
+    sta X16_P0
+    lda dg_x0+1
+    sta X16_P1
+    lda dg_y0
+    sta X16_P2
+    lda dg_y0+1
+    sta X16_P3
+    rts
+
+; dg_msg_at -- P0/P1 = dg_x0+dgpad, P2/P3 = dg_y0+dgpad
+dg_msg_at
+    clc
+    lda dg_x0
+    adc cxov_m_dgpad
+    sta X16_P0
+    lda dg_x0+1
+    adc #0
+    sta X16_P1
+    clc
+    lda dg_y0
+    adc cxov_m_dgpad
+    sta X16_P2
+    lda dg_y0+1
+    adc #0
+    sta X16_P3
+    rts
 
 ; ---------------------------------------------------------------------
 ; dg_buttons -- frame and label buttons 0..dg_n-1 along the bottom.
@@ -272,30 +373,35 @@ dg_buttons
     sta dg_t                    ; kept for the label
     lda X16_P1
     sta dg_t+1
-    lda #<DG_BTN_Y
+    lda dg_bty
     sta X16_P2
-    lda #>DG_BTN_Y
+    lda dg_bty+1
     sta X16_P3
-    lda #DG_BTN_W
+    lda cxov_m_dgbw
     sta X16_P4
     stz X16_P5
-    lda #DG_BTN_H
+    lda cxov_m_dgbh
     sta X16_P6
     stz X16_P7
     lda th_frame
     jsr cxov_frame
-    clc                         ; the label, inset
+    clc                         ; the label: barx in, bandpad down
     lda dg_t
-    adc #8
+    adc cxov_m_barx
     sta X16_P0
     lda dg_t+1
     adc #0
     sta X16_P1
-    lda #<(DG_BTN_Y+4)
+    clc
+    lda dg_bty
+    adc cxov_m_bandpad
     sta X16_P2
-    lda #>(DG_BTN_Y+4)
+    lda dg_bty+1
+    adc #0
     sta X16_P3
-    ldx dg_i
+    lda th_paper                ; the label sits on the box paper: in
+    jsr mn_ink                  ; text mode it inks to contrast (mn_ink,
+    ldx dg_i                    ; shared with the menu, same bank)
     lda dg_lab,x
     pha
     lda dg_lab+DG_MAXB,x
@@ -316,17 +422,23 @@ dg_wait
     sta dg_tab
     stx dg_tab+1
 
-    stz X16_P0                  ; the machine is the dialog's now
-    stz X16_P1
+    stz X16_P0                  ; the machine is the dialog's now: the
+    stz X16_P1                  ; whole canvas, in this mode's units
     stz X16_P2
     stz X16_P3
-    lda #<639
+    lda cx_cur_w
+    sec
+    sbc #1
     sta X16_P4
-    lda #>639
+    lda cx_cur_w+1
+    sbc #0
     sta X16_P5
-    lda #<479
+    lda cx_cur_h
+    sec
+    sbc #1
     sta X16_P6
-    lda #>479
+    lda cx_cur_h+1
+    sbc #0
     sta X16_P7
     lda #<dg_vec
     ldx #>dg_vec
@@ -351,13 +463,13 @@ dg_wait
     ldx dg_oldh+1               ; pixels, in that order
     jsr ev_handlers
     jsr rg_pop
-    lda #<DG_Y0
-    sta X16_P0
-    stz X16_P1
-    lda #DG_H
+    lda dg_y0                   ; the pixels (or cells) back, through the
+    sta X16_P0                  ; port -- whichever mode saved them
+    lda dg_y0+1
+    sta X16_P1
+    lda cxov_m_dgh
     sta X16_P2
-    lda #DG_BANK
-    jsr vrows_restore
+    jsr cxov_rrest
 
     lda dg_done
     rts
@@ -367,69 +479,98 @@ dg_wait
 ; buffer's text, and a caret at the pen.
 ; ---------------------------------------------------------------------
 dg_field
-    lda #<(DG_X0+14)
+    lda dg_fx                   ; the interior back to paper: one unit in
+    clc                         ; from the field frame
+    adc #1
     sta X16_P0
-    lda #>(DG_X0+14)
+    lda dg_fx+1
+    adc #0
     sta X16_P1
-    lda #<(DG_FLD_Y+2)
+    lda dg_fy
+    clc
+    adc #1
     sta X16_P2
-    stz X16_P3
-    lda #<(DG_FLD_W-4)
+    lda dg_fy+1
+    adc #0
+    sta X16_P3
+    sec                         ; width = fw - 2 (off both frames)
+    lda dg_fw
+    sbc #2
     sta X16_P4
-    lda #>(DG_FLD_W-4)
+    lda dg_fw+1
+    sbc #0
     sta X16_P5
-    lda #14
+    lda cxov_m_dgbh            ; height = dgbh - 2 (inside the frame)
+    sec
+    sbc #2
     sta X16_P6
     stz X16_P7
     lda th_paper
     jsr cxov_rect
 
-    lda #<(DG_X0+16)
+    lda dg_fx                   ; the text: two units in, on the interior
+    clc
+    adc #2
     sta X16_P0
-    lda #>(DG_X0+16)
+    lda dg_fx+1
+    adc #0
     sta X16_P1
-    lda #<(DG_FLD_Y+5)          ; +5 centres the 8px glyphs in the 18px
-    sta X16_P2                  ; field, not sat against its top
-    stz X16_P3
+    lda dg_fy
+    clc
+    adc #1
+    sta X16_P2
+    lda dg_fy+1
+    adc #0
+    sta X16_P3
+    lda th_paper                ; contrast in text mode
+    jsr mn_ink
     lda dg_buf
     ldx dg_buf+1
     jsr cxov_text               ; the pen comes back in P0/P1
 
-    inc X16_P0                  ; the caret, a breath after the text
+    inc X16_P0                  ; the caret, a cell after the text
     bne @nc
     inc X16_P1
 @nc
-    lda #<(DG_FLD_Y+4)
+    lda dg_fy
+    clc
+    adc #1
     sta X16_P2
-    stz X16_P3
-    lda #2
-    sta X16_P4
+    lda dg_fy+1
+    adc #0
+    sta X16_P3
+    lda #1                      ; a one-unit block: a thin bar in pixels,
+    sta X16_P4                  ; a full caret cell in text
     stz X16_P5
-    lda #10
+    lda cxov_m_dgbh
+    sec
+    sbc #2
     sta X16_P6
     stz X16_P7
     lda th_frame
-    jmp gfx2_rect
+    jmp cxov_rect
 
 ; ---------------------------------------------------------------------
 ; dg_btn_x -- X16_P0/P1 = the left edge of button dg_i: dg_bx + i*80.
 ; ---------------------------------------------------------------------
 dg_btn_x
-    lda dg_i
-    asl
-    asl
-    asl
-    asl
-    sta dg_t2                   ; i*16
-    asl
-    asl
-    adc dg_t2                   ; i*80
-    clc
-    adc dg_bx
+    lda dg_bx                   ; button 0, then + i * the button pitch
     sta X16_P0
     lda dg_bx+1
+    sta X16_P1
+    ldx dg_i
+    beq @done
+@add
+    clc
+    lda X16_P0
+    adc cxov_m_dgbsp
+    sta X16_P0
+    lda X16_P1
     adc #0
     sta X16_P1
+    dex
+    bne @add
+@done
     rts
 
 ; ---------------------------------------------------------------------
@@ -440,17 +581,18 @@ dg_hit
     lda X16_P0
     cmp #EV_MOUSE_DOWN
     bne @out
-    lda X16_P5                  ; the button row lives at y 260-275:
-    cmp #>DG_BTN_Y              ; high byte 1...
-    bne @out
+    sec                         ; y - dg_bty in [0, dgbh)?
     lda X16_P4
-    sec
-    sbc #<DG_BTN_Y              ; ...low 4-19
-    bcc @out
-    cmp #DG_BTN_H
+    sbc dg_bty
+    sta dg_t
+    lda X16_P5
+    sbc dg_bty+1
+    bne @out                    ; a different page: above or well below
+    lda dg_t
+    cmp cxov_m_dgbh
     bcs @out
 
-    sec                         ; which button: (x - dg_bx) / 80
+    sec                         ; which button: (x - dg_bx) / dgbsp
     lda X16_P2
     sbc dg_bx
     sta dg_t
@@ -461,13 +603,13 @@ dg_hit
     lda dg_t
     ldx #0
 @div
-    cmp #80
+    cmp cxov_m_dgbsp
     bcc @rem
-    sbc #80
+    sbc cxov_m_dgbsp            ; carry set from cmp
     inx
     bra @div
 @rem
-    cmp #DG_BTN_W               ; in the gap between buttons: nothing
+    cmp cxov_m_dgbw             ; in the gap between buttons: nothing
     bcs @out
     cpx dg_n
     bcs @out
@@ -560,6 +702,12 @@ dg_n    .byte 0
 dg_msg  .word 0
 dg_lab  .res DG_MAXB*2, 0       ; lows, then highs
 dg_bx   .word 0                 ; button 0's left edge
+dg_x0   .word 0                 ; the box origin, centred from the metrics
+dg_y0   .word 0                 ; and cx_cur_w/h (mode 0 lands 120,192)
+dg_bty  .word 0                 ; the button row's y
+dg_fx   .word 0                 ; the prompt field: x, y, width
+dg_fy   .word 0
+dg_fw   .word 0
 dg_done .byte 0
 dg_i    .byte 0
 dg_t    .byte 0, 0
