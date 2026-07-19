@@ -65,10 +65,11 @@ on_key
     jsr cx_wg_key
 @done
     rts
-on_menu                         ; a Quit pick (menu 0, item 1) exits
+on_menu                         ; File menu (0): 0 = Dialog, 1 = Quit
     lda X16_P2
     bne @done
     lda X16_P1
+    beq show_dialog
     cmp #1
     beq do_exit
 @done
@@ -76,6 +77,11 @@ on_menu                         ; a Quit pick (menu 0, item 1) exits
 on_widget                       ; the Close button is index 0
     lda X16_P1
     beq do_exit
+    rts
+show_dialog
+    lda #<alert
+    ldx #>alert
+    jsr cx_dlg_alert            ; modal; the 8bpp save-under puts it back
     rts
 do_exit
     jmp cx_exit
@@ -95,15 +101,24 @@ bar
     .addr s_view, view_items
 file_items
     .byte 2
-    .addr s_open, s_quit
+    .addr s_dlg, s_quit
 view_items
     .byte 1
     .addr s_zoom
 s_file .byte "File", 0
 s_view .byte "View", 0
-s_open .byte "Open", 0
+s_dlg  .byte "Dialog...", 0
 s_quit .byte "Quit", 0
 s_zoom .byte "Zoom", 0
+
+; --- the dialog -------------------------------------------------------
+alert
+    .byte 2
+    .addr s_msg
+    .addr s_no, s_yes
+s_msg .byte "Apply these settings?", 0
+s_no  .byte "no", 0
+s_yes .byte "yes", 0
 
 ; --- the widgets: 5 records, 16 bytes each ----------------------------
 widgets
