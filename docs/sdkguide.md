@@ -1,6 +1,6 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.6.0** · ABI version 1 · 95 slots (append-only)
+**Release 0.6.0** · ABI version 1 · 97 slots (append-only)
 
 This documents `sdk/include_<compiler>/cxgeos.h` — the **generated**, low-level
 binding to the kernel. It is what every CXGEOS app ultimately calls. C
@@ -111,7 +111,7 @@ python tools/mkcxap.py build/MYAPP.PRG build/MYAPP.CXA --name "My App"
 | name | value | meaning |
 |---|---|---|
 | `CX_ABI_VERSION` | `1` | the ABI version these bindings were cut from |
-| `CX_ABI_SLOTS` | `95` | the number of slots defined (indices 0–94) |
+| `CX_ABI_SLOTS` | `97` | the number of slots defined (indices 0–96) |
 
 Query the *running* kernel's version with `cx_version` (slot 0); the loader
 refuses an app whose min-ABI exceeds it.
@@ -302,6 +302,19 @@ Sprite 0 is the KERNAL mouse; apps drive 1–127 with image data in the
 | 67 | `CX_SPRITE_SIZE` | `$80D9` | X=sprite, A=width code (0=8,1=16,2=32,3=64), Y=height code, P0=palette offset | size + palette |
 | 68 | `CX_SPRITE_FLAGS` | `$80DC` | X=sprite, A=collision<<4\|Z(0/4/8/`$C`)\|vflip<<1\|hflip | full write (do once before `CX_SPRITE_Z`) |
 | 69 | `CX_SPRITE_Z` | `$80DF` | X=sprite, A=Z-depth only (0 hides, 4 behind, 8 middle, `$C` front) | show/hide (RMW) |
+| 95 | `CX_SPR_COLLIDE` | `$812D` | → A=the collision groups seen since the last call (one bit per group, top nibble), Z if none | poll sprite collisions; arm with `CX_EV_MASK` bit 2 first. *(Added in 0.6.1.)* |
+
+### Icons — the built-in 24×24 sheet
+
+One 2bpp definition per icon serves both bitmap modes: mode 0 blits it, mode
+1 expands each 2-bit index to an 8bpp pixel (tiles/text ignore it). The eight
+ids are 0 up, 1 folder, 2 app, 3 font, 4 accessory, 5 data, 6 image, 7 disk.
+The desktop's icon view and the `CX_WG_ICON` widget draw these; an app can blit
+one directly. *(Added in 0.7.0.)*
+
+| slot | name | addr | args → result | purpose |
+|---|---|---|---|---|
+| 96 | `CX_ICON` | `$8130` | A=icon id (0–7), P0/P1=x, P2/P3=y | draw a 24×24 icon at that pixel (modes 0 and 1) |
 
 ### PCM audio — the VERA 4 KB FIFO
 

@@ -44,6 +44,12 @@ WG_LIST   = 5                   ; a list: WG_LBL is an array of string
                                 ; pointers, WG_GRP the count, WG_VAL the
                                 ; selected row, WG_TOP the scroll top.
                                 ; UP/DOWN move the selection.
+WG_ICON   = 6                   ; an icon tile (the desktop's icon view):
+                                ; WG_VAL is the icon id (0-7, kernel/ui/
+                                ; icon.asm), WG_LBL the caption, WG_W/WG_H
+                                ; the cell. A single click posts
+                                ; EV_WIDGET(index, 0), a double-click
+                                ; (index, 1) -- select vs open.
 
 WG_TOP    = 13                  ; list scroll offset (a pad byte)
 WL_ROWH   = 10                  ; a list row's height
@@ -135,11 +141,47 @@ wg_restore
     rts
 
 ; ---------------------------------------------------------------------
+; wg_pop_own -- if the region on top of the stack is the toolkit's own
+; (handler = wg_vec), discard it. Lets wg_set be idempotent: calling
+; cx_wg_set again to swap the widget list replaces the click region in
+; place instead of leaking a stack slot per swap. The stack (rg_n, rg_tab)
+; and rg_pop are resident, reachable from bank 16.
+wg_pop_own
+    pha                         ; A/X are the caller's list pointer, bound for
+    phx                         ; wg_setup next -- this routine must not eat them
+    lda rg_n
+    beq @out                    ; empty stack: nothing on top
+    sec
+    sbc #1
+    sta wg_t                    ; top slot index
+    asl
+    asl                         ; slot*4
+    clc
+    adc wg_t                    ; slot*5
+    asl                         ; slot*10 = its byte offset
+    tay
+    lda rg_tab+8,y              ; the region's handler
+    cmp #<wg_vec
+    bne @out
+    lda rg_tab+9,y
+    cmp #>wg_vec
+    bne @out
+    jsr rg_pop
+@out
+    plx
+    pla
+    rts
+
 ; wg_set -- A/X = the widget list. Parks it, draws it, and pushes a
 ; region over the bounding box of all the widgets so their clicks come
 ; back to wg_hit. Carry set only if the region stack is full.
 ; ---------------------------------------------------------------------
 wg_set
+    jsr wg_pop_own              ; a re-set REPLACES our region, it does not
+                                ; stack a second (the desktop toggles list <->
+                                ; icons through here); the drop-down that
+                                ; posted the menu event is already popped, so
+                                ; when it is ours on top it is safe to drop
     jsr wg_setup                ; register + draw...
                                 ; ...then push the click region:
 
@@ -261,19 +303,29 @@ wg_draw_all
     rts
 
 ; ---------------------------------------------------------------------
-; wg_rec -- CX_M_PTR = record wg_i: list + 1 + i*16.
+; wg_rec -- CX_M_PTR = record wg_i: list + 1 + i*16. The offset is 16-bit
+; (i*16 passes 255 at i=16), so a list may hold more than fifteen widgets
+; -- the icon desktop lays out dozens. For i < 16 the high byte stays 0,
+; so this is bit-identical to the old byte math for every existing caller.
 ; ---------------------------------------------------------------------
 wg_rec
-    lda wg_i                    ; i*16, i < 16 so it fits a byte
-    asl
-    asl
-    asl
-    asl
-    sec                         ; +1 for the count byte
+    lda wg_i
+    sta CX_M_PTR
+    stz CX_M_PTR+1
+    asl CX_M_PTR                ; i*16, sixteen bits
+    rol CX_M_PTR+1
+    asl CX_M_PTR
+    rol CX_M_PTR+1
+    asl CX_M_PTR
+    rol CX_M_PTR+1
+    asl CX_M_PTR
+    rol CX_M_PTR+1
+    sec                         ; + wg_list + 1 (the count byte)
+    lda CX_M_PTR
     adc wg_list
     sta CX_M_PTR
-    lda wg_list+1
-    adc #0
+    lda CX_M_PTR+1
+    adc wg_list+1
     sta CX_M_PTR+1
     rts
 
@@ -343,6 +395,10 @@ wg_paint
     bne @nt
     jmp wg_p_list
 @nt
+    cmp #WG_ICON
+    bne @ntog
+    jmp wg_p_icon
+@ntog
     jmp wg_p_toggle             ; check and radio share a box and a label
 
 ; a push button: a framed box, its label centred, filled with the
@@ -402,6 +458,82 @@ wg_p_button
     ldy #WG_Y
     lda (CX_M_PTR),y
     adc wg_t
+    sta X16_P2
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P3
+    lda X16_T0
+    ldx X16_T0+1
+    jmp cxov_text
+
+; an icon tile: the 24x24 icon centred across the top of the cell, the
+; caption centred under it. WG_VAL is the icon id, WG_LBL the caption.
+; cx_do_icon is resident and mode-aware (mode 0 blits, mode 1 expands),
+; so the one painter serves both bitmap desktops; it clobbers P0..P7, so
+; the caption geometry is rebuilt from the record afterwards.
+WI_SZ    = 24                   ; keep in step with icon.asm's ICON_W/H
+wg_p_icon
+    ldy #WG_W                   ; icon_x = x + (w - 24)/2
+    lda (CX_M_PTR),y
+    sec
+    sbc #WI_SZ
+    sta wg_t
+    ldy #WG_W+1
+    lda (CX_M_PTR),y
+    sbc #0
+    sta wg_t+1
+    lsr wg_t+1
+    ror wg_t
+    clc
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    adc wg_t
+    sta X16_P0
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    adc wg_t+1
+    sta X16_P1
+    ldy #WG_Y                   ; icon_y = cell top
+    lda (CX_M_PTR),y
+    sta X16_P2
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    sta X16_P3
+    ldy #WG_VAL                 ; the icon id
+    lda (CX_M_PTR),y
+    jsr cx_do_icon              ; resident; leaves P0..P7 spent
+
+    lda th_paper                ; a contrasting caption (mode 1 honours ink)
+    jsr wg_ink
+    jsr wg_label_ptr            ; X16_T0 = the caption
+    lda X16_T0
+    ldx X16_T0+1
+    jsr cxov_measure            ; P0/P1 = its width
+    ldy #WG_W                   ; label_x = x + (w - tw)/2
+    lda (CX_M_PTR),y
+    sec
+    sbc X16_P0
+    sta wg_t
+    ldy #WG_W+1
+    lda (CX_M_PTR),y
+    sbc X16_P1
+    sta wg_t+1
+    lsr wg_t+1
+    ror wg_t
+    clc
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    adc wg_t
+    sta X16_P0
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    adc wg_t+1
+    sta X16_P1
+    clc                         ; label_y = cell top + icon + 2
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    adc #(WI_SZ + 2)
     sta X16_P2
     ldy #WG_Y+1
     lda (CX_M_PTR),y
@@ -1476,6 +1608,8 @@ wg_act
     beq @list
     cmp #WG_FIELD               ; a click focuses a field so it can be typed
     beq @focusfield
+    cmp #WG_ICON                ; an icon opens on double, selects on single
+    beq @icon
     ; button: value 1, momentary; redraw pressed then released
     lda #1
     ldy #WG_VAL
@@ -1554,6 +1688,14 @@ wg_act
     lda wg_i                    ; a click gives the field the keyboard
     jmp wg_setfocus
 
+@icon
+    lda wg_evt                  ; single click selects, double click opens
+    cmp #EV_DBLCLICK
+    beq @iconopen
+    lda #0
+    bra @post
+@iconopen
+    lda #1
 @post
     jmp wg_post_val
 

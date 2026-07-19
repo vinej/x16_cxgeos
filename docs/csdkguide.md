@@ -51,7 +51,11 @@ Named `CX_ET_*` (event **t**ype), distinct from the generated header's
 ### Widget types — a descriptor's `type` (`CX_WG_*`)
 
 `CX_WG_BUTTON`=0, `CX_WG_CHECK`=1, `CX_WG_RADIO`=2, `CX_WG_SCROLL`=3,
-`CX_WG_FIELD`=4, `CX_WG_LIST`=5.
+`CX_WG_FIELD`=4, `CX_WG_LIST`=5, `CX_WG_ICON`=6.
+
+`CX_WG_ICON` draws a 24×24 icon (its `val` is the icon id 0–7) with the label
+centred beneath it; a single click posts `EV_WIDGET(index, 0)`, a double-click
+`(index, 1)` — select versus open. The desktop's icon view is a grid of these.
 
 ### Font style flags
 

@@ -70,12 +70,17 @@ CX_J_DLT   = CX_ZP + 29         ; $4F/$50  ...and the changed bits
 
 CX_J_ZP_TOP = CX_ZP + 31        ; = $51
 
-; --- free: $51-$5F ---------------------------------------------------
+; --- icon renderer (kernel/ui/icon.asm) ------------------------------
+CX_I_SRC   = CX_ZP + 31         ; $51/$52  the icon sheet, read with (zp),y
+
+CX_I_ZP_TOP = CX_ZP + 33        ; = $53
+
+; --- free: $53-$5F ---------------------------------------------------
 
 .if CX_ZP < $32
     .error "CX_ZP must be >= $32: below that is x16lib's block"
 .endif
-.if CX_C_ZP_TOP > CX_ZP_END
+.if CX_I_ZP_TOP > CX_ZP_END
     .error "kernel zero page overflows into the application's $60-$7F"
 .endif
 

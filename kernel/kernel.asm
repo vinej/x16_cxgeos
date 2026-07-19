@@ -80,6 +80,7 @@ X16_USE_SCREEN_CORE = 1         ; mode 3 (text) draws through the KERNAL
 .include "kernel/ui/theme.asm"
 .include "kernel/ui/dialog.asm"
 .include "kernel/ui/widget.asm"
+.include "kernel/ui/icon.asm"
 .include "kernel/ui/da.asm"
 .include "kernel/audio/audio.asm"
 .include "kernel/video/sprite.asm"

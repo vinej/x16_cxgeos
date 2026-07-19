@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 96                    ; slots
+    .word 97                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
     .res 6, 0                   ; reserved
@@ -190,6 +190,9 @@ cx_jumptab
 
 ; --- sprite collision (hardware, poll) ---------------------------
     jmp cx_do_spr_collide ; 95  -> A = the sprite-collision groups seen since the last call (one bit per group, top nibble), Z set if none. Arm with cx_ev_mask bit 2 first
+
+; --- icons (a 24x24 bitmap from the built-in sheet) --------------
+    jmp cx_do_icon       ; 96  A = icon id (0-7), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it)
 
 .popseg
 

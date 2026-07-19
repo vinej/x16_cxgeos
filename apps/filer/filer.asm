@@ -23,12 +23,36 @@ EV_KEY    = 5
 EV_MENU   = 7
 EV_WIDGET = 8
 WG_LIST   = 5
+WG_ICON   = 6
+
+; the icon ids cx_icon draws (kernel/ui/icon.asm)
+ICON_UP        = 0
+ICON_FOLDER    = 1
+ICON_APP       = 2
+ICON_FONT      = 3
+ICON_ACCESSORY = 4
+ICON_DATA      = 5
+ICON_IMAGE     = 6
+ICON_DISK      = 7
 
 MAXFILES  = 96
 NAMEMAX   = 20                  ; bytes reserved per name in the pool
 
+; the icon-view grid (mode 0, 640x480). CONTENT_Y0 is the first row below
+; the menu bar and title, cleared and redrawn on a view switch.
+CONTENT_Y0 = 44
+GX0    = 32
+GY0    = 52
+GCW    = 96                     ; cell width  (icon centred in it)
+GCH    = 66                     ; cell height (icon then caption)
+GCOLS  = 6
+GROWS  = 6
+PERPAGE = GCOLS * GROWS         ; 36 icons a page
+MAXICON = PERPAGE
+
 ; app zero page ($60-$7F is the app's)
 poolp = $60                     ; the pool write head / a name walker
+iwp   = $62                     ; the icon record write head, (zp),y
 
 .segment "LOADADDR"
     .word $0801
@@ -147,6 +171,8 @@ readdir
     stz pool+3
     lda #1
     sta fcount
+    lda #ICON_UP                ; the go-back row wears the up arrow
+    sta ficon
     lda #<(pool+4)
     sta poolp
     lda #>(pool+4)
@@ -156,8 +182,9 @@ readdir
     ldx #>pat
     ldy #1
     jsr cx_dir_open
-    bcs @none
-
+    bcc @opened                 ; the loop body outgrew a short branch to @none
+    jmp @none
+@opened
     lda poolp                   ; discard the volume header
     sta X16_P0
     lda poolp+1
@@ -199,6 +226,10 @@ readdir
     lda poolp+1
     sta fptrs+1,y
 
+    jsr entry_icon              ; ficon[count] = its type icon
+    ldx fcount
+    sta ficon,x
+
     ldy #0                      ; the name's end
 @len
     lda (poolp),y
@@ -238,7 +269,235 @@ readdir
 
 refresh                         ; the directory again, repainted
     jsr readdir
+    lda viewmode
+    beq @list
+    stz iconpage                ; a fresh listing lands on the first page
+    jmp set_view                ; re-grid the icons and repaint
+@list
     jmp cx_wg_draw
+
+; ---------------------------------------------------------------------
+; entry_icon -- A = the type icon for the entry at (poolp), given ftype
+; (0 file / 1 dir). A folder gets the folder; a file is classed by its
+; extension -- .CXA an app, .CXD a desk accessory, anything else data.
+; The name is NUL-terminated here (the slash a directory wears is added
+; after this runs), so the suffix test is on the bare name.
+; ---------------------------------------------------------------------
+entry_icon
+    lda ftype
+    beq @file
+    lda #ICON_FOLDER
+    rts
+@file
+    ldy #0                      ; Y = strlen
+@sl
+    lda (poolp),y
+    beq @got
+    iny
+    cpy #NAMEMAX
+    bcc @sl
+@got
+    cpy #4                      ; shorter than ".CX?": data
+    bcc @data
+    tya
+    sec
+    sbc #4
+    tay                         ; Y -> the four-char suffix
+    lda (poolp),y
+    cmp #'.'
+    bne @data
+    iny
+    lda (poolp),y
+    cmp #'C'
+    bne @data
+    iny
+    lda (poolp),y
+    cmp #'X'
+    bne @data
+    iny
+    lda (poolp),y
+    cmp #'A'
+    beq @app
+    cmp #'D'
+    beq @acc
+@data
+    lda #ICON_DATA
+    rts
+@app
+    lda #ICON_APP
+    rts
+@acc
+    lda #ICON_ACCESSORY
+    rts
+
+; ---------------------------------------------------------------------
+; the icon view: a page of the directory as a grid of icon widgets
+; ---------------------------------------------------------------------
+; set_view -- clear the content area and draw whichever view is current.
+; The menu bar and title above CONTENT_Y0 stay standing; cx_wg_set is
+; idempotent (it replaces its click region), so toggling never leaks the
+; region stack.
+set_view
+    jsr clear_content
+    lda viewmode
+    beq @list
+    jsr build_icons
+    lda #<iwbuf
+    ldx #>iwbuf
+    jmp cx_wg_set
+@list
+    lda #<widgets
+    ldx #>widgets
+    jmp cx_wg_set
+
+; clear_content -- the desktop below the bar back to paper (index 0).
+clear_content
+    stz X16_P0
+    stz X16_P1
+    lda #CONTENT_Y0
+    sta X16_P2
+    stz X16_P3
+    lda #<640
+    sta X16_P4
+    lda #>640
+    sta X16_P5
+    lda #<(480 - CONTENT_Y0)
+    sta X16_P6
+    lda #>(480 - CONTENT_Y0)
+    sta X16_P7
+    lda #0
+    jmp cx_gfx_rect
+
+; build_icons -- lay this page's files into iwbuf as WG_ICON records.
+; A page is PERPAGE cells on a GCOLS x GROWS grid; it stops early at the
+; last file. pagebase = iconpage * PERPAGE is the first file shown.
+build_icons
+    lda #0                      ; pagebase = iconpage * PERPAGE
+    sta pagebase
+    ldx iconpage
+    beq @pbok
+@pbmul
+    clc
+    lda pagebase
+    adc #PERPAGE
+    sta pagebase
+    dex
+    bne @pbmul
+@pbok
+    stz iw_n
+    lda #<(iwbuf+1)
+    sta iwp
+    lda #>(iwbuf+1)
+    sta iwp+1
+    lda #GY0
+    sta cy
+    stz cy+1
+    stz grow
+@rows
+    lda grow
+    cmp #GROWS
+    bcs @finish
+    lda #GX0
+    sta cxw
+    stz cxw+1
+    stz gcol
+@cols
+    lda gcol
+    cmp #GCOLS
+    bcs @nextrow
+    lda pagebase                ; fidx = pagebase + iw_n, until fcount
+    clc
+    adc iw_n
+    cmp fcount
+    bcs @finish
+    sta fidx
+    jsr emit_icon_rec
+    clc                         ; the record head forward one widget
+    lda iwp
+    adc #16
+    sta iwp
+    bcc @iwok
+    inc iwp+1
+@iwok
+    inc iw_n
+    clc                         ; the next column
+    lda cxw
+    adc #GCW
+    sta cxw
+    bcc @cxok
+    inc cxw+1
+@cxok
+    inc gcol
+    bra @cols
+@nextrow
+    clc                         ; the next row
+    lda cy
+    adc #GCH
+    sta cy
+    bcc @cyok
+    inc cy+1
+@cyok
+    inc grow
+    bra @rows
+@finish
+    lda iw_n
+    sta iwbuf                   ; the count byte the toolkit reads
+    rts
+
+; emit_icon_rec -- one 16-byte WG_ICON record at (iwp) for file fidx at
+; cell (cxw, cy). WG_VAL is its icon, WG_LBL its name pointer.
+emit_icon_rec
+    ldy #0                      ; WG_TYPE
+    lda #WG_ICON
+    sta (iwp),y
+    ldy #1                      ; WG_FLAGS
+    lda #0
+    sta (iwp),y
+    ldy #2                      ; WG_X
+    lda cxw
+    sta (iwp),y
+    ldy #3
+    lda cxw+1
+    sta (iwp),y
+    ldy #4                      ; WG_Y
+    lda cy
+    sta (iwp),y
+    ldy #5
+    lda cy+1
+    sta (iwp),y
+    ldy #6                      ; WG_W
+    lda #GCW
+    sta (iwp),y
+    ldy #7
+    lda #0
+    sta (iwp),y
+    ldy #8                      ; WG_H
+    lda #GCH
+    sta (iwp),y
+    ldy #9                      ; WG_VAL = the icon id
+    ldx fidx
+    lda ficon,x
+    sta (iwp),y
+    ldy #10                     ; WG_GRP
+    lda #0
+    sta (iwp),y
+    lda fidx                    ; WG_LBL = fptrs[fidx]
+    asl
+    tax
+    ldy #11
+    lda fptrs,x
+    sta (iwp),y
+    ldy #12
+    lda fptrs+1,x
+    sta (iwp),y
+    ldy #13                     ; WG_TOP + the two pad bytes
+    lda #0
+    sta (iwp),y
+    ldy #14
+    sta (iwp),y
+    ldy #15
+    sta (iwp),y
+    rts
 
 ; ---------------------------------------------------------------------
 ; hidden_ext -- carry set if the name at (poolp) ends in a system-file
@@ -354,7 +613,18 @@ dop
 ; ---------------------------------------------------------------------
 ; the handlers
 ; ---------------------------------------------------------------------
-on_widget                       ; the list was activated: open the entry
+on_widget                       ; an entry was activated: open it
+    lda viewmode
+    beq @open                   ; list view: wl_rec+9 is the selected row
+    lda X16_P2                  ; icon view: only a double-click (value 1)
+    bne @doopen                 ; opens; a single click (value 0) just selects
+    rts
+@doopen
+    lda pagebase                ; the file = this page's base + the widget's
+    clc                         ; index; put it where selname looks
+    adc X16_P1
+    sta wl_rec + 9
+@open
     jsr selname
     bne @dir
     ldy oblen                   ; a ".CXD" opens OVER the desktop
@@ -464,6 +734,8 @@ on_menu
     beq @file
     cmp #2
     beq @theme
+    cmp #3
+    beq @view
     lda X16_P1                  ; menu 0: about / quit
     bne @quit
     lda #<dlg_about             ; a real box with an ok button, not a
@@ -472,6 +744,11 @@ on_menu
     rts
 @quit
     jmp cx_exit
+@view
+    lda X16_P1                  ; 0 = list, 1 = icons
+    sta viewmode
+    stz iconpage                ; a view change starts at the first page
+    jmp set_view
 @theme
     lda X16_P1
     beq @day
@@ -1026,8 +1303,29 @@ on_key
     beq @open
     cmp #$1B                    ; ESC: leave the desktop
     beq @quit
-    lda X16_P1
-    jsr cx_wg_key               ; UP/DOWN select, RETURN opens
+    ldx viewmode                ; icon view turns pages with LEFT/RIGHT
+    beq @tolist
+    cmp #$9D                    ; LEFT
+    beq @pgprev
+    cmp #$1D                    ; RIGHT
+    beq @pgnext
+@tolist
+    jsr cx_wg_key               ; UP/DOWN select, RETURN opens (list view)
+    rts
+@pgprev
+    lda iconpage
+    beq @pgnone                 ; already the first page
+    dec iconpage
+    jmp set_view
+@pgnext
+    clc                         ; a next page only if files remain past this one
+    lda pagebase
+    adc iw_n
+    cmp fcount
+    bcs @pgnone
+    inc iconpage
+    jmp set_view
+@pgnone
     rts
 @open
     lda #$11                    ; feed DOWN to drop the first menu
@@ -1064,10 +1362,11 @@ handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JO
 ; the menu tree and the widget list
 ; ---------------------------------------------------------------------
 bar
-    .byte 3
+    .byte 4
     .addr s_m0, m0_items
     .addr s_m1, m1_items
     .addr s_m2, m2_items
+    .addr s_m3, m3_items
 m0_items
     .byte 2
     .addr s_about_i
@@ -1083,6 +1382,10 @@ m2_items
     .byte 2
     .addr s_day
     .addr s_night
+m3_items
+    .byte 2
+    .addr s_list
+    .addr s_icons
 
 widgets
     .byte 1
@@ -1115,6 +1418,9 @@ s_title   .byte "CXGEOS -- dbl-click opens (or UP/DOWN+RETURN), TAB menu, ESC qu
 s_m0      .byte "CXGEOS", 0
 s_m1      .byte "File", 0
 s_m2      .byte "Themes", 0
+s_m3      .byte "View", 0
+s_list    .byte "list", 0
+s_icons   .byte "icons", 0
 s_about_i .byte "about", 0
 s_quit    .byte "quit", 0
 s_newf    .byte "new folder", 0
@@ -1158,6 +1464,15 @@ deldir    .byte 0
 depth     .byte 0               ; folders deep from the root; 0 = home
 ddelta    .byte 0               ; a pending CD's step: +1 down, -1 up
 inmenu    .byte 0               ; 0 = browsing, 1 = a menu is open
+viewmode  .byte 0               ; 0 = list, 1 = icons
+iconpage  .byte 0               ; the icon page on screen
+pagebase  .byte 0               ; the first file index of that page
+iw_n      .byte 0               ; icons built on it
+fidx      .byte 0               ; the file build_icons is placing
+grow      .byte 0               ; the grid row/column being laid
+gcol      .byte 0
+cxw       .word 0               ; the running cell x / y
+cy        .word 0
 oblen     .byte 0
 cbuf_i    .byte 0               ; build_name/append_suffix write index
 tbuf      .res 17, 0            ; "YYYY-MM-DD HH:MM"
@@ -1169,4 +1484,6 @@ qbuf      .res 32, 0            ; the delete question
 cbuf      .res 48, 0            ; the DOS command being built
 mbuf      .res 64, 0            ; the drive's reply
 fptrs     .res MAXFILES * 2, 0
+ficon     .res MAXFILES, 0        ; the type icon for each listed entry
+iwbuf     .res 1 + MAXICON * 16, 0 ; the icon view's widget list (count + records)
 pool      .res MAXFILES * NAMEMAX, 0

@@ -1403,7 +1403,7 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #96                     ; 31 shipped with the table; loader, events,
+    cmp #97                     ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the
@@ -2575,6 +2575,7 @@ test_font_bank
 .include "kernel/ui/theme.asm"
 .include "kernel/ui/dialog.asm"
 .include "kernel/ui/widget.asm"
+.include "kernel/ui/icon.asm"
 .include "kernel/ui/da.asm"
 .include "kernel/audio/audio.asm"
 .include "kernel/video/sprite.asm"

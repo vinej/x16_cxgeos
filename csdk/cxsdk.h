@@ -48,6 +48,17 @@
 #define CX_WG_SCROLL  3
 #define CX_WG_FIELD   4
 #define CX_WG_LIST    5
+#define CX_WG_ICON    6         /* a 24x24 icon tile; `val` is the icon id */
+
+/* --- icon ids (cx_icon / a CX_WG_ICON record's `val`) --------------- */
+#define CX_ICON_UP        0
+#define CX_ICON_FOLDER    1
+#define CX_ICON_APP       2
+#define CX_ICON_FONT      3
+#define CX_ICON_ACCESSORY 4
+#define CX_ICON_DATA      5
+#define CX_ICON_IMAGE     6
+#define CX_ICON_DISK      7
 
 /* --- font style flags ----------------------------------------------- */
 #define CX_BOLD       1

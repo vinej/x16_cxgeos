@@ -284,3 +284,10 @@ version = 1
 # with cx_spr_collide -- resident, so it is safe from a cx_ev_raster
 # handler. cx_ev_init disarms it, so no app inherits another's.
 95  cx_spr_collide  1   -> A = the sprite-collision groups seen since the last call (one bit per group, top nibble), Z set if none. Arm with cx_ev_mask bit 2 first
+
+#= icons (a 24x24 bitmap from the built-in sheet)
+# The desktop's icon view and its WG_ICON widget draw these; an app can
+# blit one directly too. One 2bpp definition serves both bitmap modes:
+# mode 0 blits it, mode 1 expands each 2-bit index to an 8bpp pixel.
+# ids: 0 up, 1 folder, 2 app, 3 font, 4 accessory, 5 data, 6 image, 7 disk.
+96  cx_icon         1   A = icon id (0-7), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it)

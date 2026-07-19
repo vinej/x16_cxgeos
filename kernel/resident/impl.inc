@@ -121,3 +121,4 @@ cx_panel        = cx_g_panel
 cx_ev_raster    = ev_raster
 cx_ev_stop      = ev_suspend
 cx_spr_collide  = cx_do_spr_collide
+cx_icon         = cx_do_icon
