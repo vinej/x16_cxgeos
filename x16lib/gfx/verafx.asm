@@ -536,6 +536,22 @@ fx_line
     sta fxl_dy+1
 @dy_done
 
+    ; Encode the two step bytes once, as if Y-major: h1 = a row per
+    ; step (ADDR1, down or up), h0 = a pixel (ADDR0, right or left).
+    ; An X-major line swaps their roles below.
+    lda #(VERA_INC_320 << 4)
+    ldx fxl_sy
+    beq @e320
+    ora #VERA_ADDR_H_DECR
+@e320
+    sta fxl_h1
+    lda #(VERA_INC_1 << 4)
+    ldx fxl_sx
+    beq @e1
+    ora #VERA_ADDR_H_DECR
+@e1
+    sta fxl_h0
+
     ; pick the octant: ADDR1 steps the major axis every pixel, ADDR0's
     ; increment is borrowed for the sometimes-step along the minor axis
     lda fxl_dy+1
@@ -546,8 +562,7 @@ fx_line
 @which
     bcc @x_major
 
-    ; Y-major
-    lda fxl_dy
+    lda fxl_dy                  ; Y-major: major = dy, minor = dx
     sta fxl_major
     lda fxl_dy+1
     sta fxl_major+1
@@ -555,22 +570,10 @@ fx_line
     sta fxl_minor
     lda fxl_dx+1
     sta fxl_minor+1
-    lda #(VERA_INC_320 << 4)
-    ldx fxl_sy
-    beq @ym1
-    ora #VERA_ADDR_H_DECR
-@ym1
-    sta fxl_h1                  ; ADDR1: a row per step
-    lda #(VERA_INC_1 << 4)
-    ldx fxl_sx
-    beq @ym0
-    ora #VERA_ADDR_H_DECR
-@ym0
-    sta fxl_h0                  ; ADDR0: a pixel, sometimes
     bra @slope
 
 @x_major
-    lda fxl_dx
+    lda fxl_dx                  ; X-major: major = dx, minor = dy...
     sta fxl_major
     lda fxl_dx+1
     sta fxl_major+1
@@ -578,17 +581,9 @@ fx_line
     sta fxl_minor
     lda fxl_dy+1
     sta fxl_minor+1
-    lda #(VERA_INC_1 << 4)
-    ldx fxl_sx
-    beq @xm1
-    ora #VERA_ADDR_H_DECR
-@xm1
-    sta fxl_h1
-    lda #(VERA_INC_320 << 4)
-    ldx fxl_sy
-    beq @xm0
-    ora #VERA_ADDR_H_DECR
-@xm0
+    lda fxl_h1                  ; ...and the step bytes swap roles
+    ldx fxl_h0
+    stx fxl_h1
     sta fxl_h0
 
 @slope
@@ -725,21 +720,24 @@ fxl_h0    .byte 0
 ; Does NOT clip.
 ; ---------------------------------------------------------------------
 fx_triangle
-    ; sort the vertices by y (three compare-swaps)
+    ; sort the vertices by y (three compare-swaps; X names the pair)
     lda tri_y1
     cmp tri_y0
     bcs @s1
-    jsr verafx_swap01
+    ldx #0
+    jsr verafx_swapv
 @s1
     lda tri_y2
     cmp tri_y1
     bcs @s2
-    jsr verafx_swap12
+    ldx #3
+    jsr verafx_swapv
 @s2
     lda tri_y1
     cmp tri_y0
     bcs @s3
-    jsr verafx_swap01
+    ldx #0
+    jsr verafx_swapv
 @s3
     sec                         ; row counts of the two parts
     lda tri_y1
@@ -788,26 +786,12 @@ fx_triangle
 
     jsr verafx_cmp_b_lt_a             ; carry set: B is the left edge
     bcs @b_left
-    lda fxt_a_l                 ; A (long) left in the X slot,
-    sta fxt_xl                  ; B right in the Y/X2 slot
-    lda fxt_a_h
-    sta fxt_xh
-    lda fxs_el
-    sta fxt_yl
-    lda fxs_eh
-    sta fxt_yh
-    lda #1
+    jsr verafx_a_x_b_y                ; A (long) left in the X slot,
+    lda #1                      ; B right in the Y/X2 slot
     sta fxt_swap                ; part 2 replaces the Y/X2 slot
     bra @pos
 @b_left
-    lda fxs_el                  ; B left, A (long) right
-    sta fxt_xl
-    lda fxs_eh
-    sta fxt_xh
-    lda fxt_a_l
-    sta fxt_yl
-    lda fxt_a_h
-    sta fxt_yh
+    jsr verafx_b_x_a_y                ; B left, A (long) right
     stz fxt_swap                ; part 2 replaces the X slot
 @pos
     lda tri_x0                  ; both edges start at the apex
@@ -888,14 +872,7 @@ fx_triangle
     cmp tri_x1
 @ft_pick
     bcc @ft_v0_left
-    lda fxs_el                  ; v1 left: B in X at x1, A in Y at x0
-    sta fxt_xl
-    lda fxs_eh
-    sta fxt_xh
-    lda fxt_a_l
-    sta fxt_yl
-    lda fxt_a_h
-    sta fxt_yh
+    jsr verafx_b_x_a_y                ; v1 left: B in X at x1, A in Y at x0
     lda tri_x1
     sta fxt_px
     lda tri_x1+1
@@ -906,14 +883,7 @@ fx_triangle
     sta fxt_py+1
     bra @ft_run
 @ft_v0_left
-    lda fxt_a_l                 ; v0 left: A in X at x0, B in Y at x1
-    sta fxt_xl
-    lda fxt_a_h
-    sta fxt_xh
-    lda fxs_el
-    sta fxt_yl
-    lda fxs_eh
-    sta fxt_yh
+    jsr verafx_a_x_b_y                ; v0 left: A in X at x0, B in Y at x1
     lda tri_x0
     sta fxt_px
     lda tri_x0+1
@@ -1146,6 +1116,28 @@ verafx_slope
 @sl_done
     rts
 
+; hand the two edge slopes to the polygon's position slots
+verafx_b_x_a_y
+    lda fxs_el
+    sta fxt_xl
+    lda fxs_eh
+    sta fxt_xh
+    lda fxt_a_l
+    sta fxt_yl
+    lda fxt_a_h
+    sta fxt_yh
+    rts
+verafx_a_x_b_y
+    lda fxt_a_l
+    sta fxt_xl
+    lda fxt_a_h
+    sta fxt_xh
+    lda fxs_el
+    sta fxt_yl
+    lda fxs_eh
+    sta fxt_yh
+    rts
+
 ; park the fxs_* result as edge A
 verafx_save_a
     lda fxs_el
@@ -1203,6 +1195,30 @@ verafx_cmp_b_lt_a
 @cmp_yes
     sec
     rts
+
+; swap two adjacent vertex records (x.w y.b, stride 3): X = 0 swaps
+; v0/v1, X = 3 swaps v1/v2
+verafx_swapv
+    ldy #3
+verafx_swl
+    lda tri_x0,x
+    pha
+    lda tri_x0+3,x
+    sta tri_x0,x
+    pla
+    sta tri_x0+3,x
+    inx
+    dey
+    bne verafx_swl
+    rts
+.endif
+
+; --- shared by the line and polygon helpers --------------------------
+; Both fx_line and fx_triangle divide through verafx_udiv24 and find their
+; framebuffer start through verafx_pix_addr, so these are emitted whenever
+; EITHER gate is on (X16_USE_VERAFX_LINETRI, derived in x16_code.asm --
+; a LINE-only build must not need the whole triangle filler for them).
+.ifdef X16_USE_VERAFX_LINETRI
 
 fxd_num .res 3, 0
 fxd_den .word 0
@@ -1270,36 +1286,6 @@ verafx_pix_addr
     lda fxa+2
     adc #0
     sta fxa+2
-    rts
-
-verafx_swap01
-    lda tri_x0
-    ldx tri_x1
-    stx tri_x0
-    sta tri_x1
-    lda tri_x0+1
-    ldx tri_x1+1
-    stx tri_x0+1
-    sta tri_x1+1
-    lda tri_y0
-    ldx tri_y1
-    stx tri_y0
-    sta tri_y1
-    rts
-
-verafx_swap12
-    lda tri_x1
-    ldx tri_x2
-    stx tri_x1
-    sta tri_x2
-    lda tri_x1+1
-    ldx tri_x2+1
-    stx tri_x1+1
-    sta tri_x2+1
-    lda tri_y1
-    ldx tri_y2
-    stx tri_y1
-    sta tri_y2
     rts
 .endif
 

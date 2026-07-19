@@ -45,10 +45,19 @@
 ; (zone: file scope in ca65)
 
 ; ---------------------------------------------------------------------
-; shape_circle
+; shape_circle / shape_disc -- one walk for both, like the ellipse:
+; shapes_efl routes each plot through shapes_eplot to the octant points (outline)
+; or the spans (fill).
 ; ---------------------------------------------------------------------
 shape_circle
 	sta shapes_col
+	stz shapes_efl                    ; outline: the octant point pairs
+	bra shapes_cgo
+shape_disc
+	sta shapes_col
+	lda #1                      ; filled: spans at cy +/- b instead
+	sta shapes_efl
+shapes_cgo
 	jsr shapes_take_cxy               ; cx/cy out of the P block, x=r, y=0
 shapes_cloop
 	lda shapes_y                      ; while y <= x
@@ -60,42 +69,15 @@ shapes_cplot
 	sta shapes_a
 	lda shapes_y
 	sta shapes_b
-	jsr shapes_pair4
+	jsr shapes_eplot
 	lda shapes_y                      ; ...and the (y,x) pair
 	sta shapes_a
 	lda shapes_x
 	sta shapes_b
-	jsr shapes_pair4
+	jsr shapes_eplot
 	jsr shapes_step                   ; the midpoint error walk
 	bra shapes_cloop
 shapes_cdone
-	rts
-
-; ---------------------------------------------------------------------
-; shape_disc
-; ---------------------------------------------------------------------
-shape_disc
-	sta shapes_col
-	jsr shapes_take_cxy
-shapes_dloop
-	lda shapes_y
-	cmp shapes_x
-	beq shapes_dspan
-	bcs shapes_ddone
-shapes_dspan
-	lda shapes_x                      ; spans at cy +/- y, half-width x...
-	sta shapes_a
-	lda shapes_y
-	sta shapes_b
-	jsr shapes_span2
-	lda shapes_y                      ; ...and at cy +/- x, half-width y
-	sta shapes_a
-	lda shapes_x
-	sta shapes_b
-	jsr shapes_span2
-	jsr shapes_step
-	bra shapes_dloop
-shapes_ddone
 	rts
 
 ; --- shared circle/disc/ellipse machinery -------------------------------
@@ -182,33 +164,9 @@ shapes_emit1
 	sta X16_P1
 	bra shapes_e1y
 shapes_e1xm
-	sec                         ; x = cx - a
-	lda shapes_cx
-	sbc shapes_a
-	sta X16_P0
-	lda shapes_cx+1
-	sbc #0
-	sta X16_P1
+	jsr shapes_subx                   ; x = cx - a
 shapes_e1y
-	lda shapes_sy
-	bne shapes_e1ym
-	clc
-	lda shapes_cy
-	adc shapes_b
-	sta X16_P2
-	lda shapes_cy+1
-	adc #0
-	sta X16_P3
-	bra shapes_e1go
-shapes_e1ym
-	sec
-	lda shapes_cy
-	sbc shapes_b
-	sta X16_P2
-	lda shapes_cy+1
-	sbc #0
-	sta X16_P3
-shapes_e1go
+	jsr shapes_sety
 	lda shapes_col
 	jmp SHP_PSET
 
@@ -220,32 +178,8 @@ shapes_span2
 	sta shapes_sy
 	; fall through
 shapes_espan
-	sec                         ; x = cx - a
-	lda shapes_cx
-	sbc shapes_a
-	sta X16_P0
-	lda shapes_cx+1
-	sbc #0
-	sta X16_P1
-	lda shapes_sy
-	bne shapes_esym
-	clc
-	lda shapes_cy
-	adc shapes_b
-	sta X16_P2
-	lda shapes_cy+1
-	adc #0
-	sta X16_P3
-	bra shapes_esgo
-shapes_esym
-	sec
-	lda shapes_cy
-	sbc shapes_b
-	sta X16_P2
-	lda shapes_cy+1
-	sbc #0
-	sta X16_P3
-shapes_esgo
+	jsr shapes_subx                   ; x = cx - a
+	jsr shapes_sety
 	lda shapes_a                      ; len = 2a + 1
 	sta X16_P4
 	lda #0
@@ -257,6 +191,37 @@ shapes_esgo
 	inc X16_P5
 :	lda shapes_col
 	jmp SHP_HLINE
+
+shapes_subx
+	sec
+	lda shapes_cx
+	sbc shapes_a
+	sta X16_P0
+	lda shapes_cx+1
+	sbc #0
+	sta X16_P1
+	rts
+
+shapes_sety
+	lda shapes_sy
+	bne shapes_sym
+	clc
+	lda shapes_cy
+	adc shapes_b
+	sta X16_P2
+	lda shapes_cy+1
+	adc #0
+	sta X16_P3
+	rts
+shapes_sym
+	sec
+	lda shapes_cy
+	sbc shapes_b
+	sta X16_P2
+	lda shapes_cy+1
+	sbc #0
+	sta X16_P3
+	rts
 
 ; ---------------------------------------------------------------------
 ; shape_ellipse / shape_fellipse
@@ -380,18 +345,18 @@ shapes_eloop
 	lda shapes_ey
 	sta shapes_b
 	jsr shapes_eplot
-	lda shapes_eerr                   ; e2 = 2*err
+	lda shapes_eerr                   ; e2 = 2*err, copied with the shift
+	asl
 	sta shapes_ee2
 	lda shapes_eerr+1
+	rol
 	sta shapes_ee2+1
 	lda shapes_eerr+2
+	rol
 	sta shapes_ee2+2
 	lda shapes_eerr+3
+	rol
 	sta shapes_ee2+3
-	asl shapes_ee2
-	rol shapes_ee2+1
-	rol shapes_ee2+2
-	rol shapes_ee2+3
 	sec                         ; e2 >= dx?  sign of e2 - dx decides
 	lda shapes_ee2
 	sbc shapes_edx
@@ -531,7 +496,8 @@ shape_flood
 	lda #0
 	sta shapes_ovf
 	sta shapes_sp
-	jsr shapes_rd_p                   ; the target = the seed's own colour
+	jsr SHP_READ                ; the target = the seed's own colour
+	                            ; (read at the CALLER's P block)
 	sta shapes_tgt
 	cmp shapes_col                    ; filling with itself never ends: done
 	bne shapes_fseed
@@ -581,10 +547,8 @@ shapes_wleft
 	sta shapes_xl+1
 	bra shapes_wleft
 shapes_wldone
-	lda shapes_qy                     ; widen right: xr = rightmost target
-	sta shapes_qy                     ; (qy already holds the row)
-	lda shapes_xl
-	sta shapes_xr
+	lda shapes_xl                     ; widen right: xr = rightmost target
+	sta shapes_xr                     ; (qy already holds the row)
 	lda shapes_xl+1
 	sta shapes_xr+1
 shapes_wright
@@ -718,17 +682,13 @@ shapes_srinc
 shapes_srdone
 	rts
 
-shapes_rd_p
-	jmp SHP_READ
 shapes_rd_q
-	lda shapes_qx
-	sta X16_P0
-	lda shapes_qx+1
-	sta X16_P1
-	lda shapes_qy
-	sta X16_P2
-	lda shapes_qy+1
-	sta X16_P3
+	ldx #3
+shapes_rq_l
+	lda shapes_qx,x
+	sta X16_P0,x
+	dex
+	bpl shapes_rq_l
 	jmp SHP_READ
 
 shapes_push
