@@ -156,6 +156,12 @@ function Invoke-Emulator([string[]]$emuArgs, [int]$timeout, [string]$until, [str
     # kill; either way it is gone, which is all that was wanted
     if (-not $proc.HasExited) { try { $proc.Kill() } catch {} }
     $proc.WaitForExit()
+    # read once more after the exit: a guest that ends at BASIC (the
+    # boot refusals) can take the emulator down between two polls, and
+    # the loop's last read would miss whatever flushed at the end
+    if (Test-Path $stdout) {
+        $text = (Get-Content $stdout -Raw -ErrorAction SilentlyContinue) -replace "`r", ""
+    }
     return $text
 }
 

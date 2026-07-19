@@ -6,7 +6,8 @@
 ; SHP_PSET/READ/HLINE point at the overlay's entry vector, and the
 ; bounds at the port manager's current-canvas words -- so one copy of
 ; the code draws correct circles, discs and floods in mode 0, mode 1,
-; and any mode that ever joins the port. The module rides bank 5
+; and any mode that ever joins the port. The module rides bank 17 --
+; the graphics-extras theme bank (banks.inc), where new shapes grow --
 ; behind far-call stubs; its calls back into the port land in the
 ; resident overlay window, which is always mapped.
 ; =====================================================================
@@ -19,7 +20,7 @@ SHP_HLINE = cxov_hline
 SHP_W     = cx_cur_w
 SHP_H     = cx_cur_h
 
-CX_SHP_BANK = 5
+CX_SHP_BANK = CX_GFXX_BANK      ; bank 17 (banks.inc)
 
 cx_do_gfx_circle
     jsr cxb_call
@@ -42,7 +43,7 @@ cx_do_gfx_fellipse
     .byte CX_SHP_BANK
     .addr shape_fellipse
 
-.segment "B5CODE"
+.segment "B17CODE"
 .include "gfx/shapes.asm"
 .segment "CODE"
 

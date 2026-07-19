@@ -6,7 +6,10 @@
 ; want: two VERA tile layers at 320x240 with hardware scrolling, plus
 ; the sprites and audio the ABI already carries. It is NOT a bitmap --
 ; the port's drawing entries refuse here (carry), and the real API is
-; the cx_tile_* slots, far-called into bank 5 beside the shapes.
+; the cx_tile_* slots, far-called into bank 17 beside the shapes.
+; (The mode-2 engine IMAGE stays in bank 5 storage -- OV2CODE below --
+; because cx_msrc reads it from __OV2CODE_LOAD__ there; only the
+; machinery the stubs far-call moved.)
 ;
 ; The mode's VRAM ledger (the framebuffer region is free -- no bitmap):
 ;   $00000  tile images: 4bpp 8x8, 32 bytes each, up to 1024 tiles
@@ -20,7 +23,7 @@
 
 .ifndef CX_NO_OVERLAY
 
-CX_T2_BANK = 5
+CX_T2_BANK = CX_GFXX_BANK       ; bank 17 (banks.inc)
 
 cx_do_tile_setup
     jsr cxb_call
@@ -82,8 +85,8 @@ ov2_no
     sec
     rts
 
-; --- the tile machinery (bank 5, with the shapes) ---------------------
-.segment "B5CODE"
+; --- the tile machinery (bank 17, with the shapes) --------------------
+.segment "B17CODE"
 
 .include "video/tile.asm"
 

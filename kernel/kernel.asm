@@ -78,8 +78,8 @@ X16_USE_SCREEN  = 1             ; the KERNAL console: mode 3 (text) draws
 .include "kernel/video/shapes.asm"
 .include "kernel/video/tiles.asm"
 .include "kernel/video/text.asm"
-; dir.asm and dirty.asm AFTER menu.asm's B2CODE (their banked bodies
-; must not shove the local jump table off $A000)
+; dir.asm AFTER menu.asm's B2CODE (its banked body must not shove the
+; local jump table off $A000); dirty.asm rides bank 17 now
 .include "kernel/fs/dir.asm"
 .include "kernel/fs/fileload.asm"
 .include "kernel/fs/assets.asm"

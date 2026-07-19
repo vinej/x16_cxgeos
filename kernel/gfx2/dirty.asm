@@ -31,25 +31,26 @@
 DR_MAX = 8
 
 ; Cold, app-facing bookkeeping with no claim to the resident budget:
-; the list rides bank 2 behind far-call stubs, like the toolkit.
+; the list rides bank 17 -- the graphics-extras theme bank (banks.inc)
+; -- behind far-call stubs, like the shapes beside it.
 cx_do_dirty_reset
     jsr cxb_call
-    .byte 2
+    .byte CX_GFXX_BANK
     .addr dr_reset
 cx_do_dirty_add
     jsr cxb_call
-    .byte 2
+    .byte CX_GFXX_BANK
     .addr dr_add
 cx_do_dirty_count
     jsr cxb_call
-    .byte 2
+    .byte CX_GFXX_BANK
     .addr dr_count
 cx_do_dirty_get
     jsr cxb_call
-    .byte 2
+    .byte CX_GFXX_BANK
     .addr dr_get
 
-.segment "B2CODE"
+.segment "B17CODE"
 
 dr_reset
     stz dr_n
