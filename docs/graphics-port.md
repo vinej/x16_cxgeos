@@ -48,20 +48,36 @@ insets, the title air) rides each engine image as nine metric bytes
 after the ink; the frame thicknesses are "one unit" in every mode and
 stay literal.
 
-The **menu** is the first to cross: `cx_menu_set`/`off`/`key` run in
-mode 0 *and* mode 3 (a real text-mode TUI — the bar, drop-downs as
-framed PETSCII boxes, items in cells, reverse-video highlights; mode 3
-stashes the covered cells in bank 6, mode 0 the pixel rows in banks
-14–15). `menu_gate` allows those two modes; the bitmap modes still
-refuse (an 8bpp save-under is future). Highlights stay legible because
-the menu sets `cxov_ink` to the contrasting theme role before each
-label — mode 3's text writer honours it, mode 0's font ignores it and
-inks from the theme, so the desktop is unchanged. Keyboard nav works
-today; mouse-in-TUI needs event-coordinate scaling (deferred).
+The **menu, dialogs and widgets** all cross: `menu_gate` admits their
+slots to mode 0 *and* mode 3 (a real text-mode TUI), and none of them
+carries a mode-branch in its logic — only the drawing goes through the
+port.
 
-**Still mode-0-only:** fonts (`cx_font_set`/`style`), widgets, dialogs,
-and desk accessories — held to mode 0 by `gui_gate` until they cross the
-same way. A mistaken call outside mode 0 refuses with carry, a clean
+- **Menu** — the bar, drop-downs as framed PETSCII boxes, items in
+  cells, reverse-video highlights. Laid out from the port metrics
+  (`cxov_m_*`): the pixel row pitch becomes a cell pitch, the screen
+  bounds become `cx_cur_w/h`.
+- **Dialogs** (alert + prompt) — a centred box, so the origin derives
+  from `cx_cur_w/h` and a per-mode size; message, framed buttons, and
+  the prompt's field editor in cells. mode-0 metrics reproduce the old
+  fixed 120,192,400,96 exactly, so the desktop dialog is unchanged.
+- **Widgets** — ASCII-classic in text mode (`[X]`/`[ ]`, `(*)`/`( )`,
+  `[button]`, `[field]`, list rows), since a pixel marker has no cell
+  equivalent; the graphical painters still serve mode 0. The text
+  painter rides bank 5 (bank 2, the toolkit's bank, was full) and
+  `wg_paint` far-calls it.
+
+Highlights stay legible because the toolkit sets `cxov_ink` to the
+contrasting theme role before each label — mode 3's text writer honours
+it, mode 0's font ignores it and inks from the theme, so the desktop is
+unchanged. Save-unders go through the port too: mode 0 to banks 14–15
+(pixel rows), mode 3 to a bank of text cells. Mouse events scale to
+cells in mode 3 (`ev_do_mouse >> 3`), so clicks land on the same box the
+widgets were pushed with — keyboard and mouse both drive the TUI.
+
+**Still mode-0-only:** fonts (`cx_font_set`/`style`) and desk
+accessories, and the bitmap modes refuse the toolkit (an 8bpp
+save-under is future). A mistaken call there refuses with carry, a clean
 no-op, not a crash. Text in tile mode is font *tiles* (`cx_tile_cell`
 with a glyph's tile index), the classic approach.
 
