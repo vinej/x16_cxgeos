@@ -38,12 +38,12 @@ main
     lda #6                      ; a blue field (default palette)
     jsr cx_gfx_clear
 
+    lda #1                     ; the arrow, so it can be clicked
+    jsr cx_mouse_show
     lda #<alert
     ldx #>alert
-    jsr cx_dlg_alert            ; modal: draws the box and waits
-
-@hold
-    bra @hold
+    jsr cx_dlg_alert           ; modal: draws the box, waits for a button
+    jmp cx_exit                ; ...then back to the desktop
 
 handlers
     .addr h_rts, h_rts, h_rts, h_rts, h_rts

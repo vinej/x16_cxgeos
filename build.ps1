@@ -145,7 +145,11 @@ function Build-Apps {
         @{ src = "apps\hello_asm\hello.asm";    prg = "HELLO1";   name = "Hello (asm)" },
         @{ src = "test\menutest\menutest.asm";  prg = "MENUTEST"; name = "Menu test" },
         @{ src = "apps\gallery\gallery.asm";     prg = "GALLERY";  name = "Widget gallery" },
-        @{ src = "apps\cpanel\cpanel.asm";       prg = "CPANEL";   name = "Control panel" }
+        @{ src = "apps\cpanel\cpanel.asm";       prg = "CPANEL";   name = "Control panel" },
+        @{ src = "apps\mtext\mtext.asm";         prg = "MTEXT";    name = "Menu (text)" },
+        @{ src = "apps\wtext\wtext.asm";         prg = "WTEXT";    name = "Widgets (text)" },
+        @{ src = "apps\dtext\dtext.asm";         prg = "DTEXT";    name = "Dialog (text)" },
+        @{ src = "apps\m1demo\m1demo.asm";       prg = "M1DEMO";   name = "Toolkit (8bpp)" }
     )) {
         $p = Build-Prg $app.src $app.prg
         & $py $mkcxap $p (Join-Path $build "$($app.prg).CXA") --name $app.name
@@ -215,6 +219,10 @@ function Stage-SdRoot {
     Copy-Item (Join-Path $build "HELLO1.CXA")    $sdroot
     Copy-Item (Join-Path $build "GALLERY.CXA")   $sdroot
     Copy-Item (Join-Path $build "CPANEL.CXA")    $sdroot
+    Copy-Item (Join-Path $build "MTEXT.CXA")     $sdroot
+    Copy-Item (Join-Path $build "WTEXT.CXA")     $sdroot
+    Copy-Item (Join-Path $build "DTEXT.CXA")     $sdroot
+    Copy-Item (Join-Path $build "M1DEMO.CXA")    $sdroot
     if (Test-Path (Join-Path $build "HELLO2.CXA")) {
         Copy-Item (Join-Path $build "HELLO2.CXA") $sdroot
     }

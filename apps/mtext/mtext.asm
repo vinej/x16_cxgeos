@@ -2,19 +2,17 @@
 ; =====================================================================
 ; CXGEOS :: apps/mtext/mtext.asm -- the menu toolkit in the text TUI
 ; =====================================================================
-; The mode-generic toolkit, proven: switch to mode 3 (80x60 cells), set
-; a menu bar, and open the first drop-down from the keyboard. Every
-; draw goes through the graphics port, so the same menu engine that
-; paints pixels on the desktop paints CELLS here -- a real text-mode
-; menu, laid out from the port's per-mode metrics.
-;
-; It holds the open menu in a loop so a screenshot can see it.
+; A launchable demo: switch to mode 3 (80x60 cells), set a menu bar, and
+; drive it by keyboard OR mouse -- the same menu engine that paints the
+; desktop paints CELLS here, laid out from the port's per-mode metrics.
+; DOWN opens a menu; arrows walk it; RETURN picks; ESC (or any pick)
+; returns to the desktop.
 ; =====================================================================
 
 .include "x16.asm"
 .include "sdk/include_ca65/cxgeos.inc"
 
-KEY_DOWN = $11
+KEY_ESC = $1B
 
 .segment "LOADADDR"
     .word $0801
@@ -22,42 +20,63 @@ KEY_DOWN = $11
     basic_stub
 
 main
-    ldx #0                      ; announce (the -echo stream sees this)
+    ldx #0
 @pr
     lda s_up,x
     beq @prd
-    jsr CHROUT
+    jsr $FFD2
     inx
     bra @pr
 @prd
 
-    jsr cx_ev_init              ; the region stack the bar rides on
+    jsr cx_ev_init
+    lda #3                      ; CX_MODE_TEXT
+    jsr cx_gfx_mode
+    lda #6
+    jsr cx_gfx_clear
+
+    lda #<hint                  ; a one-line hint
+    ldx #>hint
+    sta X16_TPTR0
+    stx X16_TPTR0+1
+    lda #2
+    sta X16_P0
+    stz X16_P1
+    lda #58
+    sta X16_P2
+    stz X16_P3
+    lda X16_TPTR0
+    ldx X16_TPTR0+1
+    jsr cx_font_draw
+
+    lda #<bar
+    ldx #>bar
+    jsr cx_menu_set
+    lda #1
+    jsr cx_mouse_show
+
     lda #<handlers
     ldx #>handlers
     jsr cx_ev_handlers
+    jmp cx_ev_mainloop
 
-    lda #3                      ; CX_MODE_TEXT: the 80x60 text canvas
-    jsr cx_gfx_mode
-
-    lda #6                      ; a paper to sit the menu on
-    jsr cx_gfx_clear
-
-    lda #<bar                   ; the bar, drawn in cells
-    ldx #>bar
-    jsr cx_menu_set
-
-    lda #KEY_DOWN               ; open menu 0 -- the drop-down in cells
+on_key
+    lda X16_P1
+    cmp #KEY_ESC
+    beq do_exit
+    lda X16_P1
     jsr cx_menu_key
-
-@hold
-    bra @hold                   ; hold the open menu for the capture
-
-; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY -- EV_COUNT = 10
-handlers
-    .addr h_rts, h_rts, h_rts, h_rts, h_rts
-    .addr h_rts, h_rts, h_rts, h_rts, h_rts
-h_rts
     rts
+on_menu                         ; any pick returns to the desktop
+do_exit
+    jmp cx_exit
+
+handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY
+    .addr 0, 0, 0, 0, 0
+    .addr on_key
+    .addr 0
+    .addr on_menu
+    .addr 0, 0
 
 bar
     .byte 2
@@ -77,4 +96,5 @@ s_save  .byte "Save", 0
 s_quit  .byte "Quit", 0
 s_copy  .byte "Copy", 0
 s_paste .byte "Paste", 0
+hint    .byte "DOWN opens a menu, arrows walk it, RETURN picks, ESC exits", 0
 s_up    .byte "MTEXT UP", $0D, 0
