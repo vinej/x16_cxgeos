@@ -1,6 +1,7 @@
 # CXGEOS
 
-V0.5.0 see /docs for more guides.
+V0.5.1 — cartridge boot, a game's own raster IRQ (borrow the events for a
+dialog), and a compact 6px mode-1 font. See /docs for more guides.
 
 A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
 
