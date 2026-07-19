@@ -456,14 +456,16 @@ ov3_measure
     rts
 
 ; ov3_rsave / ov3_rrest -- the toolkit's save-under, in text cells.
-; The vrows contract: A = destination bank, P0/P1 = first row, P2 = row
-; count. A "row" is a full 80-cell text line = 160 bytes; the KERNAL's
-; default screen (CINT, which ov3_init runs) puts the map at VRAM
-; $1B000, 128-cell stride (256 bytes a line). VERA port 1 does the
-; streaming so port 0 -- the mouse's -- is undisturbed; interrupts are
-; masked so nothing flips ADDRSEL mid-copy. One bank holds 51 lines and
-; a dropdown is at most a dozen, so no bank wrap.
+; The port contract: P0/P1 = first row, P2 = row count. A "row" is a
+; full 80-cell text line = 160 bytes; the KERNAL's default screen (CINT,
+; which ov3_init runs) puts the map at VRAM $1B000, 128-cell stride (256
+; bytes a line). VERA port 1 does the streaming so port 0 -- the
+; mouse's -- is undisturbed; interrupts are masked so nothing flips
+; ADDRSEL mid-copy. The store is bank 6 (the CXF glyph cache, which text
+; mode never uses); one bank holds 51 lines and a dropdown is at most a
+; dozen, so no bank wrap.
 T3_MAPM = $B0                   ; $1B000 middle byte; low = 0, high = $01
+T3_SBANK = 6                    ; the save store (font cache, idle in text)
 ov3_rsave
     ldx #0                      ; VRAM -> RAM
     bra ov3_sr
@@ -473,7 +475,8 @@ ov3_sr
     php
     sei
     stx t_dir
-    sta RAM_BANK                ; the destination bank
+    lda #T3_SBANK
+    sta RAM_BANK                ; the save store
     stz X16_T4                  ; the RAM walker = bank window $A000
     lda #$A0
     sta X16_T5

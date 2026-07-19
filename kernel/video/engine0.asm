@@ -150,8 +150,8 @@ ov0_vector                      ; the port's entry vector, slot order
     jmp gfx2_blitm
     jmp font_draw               ; text: the CXF proportional font
     jmp font_measure            ; measure: CXF pixel widths
-    jmp vrows_save              ; rsave/rrest: full pixel rows <-> banked
-    jmp vrows_restore           ; RAM, the toolkit's mode-0 save-under
+    jmp ov0_rsave               ; rsave/rrest: full pixel rows <-> the
+    jmp ov0_rrest               ; VRAM strip, the toolkit's mode-0 save-under
     .byte 1                     ; cxov_ink -- unused in mode 0 (the theme
                                 ; owns the GUI's text ink), carried so the
                                 ; port layout is the same in every image
@@ -160,6 +160,21 @@ ov0_vector                      ; the port's entry vector, slot order
     .byte 12, 10,  8, 16,  2,  4,  8,  4,  1
 
 .assert ov0_vector = CX_OVL, error, "OV0CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
+
+; --- the GUI save-under: full framebuffer rows <-> banked RAM --------
+; P0/P1 = first row, P2 = row count -- the vrows contract. Banks 14-15,
+; the same the dialogs use: a menu and a dialog are never both open
+; (a pick closes the menu before the app can raise one), and desk
+; accessories -- the other 14-15 tenant -- carry no menu bar, so nothing
+; else is mid-save here. The mode's bank is fixed in the image, so the
+; port entry needs no bank argument.
+MN_SBANK = 14
+ov0_rsave
+    lda #MN_SBANK
+    jmp vrows_save
+ov0_rrest
+    lda #MN_SBANK
+    jmp vrows_restore
 
 .include "gfx/bitmap2.asm"
 
@@ -182,6 +197,7 @@ cx_do_gfx_mode
     sec
     rts
 cxov_ink .byte 1                ; flat build: the ink byte is just a byte
+cx_flatmet .byte 12, 10, 8, 16, 2, 4, 8, 4, 1   ; the mode-0 UI metrics
 cx_do_ink
     sta cxov_ink
     clc

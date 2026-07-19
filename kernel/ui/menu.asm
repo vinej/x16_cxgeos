@@ -147,15 +147,20 @@ mn_set
 
     jsr mn_draw_bar
 
-    stz X16_P0                  ; the bar region: 0,0 to 639,H-1
+    stz X16_P0                  ; the bar region: 0,0 to w-1, barh-1
     stz X16_P1
     stz X16_P2
     stz X16_P3
-    lda #<639
+    lda cx_cur_w                ; w - 1
+    sec
+    sbc #1
     sta X16_P4
-    lda #>639
+    lda cx_cur_w+1
+    sbc #0
     sta X16_P5
-    lda #CX_MENU_H-1
+    lda cxov_m_barh             ; barh - 1
+    sec
+    sbc #1
     sta X16_P6
     stz X16_P7
     lda #<mn_bar_vec
@@ -171,37 +176,65 @@ mn_off
     jmp rg_pop
 
 ; ---------------------------------------------------------------------
+; Geometry helpers -- the menu lays out in the current mode's units
+; (pixels in mode 0, cells in mode 3). A row's pitch is the port's
+; cxov_m_rowh, so i*rowh is a runtime multiply, not a baked *10.
+; ---------------------------------------------------------------------
+mn_mulrowh                      ; A = k -> A = k * rowh (product fits a byte)
+    tay
+    lda #0
+@l
+    cpy #0
+    beq @d
+    clc
+    adc cxov_m_rowh
+    dey
+    bra @l
+@d
+    rts
+
+mn_bandy                        ; A = row i -> A = the row's band y:
+    jsr mn_mulrowh              ; barh (box top) + 1 (frame) + i*rowh
+    clc
+    adc cxov_m_barh
+    clc
+    adc #1
+    rts
+
+; ---------------------------------------------------------------------
 ; mn_draw_bar -- the strip and the titles, and the hit spans the bar
 ; click will search. Title m starts 8px in, then measured width plus
 ; 16px of air between neighbours.
 ; ---------------------------------------------------------------------
 mn_draw_bar
-    stz X16_P0                  ; the strip: paper 0
-    stz X16_P1
+    stz X16_P0                  ; the strip: paper 0, full canvas width,
+    stz X16_P1                  ; bar-height tall
     stz X16_P2
     stz X16_P3
-    lda #<640
+    lda cx_cur_w
     sta X16_P4
-    lda #>640
+    lda cx_cur_w+1
     sta X16_P5
-    lda #CX_MENU_H
+    lda cxov_m_barh
     sta X16_P6
     stz X16_P7
     lda th_paper
     jsr cxov_rect
     stz X16_P0                  ; ...ruled off along its bottom
     stz X16_P1
-    lda #CX_MENU_H-1
+    lda cxov_m_barh             ; barh - 1
+    sec
+    sbc #1
     sta X16_P2
     stz X16_P3
-    lda #<640
+    lda cx_cur_w
     sta X16_P4
-    lda #>640
+    lda cx_cur_w+1
     sta X16_P5
     lda th_frame
     jsr cxov_hline
 
-    lda #8                      ; the pen
+    lda cxov_m_barx             ; the pen: the bar's left inset
     sta mn_t
     stz mn_t+1
 
@@ -236,20 +269,20 @@ mn_draw_bar
     adc X16_P1
     sta mn_mx1h,y
 
-    lda mn_t                    ; draw at the pen, 2 down
+    lda mn_t                    ; draw at the pen, barty down
     sta X16_P0
     lda mn_t+1
     sta X16_P1
-    lda #2
+    lda cxov_m_barty
     sta X16_P2
     stz X16_P3
     lda mn_t2
     ldx mn_t2+1
     jsr cxov_text               ; hands back the pen in P0/P1
 
-    clc                         ; 16px of air to the next title
+    clc                         ; the air to the next title
     lda X16_P0
-    adc #16
+    adc cxov_m_airx
     sta mn_t
     lda X16_P1
     adc #0
@@ -270,10 +303,10 @@ mn_draw_bar
 ; ---------------------------------------------------------------------
 mn_title_band
     sta mn_band
-    ldy mn_cur                  ; x0 = span open - 4 (the air), w = span
-    sec                         ; width + 8
+    ldy mn_cur                  ; x0 = span open - bandpad, w = span
+    sec                         ; width + 2*bandpad (bandpad each side)
     lda mn_mx0l,y
-    sbc #4
+    sbc cxov_m_bandpad
     sta X16_P0
     lda mn_mx0h,y
     sbc #0
@@ -285,30 +318,36 @@ mn_title_band
     lda mn_mx1h,y
     sbc mn_mx0h,y
     sta X16_P5
+    ldx #2                      ; add bandpad twice
+@wpad
     clc
     lda X16_P4
-    adc #8
+    adc cxov_m_bandpad
     sta X16_P4
     bcc @wnc
     inc X16_P5
 @wnc
+    dex
+    bne @wpad
     stz X16_P2
     stz X16_P3
-    lda #CX_MENU_H-1
+    lda cxov_m_barh             ; barh - 1
+    sec
+    sbc #1
     sta X16_P6
     stz X16_P7
     lda mn_band
     jsr cxov_rect
 
     lda mn_cur                  ; the title back on top, where the bar
-    sta mn_i                    ; drew it: its span's start, 2 down
+    sta mn_i                    ; drew it: its span's start, barty down
     jsr mn_entry
     ldy mn_cur
     lda mn_mx0l,y
     sta X16_P0
     lda mn_mx0h,y
     sta X16_P1
-    lda #2
+    lda cxov_m_barty
     sta X16_P2
     stz X16_P3
     ldy #0
@@ -320,7 +359,7 @@ mn_title_band
     sta CX_M_PTR+1
     lda CX_M_PTR
     ldx CX_M_PTR+1
-    jmp font_draw
+    jmp cxov_text
 
 ; ---------------------------------------------------------------------
 ; mn_entry -- CX_M_PTR = bar entry mn_i (4 bytes each, after the count),
@@ -448,17 +487,15 @@ mn_drop_open
 @wdone
     clc
     lda mn_w
-    adc #8
+    adc cxov_m_boxwpad          ; the box's horizontal padding
     sta mn_w
     bcc @wnc
     inc mn_w+1
 @wnc
 
-    lda mn_n                    ; h = n * CX_MENU_ROWH + 2
-    asl
-    asl
-    adc mn_n                    ; n*5 (n <= 10: no carry out of asl)
-    asl                         ; n*10
+    lda mn_n                    ; h = n*rowh + 2 (top + bottom frame)
+    jsr mn_mulrowh
+    clc
     adc #2
     sta mn_h
 
@@ -469,7 +506,7 @@ mn_drop_open
     sta X16_P0
     lda mn_x0+1
     sta X16_P1
-    lda #CX_MENU_H
+    lda cxov_m_barh
     sta X16_P2
     stz X16_P3
     lda mn_w
@@ -485,7 +522,7 @@ mn_drop_open
     sta X16_P0
     lda mn_x0+1
     sta X16_P1
-    lda #CX_MENU_H
+    lda cxov_m_barh
     sta X16_P2
     stz X16_P3
     lda mn_w
@@ -504,19 +541,17 @@ mn_drop_open
     cmp mn_n
     bcs @idone
     jsr mn_item
-    clc                         ; x0 + 4
+    clc                         ; x = x0 + itemx
     lda mn_x0
-    adc #4
+    adc cxov_m_itemx
     sta X16_P0
     lda mn_x0+1
     adc #0
     sta X16_P1
-    lda mn_i                    ; y = H + 2 + i*ROWH
-    asl
-    asl
-    adc mn_i
-    asl
-    adc #CX_MENU_H+2
+    lda mn_i                    ; y = bandy(i) + itemdy
+    jsr mn_bandy
+    clc
+    adc cxov_m_itemdy
     sta X16_P2
     stz X16_P3
     lda CX_M_PTR
@@ -527,16 +562,22 @@ mn_drop_open
 @idone
 
     stz X16_P0                  ; the modal region: menus own the
-    stz X16_P1                  ; machine while open
+    stz X16_P1                  ; machine while open -- the whole canvas
     stz X16_P2
     stz X16_P3
-    lda #<639
+    lda cx_cur_w                ; w - 1
+    sec
+    sbc #1
     sta X16_P4
-    lda #>639
+    lda cx_cur_w+1
+    sbc #0
     sta X16_P5
-    lda #<479
+    lda cx_cur_h                ; h - 1
+    sec
+    sbc #1
     sta X16_P6
-    lda #>479
+    lda cx_cur_h+1
+    sbc #0
     sta X16_P7
     lda #<mn_drop_vec
     ldx #>mn_drop_vec
@@ -765,17 +806,20 @@ mn_rowat
     lda X16_P3
     sbc mn_t+1
     bcs @no
-    lda X16_P5                  ; rows start at H+1, ROWH each
+    lda X16_P5                  ; rows start at barh+1, rowh each
     bne @no
     lda X16_P4
     sec
-    sbc #CX_MENU_H+1
+    sbc cxov_m_barh             ; y - barh
+    bcc @no
+    sec
+    sbc #1                      ; - 1 (the frame)
     bcc @no
     ldx #0
 @row
-    cmp #CX_MENU_ROWH
+    cmp cxov_m_rowh
     bcc @got
-    sbc #CX_MENU_ROWH           ; carry known set
+    sbc cxov_m_rowh             ; carry known set from cmp
     inx
     bra @row
 @got
@@ -822,22 +866,18 @@ mn_row_paint
     lda mn_x0+1
     adc #0
     sta X16_P1
-    lda mn_i                    ; y = H + 1 + row*ROWH
-    asl
-    asl
-    adc mn_i
-    asl
-    adc #CX_MENU_H+1
+    lda mn_i                    ; y = bandy(row)
+    jsr mn_bandy
     sta X16_P2
     stz X16_P3
-    sec
+    sec                         ; w - 2 (off both frames)
     lda mn_w
     sbc #2
     sta X16_P4
     lda mn_w+1
     sbc #0
     sta X16_P5
-    lda #CX_MENU_ROWH
+    lda cxov_m_rowh
     sta X16_P6
     stz X16_P7
     lda mn_t2
@@ -846,86 +886,39 @@ mn_row_paint
     jsr mn_item                 ; the label, back on top
     clc
     lda mn_x0
-    adc #4
+    adc cxov_m_itemx
     sta X16_P0
     lda mn_x0+1
     adc #0
     sta X16_P1
-    lda mn_i
-    asl
-    asl
-    adc mn_i
-    asl
-    adc #CX_MENU_H+2
+    lda mn_i                    ; y = bandy(row) + itemdy
+    jsr mn_bandy
+    clc
+    adc cxov_m_itemdy
     sta X16_P2
     stz X16_P3
     lda CX_M_PTR
     ldx CX_M_PTR+1
-    jmp font_draw
+    jmp cxov_text
 
 ; ---------------------------------------------------------------------
-; mn_strip -- A = 1 saves, 0 restores: the full rows from CX_MENU_H for
-; mn_h rows, between the framebuffer and the VRAM strip. Full rows make
-; it one linear fx_copy; both directions are 4-aligned because 160*row
-; always is.
+; mn_strip -- A = 1 saves, 0 restores the rows the open box covers.
+; Through the port: the box sits at row barh (the bar's foot) and is
+; mn_h rows tall, and each engine preserves its own canvas -- mode 0 to
+; a VRAM strip, mode 3 to a bank of text cells. So the menu never knows
+; how the pixels (or cells) are stashed.
 ; ---------------------------------------------------------------------
 mn_strip
     tax                         ; the direction, for later
-
-    lda mn_h                    ; count = mn_h * 160 = h*128 + h*32
-    stz mn_t
-    lsr                         ; h/2 * 256 + (h%2)*128 = h*128
-    sta mn_t+1
-    bcc @even
-    lda #128
-    sta mn_t
-@even
-    lda mn_h                    ; + h*32
-    stz mn_t2
-    .repeat 3
-    lsr
-    ror mn_t2
-    .endrepeat                  ; A:mn_t2 = h*32 in hi:lo
-    tay
-    clc
-    lda mn_t2
-    adc mn_t
-    sta mn_t
-    tya
-    adc mn_t+1
-    sta mn_t+1
-
-    lda mn_t
-    sta X16_P6
-    lda mn_t+1
-    sta X16_P7
-
+    lda cxov_m_barh             ; the box top row
+    sta X16_P0
+    stz X16_P1
+    lda mn_h                    ; the row count
+    sta X16_P2
     cpx #0
     beq @restore
-    lda #<(CX_MENU_H*160)       ; framebuffer -> strip
-    sta X16_P0
-    lda #>(CX_MENU_H*160)
-    sta X16_P1
-    stz X16_P2
-    lda #<CX_MENU_SAVE
-    sta X16_P3
-    lda #>CX_MENU_SAVE
-    sta X16_P4
-    lda #^CX_MENU_SAVE
-    sta X16_P5
-    jmp fx_copy
+    jmp cxov_rsave
 @restore
-    lda #<CX_MENU_SAVE          ; strip -> framebuffer
-    sta X16_P0
-    lda #>CX_MENU_SAVE
-    sta X16_P1
-    lda #^CX_MENU_SAVE
-    sta X16_P2
-    lda #<(CX_MENU_H*160)
-    sta X16_P3
-    lda #>(CX_MENU_H*160)
-    sta X16_P4
-    stz X16_P5
-    jmp fx_copy
+    jmp cxov_rrest
 
 .segment "CODE"

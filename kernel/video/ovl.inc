@@ -106,6 +106,17 @@ cxov_text    = font_draw        ; the runner is always mode 0: the font
 cxov_measure = font_measure
 cxov_rsave   = vrows_save       ; mode 0's rows save/restore IS vrows
 cxov_rrest   = vrows_restore
+; the toolkit metrics as a real block (engine0's flat branch emits it);
+; the runner links the menu but never runs it, so these need only resolve
+cxov_m_barh    = cx_flatmet + 0
+cxov_m_rowh    = cx_flatmet + 1
+cxov_m_barx    = cx_flatmet + 2
+cxov_m_airx    = cx_flatmet + 3
+cxov_m_barty   = cx_flatmet + 4
+cxov_m_bandpad = cx_flatmet + 5
+cxov_m_boxwpad = cx_flatmet + 6
+cxov_m_itemx   = cx_flatmet + 7
+cxov_m_itemdy  = cx_flatmet + 8
 
 .endif
 
