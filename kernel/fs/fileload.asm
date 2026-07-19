@@ -26,18 +26,18 @@
 ; it would steal file bytes (the dir.asm/loader.asm trap). Every exit
 ; restores them.
 ;
-; Cold code with no claim to the resident budget: bank 2 behind a
-; far-call stub, like the directory walk beside it.
+; Cold code with no claim to the resident budget: bank 18 behind a
+; far-call stub, beside the directory walk in the fs/system bank.
 ; =====================================================================
 
 CX_FL_LFN = 3
 
 cx_do_file_load
     jsr cxb_call
-    .byte 2
+    .byte CX_FS_BANK
     .addr fl_load
 
-.segment "B2CODE"
+.segment "B18CODE"
 
 fl_load
     sta X16_T0                  ; SETNAM wants length in A, name in X/Y

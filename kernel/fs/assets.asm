@@ -32,18 +32,19 @@
 ; Interrupts are OFF around the KERNAL LOAD (the event IRQ's GETIN and
 ; an open channel do not mix -- the dir.asm/loader.asm trap).
 ;
-; The marshalling rides bank 2 like the rest of the file code. The one
-; thing banked code cannot do is flip RAM_BANK out from under itself,
-; so cx_bload's actual LOAD runs through a small resident trampoline.
+; The marshalling rides bank 18 -- the fs/system theme bank (banks.inc)
+; -- like the rest of the file code. The one thing banked code cannot do
+; is flip RAM_BANK out from under itself, so cx_bload's actual LOAD runs
+; through a small resident trampoline (as_bload_go, which stays in CODE).
 ; =====================================================================
 
 cx_do_vload
     jsr cxb_call
-    .byte 2
+    .byte CX_FS_BANK
     .addr as_vload
 cx_do_bload
     jsr cxb_call
-    .byte 2
+    .byte CX_FS_BANK
     .addr as_bload
 
 ; --- the resident trampoline: LOAD with RAM_BANK elsewhere ------------
@@ -68,7 +69,7 @@ as_bload_go
     plp
     rts
 
-.segment "B2CODE"
+.segment "B18CODE"
 
 .include "storage/load.asm"
 

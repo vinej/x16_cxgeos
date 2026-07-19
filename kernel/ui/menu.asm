@@ -84,14 +84,19 @@ cx_do_menu_key
 ;   5,6 -- were dg_alert/dg_hit; the dialog module moved to bank 5, so
 ;         its resident stubs far-call bank 5 directly and these slots
 ;         are retired (kept as filler to hold the state block at $A030)
-;   7 dos_cmd                                       (fs/dosglue.asm)
+;   7 -- was dos_cmd; the fs/dos code moved to bank 18, far-called by
+;         label, so this slot is retired
 ;   8,9,10 -- were wg_set/wg_draw/wg_hit; the widget toolkit moved to
 ;         bank 16, so its resident stubs far-call bank 16 by label and
 ;         these slots are retired (still filler for the state block)
 ;   11 mn_key                                       (menu.asm, keyboard)
 ;   12 -- was wg_key; also bank 16 now (see 8,9,10)
-;   13 b2_dos_msg                                   (fs/dosglue.asm)
+;   13 -- was b2_dos_msg; also bank 18 now (see 7)
 ;   14,15 -- were dg_prompt/dg_panel; also bank 5 now (see 5,6)
+;
+; Only rows 0-4 and 11 are live now (menu + theme); the table stays 16
+; entries so the peekable state block holds at $A030 (menutest reads
+; mn_hot at $A03F). menu.asm and theme.asm are the last B2CODE tenants.
 b2_table
     jmp mn_set                  ; 0
     jmp mn_off                  ; 1
@@ -100,13 +105,13 @@ b2_table
     jmp th_set                  ; 4
     jmp mn_off                  ; 5  retired -> dialog is bank 5 now
     jmp mn_off                  ; 6  retired -> dialog is bank 5 now
-    jmp dos_cmd                 ; 7  kernel/fs/dosglue.asm
+    jmp mn_off                  ; 7  retired -> fs/dos is bank 18 now
     jmp mn_off                  ; 8  retired -> widgets are bank 16 now
     jmp mn_off                  ; 9  retired -> widgets are bank 16 now
     jmp mn_off                  ; 10 retired -> widgets are bank 16 now
     jmp mn_key                  ; 11 kernel/ui/menu.asm (keyboard)
     jmp mn_off                  ; 12 retired -> widgets are bank 16 now
-    jmp b2_dos_msg              ; 13 kernel/fs/dosglue.asm
+    jmp mn_off                  ; 13 retired -> fs/dos is bank 18 now
     jmp mn_off                  ; 14 retired -> dialog is bank 5 now
     jmp mn_off                  ; 15 retired -> dialog is bank 5 now
 

@@ -32,23 +32,23 @@
 CX_DIR_LFN = 2
 
 ; The walk is cold code with no claim to the resident budget: it rides
-; bank 2 behind far-call stubs, like the toolkit. cxb_call restores the
-; flags exactly as the banked routine left them, so dir_open's sei and
-; dir_close's cli still reach the caller.
+; bank 18 -- the fs/system theme bank (banks.inc) -- behind far-call
+; stubs. cxb_call restores the flags exactly as the banked routine left
+; them, so dir_open's sei and dir_close's cli still reach the caller.
 cx_do_dir_open
     jsr cxb_call
-    .byte 2
+    .byte CX_FS_BANK
     .addr dir_open
 cx_do_dir_next
     jsr cxb_call
-    .byte 2
+    .byte CX_FS_BANK
     .addr dir_next
 cx_do_dir_close
     jsr cxb_call
-    .byte 2
+    .byte CX_FS_BANK
     .addr dir_close
 
-.segment "B2CODE"
+.segment "B18CODE"
 
 dir_open
     sta X16_T0                  ; SETNAM wants length in A, name in X/Y

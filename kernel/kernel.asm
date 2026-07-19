@@ -78,8 +78,9 @@ X16_USE_SCREEN  = 1             ; the KERNAL console: mode 3 (text) draws
 .include "kernel/video/shapes.asm"
 .include "kernel/video/tiles.asm"
 .include "kernel/video/text.asm"
-; dir.asm AFTER menu.asm's B2CODE (its banked body must not shove the
-; local jump table off $A000); dirty.asm rides bank 17 now
+; the fs/system modules ride bank 18 now (dir/fileload/assets/dosglue);
+; dirty.asm rides bank 17. Only menu.asm + theme.asm + da.asm are left
+; in B2CODE, and menu.asm is first among them (it owns the local table)
 .include "kernel/fs/dir.asm"
 .include "kernel/fs/fileload.asm"
 .include "kernel/fs/assets.asm"
