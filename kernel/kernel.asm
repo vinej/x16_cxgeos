@@ -39,18 +39,21 @@
 ; image -- kernel/video/engine0.asm compiles it into the bank-3 overlay
 ; image behind the graphics port (kernel/video/ovl.inc). Its resident
 ; helpers stay gated in:
-; The _CORE gates (x16_library 0.6.0) take each module's core and leave
-; out the parts CXGEOS never calls: VERA_CORE drops vera_copy, IRQ_CORE
-; drops vsync_wait, INPUT_CORE drops key_wait/key_peek. The IRQ sprite-
-; collision accumulate stays in core -- cx_spr_collide reads it.
+; The fine gates (x16_library 0.6.1) take each module's core and leave out
+; the parts CXGEOS never calls: VERA_CORE drops vera_copy, IRQ_CORE drops
+; vsync_wait, INPUT_CORE drops key_wait/key_peek, SCREEN_CORE drops
+; get_mode/border/get_cursor/charset/puts. IRQ_SPRCOL is the collision
+; CAPTURE (the handler accumulate + irq_sprcol_mask) that cx_spr_collide
+; reads -- CXGEOS enables VERA_IEN and polls the mask itself, so it skips
+; the IRQ_SPRCOL_API (install/remove/sprite_collisions/callback).
 X16_USE_VERA_CORE   = 1         ; vera_fill (engine clears), not vera_copy
 X16_USE_VERAFX_FILL = 1         ; fx_fill (engine rects)
 X16_USE_VERAFX_COPY = 1         ; menu save-under: fx_copy moves the rows
-X16_USE_IRQ_CORE = 1            ; the event system's raster hook, no vsync
-X16_USE_INPUT_CORE = 1          ; mouse/joystick/key_get, no key_wait/peek
-X16_USE_SCREEN  = 1             ; the KERNAL console: mode 3 (text) draws
-                                ; through it, and the 8bpp gfx_init needs
-                                ; screen_set_mode
+X16_USE_IRQ_CORE    = 1         ; the event system's raster hook, no vsync
+X16_USE_IRQ_SPRCOL  = 1         ; sprite-collision capture for cx_spr_collide
+X16_USE_INPUT_CORE  = 1         ; mouse/joystick/key_get, no key_wait/peek
+X16_USE_SCREEN_CORE = 1         ; mode 3 (text) draws through the KERNAL
+                                ; console; 8bpp gfx_init needs screen_set_mode
 
 .include "kernel/video/ovl.inc"
 

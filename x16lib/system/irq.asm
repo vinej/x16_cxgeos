@@ -34,9 +34,18 @@ irq_isr         .byte 0         ; ISR snapshot for the current interrupt
 
 irq_line_vec    .word 0
 irq_line_armed  .byte 0
+; Sprite collision splits in two: the CAPTURE (the handler accumulates the
+; colliding groups into irq_sprcol_mask; you enable VERA_IEN and read the
+; mask yourself) is X16_USE_IRQ_SPRCOL; the convenience API on top of it
+; (irq_sprcol_install/remove + a callback + sprite_collisions) is
+; X16_USE_IRQ_SPRCOL_API. X16_USE_IRQ pulls both, for compat.
+.ifdef X16_USE_IRQ_SPRCOL
+irq_sprcol_mask .byte 0         ; collision groups seen since last read
+.endif
+.ifdef X16_USE_IRQ_SPRCOL_API
 irq_sprcol_vec  .word 0
 irq_sprcol_armed .byte 0
-irq_sprcol_mask .byte 0         ; collision groups seen since last read
+.endif
 
 ; ---------------------------------------------------------------------
 ; irq_handler -- services VSYNC / LINE / SPRCOL, then chains
@@ -59,20 +68,24 @@ irq_handler
     jsr irq_call_line
 @no_line
 
+.ifdef X16_USE_IRQ_SPRCOL
     lda irq_isr
     and #VERA_IRQ_SPRCOL
     beq @no_sprcol
     sta VERA_ISR                ; ack FIRST: nobody else will
     lda irq_isr
     and #VERA_ISR_COLLISION     ; which collision groups fired (bits 7:4)
-    ora irq_sprcol_mask         ; accumulate until sprite_collisions reads
+    ora irq_sprcol_mask         ; accumulate until it is read
     sta irq_sprcol_mask
+.ifdef X16_USE_IRQ_SPRCOL_API
     lda irq_sprcol_armed
     beq @no_sprcol
     lda irq_isr
     and #VERA_ISR_COLLISION
     jsr irq_call_sprcol            ; A = the collision groups
+.endif
 @no_sprcol
+.endif
 
 .ifdef X16_USE_PCM_STREAM
     lda irq_isr
@@ -86,8 +99,10 @@ irq_handler
 
 irq_call_line
     jmp (irq_line_vec)
+.ifdef X16_USE_IRQ_SPRCOL_API
 irq_call_sprcol
     jmp (irq_sprcol_vec)
+.endif
 
 ; ---------------------------------------------------------------------
 ; irq_install -- hook CINV and start counting frames. Idempotent.
@@ -131,7 +146,9 @@ irq_remove
     lda #(VERA_IRQ_LINE | VERA_IRQ_SPRCOL | VERA_IRQ_AFLOW)
     trb VERA_IEN                ; ours alone; VSYNC stays for the KERNAL
     stz irq_line_armed
+.ifdef X16_USE_IRQ_SPRCOL_API
     stz irq_sprcol_armed
+.endif
 .ifdef X16_USE_PCM_STREAM
     stz pcm_str_active          ; the stream cannot continue unhooked
 .endif
@@ -194,6 +211,14 @@ irq_line_remove
     rts
 
 ; ---------------------------------------------------------------------
+; The sprite-collision convenience API (X16_USE_IRQ_SPRCOL_API): enable
+; the interrupt with a poll or callback handler, and read the groups. It
+; sits on top of the CAPTURE above -- a program that enables VERA_IEN's
+; collision bit itself and reads irq_sprcol_mask directly needs only
+; X16_USE_IRQ_SPRCOL and drops all of this.
+; ---------------------------------------------------------------------
+.ifdef X16_USE_IRQ_SPRCOL_API
+; ---------------------------------------------------------------------
 ; irq_sprcol_install -- enable the sprite collision interrupt
 ;   in:  A = handler low, X = handler high -- or A = X = 0 for polling
 ;
@@ -248,6 +273,7 @@ sprite_collisions
     plp                         ; ...but plp restores the CALLER's flags,
     ora #0                      ; so re-derive Z from A afterwards
     rts
+.endif
 
 ; ---------------------------------------------------------------------
 ; irq_save_regs / irq_restore_regs -- bracket a callback that calls
