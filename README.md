@@ -1,7 +1,13 @@
 # CXGEOS
 
-V0.5.1 — cartridge boot, a game's own raster IRQ (borrow the events for a
-dialog), and a compact 6px mode-1 font. See /docs for more guides.
+V0.6.0 — the **memory architecture rebuilt for growth**: kernel code is now
+themed one purpose per bank across two loadable files (banks 2–5 + 16–19,
+64 KB, up from 32), so a new widget or shape grows exactly one bank with
+~5–7 KB of reserve and reshuffles nothing; the font's cold half moved to a
+bank to free resident space, and the jump table widened to 135 slots. The
+bank layout and how to extend it are in [docs/banks.md](docs/banks.md).
+(v0.5.1 added cartridge boot, a game's own raster IRQ, and a 6px mode-1
+font.) See /docs for the guides.
 
 A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
 

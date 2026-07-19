@@ -33,7 +33,7 @@ file in the same commit as the code that claims or releases a region.
 (banks 2–5, one KERNAL LOAD) and `CXBANKS2.BIN` (banks 16–19, a second
 LOAD), each 32 KB. Data banks sit between them, apps above. `tools/mapreport.py`
 prints the *used*/*free* below from every kernel build's map — the numbers
-here are the v0.5.1-restructure snapshot; run it for today's.
+here are the v0.6.0 snapshot; run it for today's.
 
 | Bank(s) | Theme | Segment / owner | Used | Free (reserve) | Grows when you add… |
 |---|---|---|---|---|---|
@@ -112,7 +112,15 @@ framebuffer region is free -- there is no bitmap).
 | $1FA00–$1FBFF | 512 | palette (hardware) |
 | $1FC00–$1FFFF | 1,024 | sprite attributes (hardware) |
 
-## The resident budget, and what it cost to fit
+## The resident budget, and what it cost to fit — *(pre-restructure history)*
+
+> **This section predates v0.6.0.** Its `$8200`/7,424-byte budget and its
+> "everything in bank 2" model are how the kernel looked before the memory
+> restructure. The live per-bank budget is the ledger at the top of this
+> file and [banks.md](banks.md) (`$81A9`–`$95FF` resident, ~130 B free; the
+> jump table widened to 135 slots; code themed across banks 2–5 + 16–19).
+> Kept for the reasoning it records — the x16lib gate trim, the save-under
+> placement — which still holds.
 
 `kernel/kernel.cfg` pins the image and lets ld65 enforce the budget
 rather than leaving it a comment someone has to remember. The first
@@ -149,14 +157,9 @@ the same size:
   with a modal alert. NOT banks 6-8 — those are the font cache, and a
   dialog that saved there ate its own message glyphs.
 
-Placement is proven: `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$812C`
-(285 bytes = 95 slots × 3, reserve to `$815F`), `CODE` at `$8160`–`$95EB`.
-
-*(2026-07 note: the table above is the 0.4-era history. After the
-graphics-port refactor the resident region is `$8160`–`$95FF` = 5,280
-bytes with the OVL window at `$9600`; at v0.5.1 the image used 5,260 of
-them — the 20 spare bytes are why the pre-1.0 memory restructure exists.
-This section becomes a per-bank budget ledger at the end of that work.)*
+Placement (0.4-era): `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$812C`,
+`CODE` at `$8160`. (Post-restructure: `CODE` at `$81A9`, table reserve to
+`$81A4` — see the banner at the top of this section.)
 
 **Two thirds of the image was the library, and most of it was unused.**
 Measured, one gate at a time, when it first failed to fit:
@@ -247,20 +250,22 @@ Addresses the loader owns:
 ### Booting from a cartridge
 
 The same kernel also ships in ROM. `kernel/boot/cart.asm` + `cart.cfg`
-build a 48 KB image (`build/cxgeos_cart.bin`, **three cartridge ROM banks
-32–34**) that `x16emu -cartbin` loads at bank 32. After hardware init the
+build an 80 KB image (`build/cxgeos_cart.bin`, **five cartridge ROM banks
+32–36**) that `x16emu -cartbin` loads at bank 32. After hardware init the
 stock KERNAL scans ROM bank 32 for `"CX16"` at `$C000` and jumps to
 `$C004` with interrupts disabled (Programmer's Reference: Booting from
 Cartridges) — so the cart needs neither `AUTOBOOT.X16` nor a ROM patch.
 
 The stub does exactly what stage-0 does, from ROM instead of SD: it copies
 the resident image (bank 32) to `$8000`, the font (bank 32) to RAM bank 1,
-and `CXBANKS.BIN` (banks 33–34) to RAM banks 2–5, then brings the machine
-to the state BASIC's cold start would leave (`IOINIT`/`RESTOR`/`CINT`/`cli`)
-and calls `cx_init` — the same hand-off as `auto.asm`. `CXKERNEL.PRG`,
-`CXBANKS.BIN` and the ABI are reused unchanged; the kernel runs from the
-same RAM either way. The cross-bank copy runs from low RAM (`$0400`) so it
-can page `ROM_BANK` out from under bank 32.
+`CXBANKS.BIN` (banks 33–34) to RAM banks 2–5 and `CXBANKS2.BIN` (banks
+35–36) to RAM banks 16–19, then brings the machine to the state BASIC's
+cold start would leave (`IOINIT`/`RESTOR`/`CINT`/`cli`) and calls `cx_init`
+— the same hand-off as `auto.asm`. `CXKERNEL.PRG`, the banked files and
+the ABI are reused unchanged; the kernel runs from the same RAM either way.
+The cross-bank copy runs from low RAM (`$0400`) so it can page `ROM_BANK`
+out from under bank 32, and it runs twice (a parameterized `bankcopy`, one
+call per file).
 
 Kernel-only for now: the desktop, apps and user files still load off the
 SD card (the cart's `"CX16"` auto-boot wins over the card's `AUTOBOOT.X16`,

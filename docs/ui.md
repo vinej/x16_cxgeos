@@ -126,7 +126,7 @@ for button 0. Both are restored before the call returns, and the pixels
 come back from the banked save-under. Geometry is fixed (400×96, centred;
 72×16 buttons right-aligned) so a blind test can click a known button.
 
-## Widgets (Phase 5b, `kernel/ui/widget.asm`, bank 2)
+## Widgets (Phase 5b, `kernel/ui/widget.asm`, bank 16)
 
 The toolkit draws a widget list and turns clicks on it into `EV_WIDGET`
 events (docs/formats.md). Button, checkbox, radio and horizontal

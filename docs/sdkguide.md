@@ -1,6 +1,6 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.5.x** · ABI version 1 · 95 slots (append-only)
+**Release 0.6.0** · ABI version 1 · 95 slots (append-only)
 
 This documents `sdk/include_<compiler>/cxgeos.h` — the **generated**, low-level
 binding to the kernel. It is what every CXGEOS app ultimately calls. C
@@ -111,7 +111,7 @@ python tools/mkcxap.py build/MYAPP.PRG build/MYAPP.CXA --name "My App"
 | name | value | meaning |
 |---|---|---|
 | `CX_ABI_VERSION` | `1` | the ABI version these bindings were cut from |
-| `CX_ABI_SLOTS` | `85` | the number of slots defined (indices 0–84) |
+| `CX_ABI_SLOTS` | `95` | the number of slots defined (indices 0–94) |
 
 Query the *running* kernel's version with `cx_version` (slot 0); the loader
 refuses an app whose min-ABI exceeds it.
@@ -343,8 +343,9 @@ answers is the MODE -- see [graphics-port.md](graphics-port.md). Mode 0 =
 
 ### Shapes -- every bitmap mode
 
-One copy of code (bank 5) drawing through the port itself, so these are
-correct in mode 0 and mode 1 alike. *(Added in 0.3.0.)*
+One copy of code (bank 17 since the v0.6.0 restructure) drawing through
+the port itself, so these are correct in mode 0 and mode 1 alike.
+*(Added in 0.3.0.)*
 
 | slot | name | addr | args -> result | purpose |
 |---|---|---|---|---|

@@ -109,14 +109,18 @@ binary still draws.
 
 Resident cost of the whole port: the manager (~200 bytes) — the region
 itself replaced the engine that used to live in resident RAM. Engine
-images ride banks 3–5 (bank 5 holds the shapes, the tile machinery, and
-the mode-2 and mode-3 images).
+images ride banks 3–5 (bank 3 = mode 0, bank 4 = mode 1, bank 5 = the
+mode-2 and mode-3 images beside the dialog code). The mode-agnostic
+shapes and the tile *machinery* live in bank 17 since the restructure,
+but the tile *image* (OV2) stays in bank 5 storage — `cx_ov_load` reads
+it from the linker's `__OV2CODE_LOAD__`.
 
-**The four-bank ceiling.** The boot's KERNAL LOAD of `CXBANKS.BIN` wraps
-exactly **four banks (32 KB, banks 2–5)** and then stops — a fifth bank
-gets nothing. So all banked code must fit banks 2–5, and a new engine
-image shares an existing bank rather than claiming a new one. Mode 3 was
-first parked in bank 6 and crashed to the monitor for exactly this
-reason (`$9601`, blown stack: the copy pulled `$FF` from an unloaded
-bank). Banks 2–5 currently hold ~12 KB of code, so there is room; when
-they fill, the boot loader needs a second LOAD.
+**The per-file four-bank ceiling.** The boot's KERNAL LOAD of a banked
+file wraps exactly **four banks (32 KB)** and then stops — a fifth gets
+nothing. `CXBANKS.BIN` fills banks 2–5 that way; `CXBANKS2.BIN` a second
+LOAD fills 16–19 (kernel/boot/auto.asm). Mode 3 was first parked in bank
+6 and crashed to the monitor for exactly this reason (`$9601`, blown
+stack: the copy pulled `$FF` from an unloaded bank). A new engine image
+shares an existing storage bank (3/4/5 each hold ~6 KB free); the
+tighter limit is the OVL window it *runs* in — 2,304 B, and the mode-0
+image is already 2,228. See [banks.md](banks.md) for the bank ledger.
