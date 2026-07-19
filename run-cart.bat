@@ -4,7 +4,7 @@ rem  run-cart.bat -- launch the CXGEOS cartridge build in the emulator.
 rem
 rem  Double-click it, or run it from a terminal. Every path is relative
 rem  to this file, so it works wherever the repo lives. The kernel boots
-rem  from the cartridge (ROM banks 32-34); the apps still load from the
+rem  from the cartridge (ROM banks 32-36); the apps still load from the
 rem  staged SD root in build\sdroot.
 rem =====================================================================
 setlocal
@@ -31,8 +31,9 @@ if not exist "%CART%" (
     )
 )
 
-echo Launching CXGEOS from the cartridge, ROM banks 32-34...
+echo Launching CXGEOS from the cartridge, ROM banks 32-36...
 echo The emulator captures the mouse for the desktop pointer.
 "%EMU%" -rom "%ROM%" -cartbin "%CART%" -fsroot "%SD%" -scale 1 -capture
 
 endlocal
+

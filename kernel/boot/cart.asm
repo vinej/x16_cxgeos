@@ -13,11 +13,17 @@
 ; instead of a disk file: it COPIES the images into RAM and starts them.
 ; CXKERNEL.PRG, CXBANKS.BIN, the ABI and cxb_call are reused untouched.
 ;
-; Cartridge layout (mkcart / cart.cfg), 3 ROM banks:
+; Cartridge layout (mkcart / cart.cfg), 5 ROM banks:
 ;   bank 32  "CX16", this stub, the relocated copier, then the resident
 ;            image and the font as data
 ;   bank 33  first 16 KB of CXBANKS.BIN
 ;   bank 34  second 16 KB of CXBANKS.BIN
+;   bank 35  first 16 KB of CXBANKS2.BIN   (-> RAM banks 16-19)
+;   bank 36  second 16 KB of CXBANKS2.BIN
+;
+; No signature walk here: all five images are .incbin'd from the same
+; build, so they cannot be out of step with each other by construction.
+; Stage-0's checks guard the SD card, whose files travel separately.
 ;
 ; The catch: reading banks 33-34 means paging ROM_BANK away from 32 --
 ; out from under this code. So the part that crosses banks is assembled
@@ -134,10 +140,48 @@ fcopy
 ; ---------------------------------------------------------------------
 .segment "CONT"
 cont
-    lda #33                     ; source: ROM bank 33, $C000 (16 KB window)
-    sta ROM_BANK
-    lda #2                      ; dest: RAM bank 2, $A000 (8 KB window)
+    lda #33                     ; CXBANKS.BIN: ROM banks 33-34 -> RAM 2-5
+    ldx #2
+    jsr bankcopy
+    lda #35                     ; CXBANKS2.BIN: ROM banks 35-36 -> RAM 16-19
+    ldx #16
+    jsr bankcopy
+
+    stz ROM_BANK                ; the KERNAL back at $C000-$FFFF
+    lda #1                      ; the default user RAM bank
     sta RAM_BANK
+
+    jsr IOINIT                  ; the state BASIC's cold start would leave:
+    jsr RESTOR                  ; default vectors (CINV, for the event chain)
+    jsr CINT                    ; default screen/editor
+    cli                         ; interrupts on -- CINV is valid now
+
+    ldy #3                      ; believe nothing without the magic
+@magic
+    lda $8000,y
+    cmp cxos,y
+    bne badkernel
+    dey
+    bpl @magic
+
+    jsr doinit                  ; cx_init, the vector at $8008
+    bcs nofont                  ; carry: it would not accept the font
+
+    lda #<s_autorun             ; hand off like auto.asm: AUTORUN if the SD
+    ldx #>s_autorun             ; has one, else cx_exit == "go to the shell"
+    ldy #s_autorun_len
+    jsr cx_app_load
+    jmp cx_exit
+
+doinit
+    jmp ($8008)
+
+; bankcopy -- 32 KB out of cartridge ROM into banked RAM.
+; A = the first ROM bank ($C000 window, wraps at $FFFF to the next),
+; X = the first RAM bank ($A000 window, wraps at $BFFF to the next).
+bankcopy
+    sta ROM_BANK
+    stx RAM_BANK
     stz cpsrc
     lda #$C0
     sta cpsrc+1
@@ -168,35 +212,7 @@ cont
 @next
     dex
     bne @page
-
-    stz ROM_BANK                ; the KERNAL back at $C000-$FFFF
-    lda #1                      ; the default user RAM bank
-    sta RAM_BANK
-
-    jsr IOINIT                  ; the state BASIC's cold start would leave:
-    jsr RESTOR                  ; default vectors (CINV, for the event chain)
-    jsr CINT                    ; default screen/editor
-    cli                         ; interrupts on -- CINV is valid now
-
-    ldy #3                      ; believe nothing without the magic
-@magic
-    lda $8000,y
-    cmp cxos,y
-    bne badkernel
-    dey
-    bpl @magic
-
-    jsr doinit                  ; cx_init, the vector at $8008
-    bcs nofont                  ; carry: it would not accept the font
-
-    lda #<s_autorun             ; hand off like auto.asm: AUTORUN if the SD
-    ldx #>s_autorun             ; has one, else cx_exit == "go to the shell"
-    ldy #s_autorun_len
-    jsr cx_app_load
-    jmp cx_exit
-
-doinit
-    jmp ($8008)
+    rts
 
 badkernel
     lda #<s_nok
@@ -241,3 +257,9 @@ s_nof      .byte $0D, "CXGEOS CART: FONT REFUSED.", $0D, 0
 
 .segment "BANKS_HI"
     .incbin "build/CXBANKS.BIN", $4000, $4000
+
+.segment "BANKS2_LO"
+    .incbin "build/CXBANKS2.BIN", 0, $4000
+
+.segment "BANKS2_HI"
+    .incbin "build/CXBANKS2.BIN", $4000, $4000

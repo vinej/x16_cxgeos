@@ -19,10 +19,10 @@
 ;   cx_bload (slot 91) -- a file into banked RAM, the BASIC BVLOAD.
 ;     ZSM music for a future player, level data, collision maps -- the
 ;     KERNAL wraps banks at $BFFF on its own, so a big asset just keeps
-;     going. Banks below 16 belong to the kernel (docs/memory-map.md)
-;     and are refused.
+;     going. Banks below CX_APP_BANK_FLOOR (20 -- banks.inc, the ledger
+;     in docs/memory-map.md) belong to the kernel and are refused.
 ;       in:  A/X = filename, Y = length
-;            P0 = the first RAM bank (16+), P1/P2 = address ($A000+)
+;            P0 = the first RAM bank (20+), P1/P2 = address ($A000+)
 ;            P3 bit 0 = raw, as above
 ;       out: carry clear, P4/P5 = one past the last byte, P6 = the bank
 ;            it ended in
@@ -144,10 +144,10 @@ as_vload
     sec
     rts
 
-; cx_bload -- P0 = RAM bank (16+), P1/P2 = address
+; cx_bload -- P0 = RAM bank (CX_APP_BANK_FLOOR+), P1/P2 = address
 as_bload
     jsr as_marshal              ; A = the requested bank
-    cmp #16                     ; the kernel's banks are not on offer
+    cmp #CX_APP_BANK_FLOOR      ; the kernel's banks are not on offer
     bcc @refused
     pha
     lda X16_P5                  ; the trampoline takes the address in

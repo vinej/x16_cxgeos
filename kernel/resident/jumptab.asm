@@ -179,7 +179,7 @@ cx_jumptab
 
 ; --- asset loaders (the shapes every X16 exporter already emits) -
     jmp cx_do_vload      ; 90  A/X = filename, Y = length, P0/P1 = VRAM address, P2 = VRAM bank (0/1), P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte; carry set, A = the KERNAL error
-    jmp cx_do_bload      ; 91  A/X = filename, Y = length, P0 = RAM bank (16+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error
+    jmp cx_do_bload      ; 91  A/X = filename, Y = length, P0 = RAM bank (20+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error
 
 ; --- modal panel (a form: your widgets in a box, with confirm/cancel) 
     jmp cx_g_panel       ; 92  A/X = a panel descriptor (docs/formats.md); SYNCHRONOUS -- draws the box and its widgets, runs modal, returns A = the chosen button (0 = the confirm/RETURN button)

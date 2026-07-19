@@ -23,8 +23,13 @@ A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
   widget toolkit, fonts and dialogs are desktop-only and refuse politely
   elsewhere.
 - **Stock ROM (R49+)**: boots from the SD card via `AUTOBOOT.X16`, or from a
-  **cartridge** (`build.ps1 -Cart`, ROM banks 32–34, the KERNAL's `"CX16"`
-  auto-boot) — no ROM patches either way.
+  **cartridge** (`build.ps1 -Cart`, ROM banks 32–36, the KERNAL's `"CX16"`
+  auto-boot) — no ROM patches either way. The boot set is four files that
+  travel together — `AUTOBOOT.X16`, `CXKERNEL.PRG`, `CXBANKS.BIN`,
+  `CXBANKS2.BIN` — and stage-0 verifies a build word across all of them, so
+  a card carrying yesterday's copy of one refuses at boot with a message.
+  **Pre-1.0 contract change**: RAM banks 16–19 now belong to the kernel;
+  the first app bank (and `cx_bload` floor) moved from 16 to **20**.
 - **Native CMDR-DOS FAT32 files** — no .d64 images, no disk swapping.
 - **Apps in any toolchain**: a GEOS-style fixed jump-table ABI with generated
   bindings for 7 assemblers (ACME, ca65, 64tass, KickAssembler, dasm, MADS,

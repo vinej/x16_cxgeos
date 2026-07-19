@@ -22,6 +22,7 @@
 
 .include "x16.asm"
 .include "kernel/resident/zp.inc"
+.include "kernel/resident/banks.inc"
 
 ; Only what is called. A gate here is 76 to 2,502 bytes of a 5,280-byte
 ; budget, and x16lib is one translation unit -- what a gate pulls in,
@@ -94,4 +95,5 @@ X16_USE_SCREEN  = 1             ; the KERNAL console: mode 3 (text) draws
 ; text mode, and the boot stub prints the complaint with the KERNAL.
 
 .include "kernel/resident/jumptab.asm"
+.include "kernel/resident/banksig.asm"
 .include "x16_code.asm"

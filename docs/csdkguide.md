@@ -444,10 +444,12 @@ cx_vload("PALETTE.BIN", 1, 0xFA00, 0);   /* the palette at $1FA00  */
 banks at `$BFFF` on its own, so a big asset just keeps going. This is how
 **ZSM music** (composed in **Furnace**, which exports the X16-native ZSM
 format) gets into memory for a future player, and how level data and
-collision maps load. Banks below 16 belong to the kernel and refuse.
+collision maps load. Banks below 20 belong to the kernel and refuse
+(16-19 carry the kernel's second banked-code file since the pre-1.0
+memory restructure; the floor was 16 before that).
 The end address comes back in `cx_p[4]/[5]`, the end bank in `cx_p[6]`.
 ```c
-cx_bload("SONG.ZSM", 16, 0xA000, 0);     /* banks 16+ are the app's */
+cx_bload("SONG.ZSM", 20, 0xA000, 0);     /* banks 20+ are the app's */
 ```
 
 *(Playing that song is the missing half: a **zsmkit**-based player —

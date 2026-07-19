@@ -16,6 +16,7 @@
 
 .include "x16.asm"
 .include "kernel/resident/zp.inc"
+.include "kernel/resident/banks.inc"
 
 X16_USE_BITMAP2 = 1             ; pulls in VERA and VERAFX_FILL
 X16_USE_VERAFX_COPY = 1         ; the menu engine's save-under
@@ -2252,19 +2253,20 @@ test_as_vload
 @vn   .byte "BADAPP.CXA"
 @vn_len = * - @vn
 
-; AS_BLOAD: the same file into banked RAM at 16:$A000 (the first bank
-; that is an app's to use); the kernel's own banks refuse with A = 0.
+; AS_BLOAD: the same file into banked RAM at 20:$A000 (the first bank
+; that is an app's to use -- CX_APP_BANK_FLOOR); the kernel's own banks
+; refuse with A = 0.
 test_as_bload
     lda RAM_BANK
     pha
-    lda #16                     ; poison one past the payload
+    lda #CX_APP_BANK_FLOOR      ; poison one past the payload
     sta RAM_BANK
     lda #$5A
     sta $A021
     pla
     sta RAM_BANK
 
-    lda #16
+    lda #CX_APP_BANK_FLOOR
     sta X16_P0
     lda #<$A000
     sta X16_P1
@@ -2284,7 +2286,7 @@ test_as_bload
     cmp #$A0
     bne @r1
     lda X16_P6                  ; ended in the bank it started in
-    cmp #16
+    cmp #CX_APP_BANK_FLOOR
     bne @r1
     ldy #0
 @r1
@@ -2296,7 +2298,7 @@ test_as_bload
     ldy #1
     lda RAM_BANK
     pha
-    lda #16
+    lda #CX_APP_BANK_FLOOR
     sta RAM_BANK
     lda $A000                   ; "AP" leads, the poison survived
     cmp #'A'
@@ -2319,8 +2321,9 @@ test_as_bload
     ldy #>@n2
     jsr t_result
 
-    lda #5                      ; a kernel bank: not on offer
-    sta X16_P0
+    lda #CX_APP_BANK_FLOOR-1    ; the last kernel bank: not on offer
+    sta X16_P0                  ; (19 was an app's until CXBANKS2 -- this
+                                ; pins the moved floor, not the old one)
     lda #<$A000
     sta X16_P1
     lda #>$A000
@@ -2472,7 +2475,7 @@ test_clip_span
 test_font_bank
     lda RAM_BANK
     pha
-    lda #16                     ; copy "WIDE" into bank 16 at $A000
+    lda #CX_APP_BANK_FLOOR      ; copy "WIDE" into an app bank at $A000
     sta RAM_BANK
     ldy #0
 @cp
@@ -2493,7 +2496,7 @@ test_font_bank
     lda X16_P1
     sta @refw+1
 
-    lda #16                     ; the same string, from the bank
+    lda #CX_APP_BANK_FLOOR      ; the same string, from the bank
     sta RAM_BANK
     lda #<$A000
     ldx #>$A000

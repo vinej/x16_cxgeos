@@ -259,7 +259,7 @@ cx_ink = $811B
 cx_vload = $811E
 ;     A/X = filename, Y = length, P0/P1 = VRAM address, P2 = VRAM bank (0/1), P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte; carry set, A = the KERNAL error
 cx_bload = $8121
-;     A/X = filename, Y = length, P0 = RAM bank (16+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error
+;     A/X = filename, Y = length, P0 = RAM bank (20+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error
 
 ; --- modal panel (a form: your widgets in a box, with confirm/cancel)
 cx_panel = $8124

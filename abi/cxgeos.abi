@@ -234,7 +234,7 @@ version = 1
 # RAM for ZSM music, level data, collision maps; the KERNAL wraps banks
 # at $BFFF on its own. P3 bit 0 = the file is RAW (headerless).
 90  cx_vload        1   A/X = filename, Y = length, P0/P1 = VRAM address, P2 = VRAM bank (0/1), P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte; carry set, A = the KERNAL error
-91  cx_bload        1   A/X = filename, Y = length, P0 = RAM bank (16+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error
+91  cx_bload        1   A/X = filename, Y = length, P0 = RAM bank (20+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error
 
 #= modal panel (a form: your widgets in a box, with confirm/cancel)
 # cx_panel is cx_dlg_alert's bigger sibling: instead of a fixed message

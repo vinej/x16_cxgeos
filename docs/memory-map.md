@@ -40,7 +40,8 @@ file in the same commit as the code that claims or releases a region.
 | 9 | desk-accessory code (`cx_da_open` loads a .CXD here) |
 | 10–13 | clipboard (typed: text / bitmap-rect, up to 32KB) |
 | 14–15 | dialog save-unders / DA saved state |
-| 16+ | **the app's**: `cx_bload` targets land here (it refuses banks below 16), plus window backing store, allocations, file buffers. Sized from MEMTOP at boot (512KB → 48 free banks; 2MB → 240) |
+| 16–19 | far-called kernel code, file two (`CXBANKS2.BIN`, one theme per bank — `banks.inc`): 16 widgets, 17 shapes/tiles/dirty, 18 fs/system, 19 audio/sprites. Each opens with an 8-byte build signature stage-0 verifies |
+| 20+ | **the app's**: `cx_bload` targets land here (it refuses banks below `CX_APP_BANK_FLOOR` = 20; the floor was 16 before CXBANKS2), plus window backing store, allocations, file buffers. Sized from MEMTOP at boot (512KB → 44 free banks; 2MB → 236) |
 
 ### The graphics port and its banks *(0.3.0)*
 

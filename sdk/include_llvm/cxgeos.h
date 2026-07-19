@@ -207,7 +207,7 @@ __attribute__((weak, constructor)) void cx__stack_home(void) {
 
 /* --- asset loaders (the shapes every X16 exporter already emits) --- */
 #define CX_VLOAD           0x811E   /* A/X = filename, Y = length, P0/P1 = VRAM address, P2 = VRAM bank (0/1), P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte; carry set, A = the KERNAL error */
-#define CX_BLOAD           0x8121   /* A/X = filename, Y = length, P0 = RAM bank (16+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error */
+#define CX_BLOAD           0x8121   /* A/X = filename, Y = length, P0 = RAM bank (20+; the kernel's banks refuse with A = 0), P1/P2 = address, P3 bit0 = raw -> carry clear, P4/P5 = one past the last byte, P6 = the end bank; carry set, A = the error */
 
 /* --- modal panel (a form: your widgets in a box, with confirm/cancel) --- */
 #define CX_PANEL           0x8124   /* A/X = a panel descriptor (docs/formats.md); SYNCHRONOUS -- draws the box and its widgets, runs modal, returns A = the chosen button (0 = the confirm/RETURN button) */

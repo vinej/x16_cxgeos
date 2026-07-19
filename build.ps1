@@ -67,7 +67,7 @@ function Build-KernelImage {
     $ldExit = $LASTEXITCODE
     Pop-Location
     if ($ldExit -ne 0) { Fail "ld65 failed on the kernel (over budget?)" }
-    Write-Host "      $((Get-Item $p).Length) bytes + $((Get-Item (Join-Path $build 'CXBANKS.BIN')).Length) banked"
+    Write-Host "      $((Get-Item $p).Length) bytes + $((Get-Item (Join-Path $build 'CXBANKS.BIN')).Length) + $((Get-Item (Join-Path $build 'CXBANKS2.BIN')).Length) banked"
     # the budget, read back from the map: what each region used, what is
     # left, and which wall is nearest (tools/mapreport.py)
     $pyc = Get-Command python -ErrorAction SilentlyContinue
@@ -79,9 +79,9 @@ function Build-KernelImage {
 
 # The cartridge image: the same kernel, delivered in ROM instead of on SD.
 # kernel/boot/cart.asm is the bank-32 boot stub; it .incbin's the just-built
-# CXKERNEL.PRG, CXBANKS.BIN and the font by CWD-relative path, so this must
-# run after Build-KernelImage and from the repo root. Output is a raw 48 KB
-# image (ROM banks 32-34) that x16emu -cartbin loads at bank 32.
+# CXKERNEL.PRG, CXBANKS.BIN, CXBANKS2.BIN and the font by CWD-relative path,
+# so this must run after Build-KernelImage and from the repo root. Output is
+# a raw 80 KB image (ROM banks 32-36) that x16emu -cartbin loads at bank 32.
 function Build-CartImage {
     $o   = Join-Path $build "cart.o"
     $bin = Join-Path $build "cxgeos_cart.bin"
@@ -95,7 +95,7 @@ function Build-CartImage {
     }
     Pop-Location
     if ($ex -ne 0) { Fail "cart image build failed" }
-    Write-Host "      $((Get-Item $bin).Length) bytes (cart ROM banks 32-34)"
+    Write-Host "      $((Get-Item $bin).Length) bytes (cart ROM banks 32-36)"
     return $bin
 }
 
@@ -118,6 +118,13 @@ if ($single) {
 
     $size = (Get-Item $out).Length
     Write-Host "      $size bytes"
+    if ($Kernel) {
+        $pyc = Get-Command python -ErrorAction SilentlyContinue
+        if ($pyc) {
+            & $pyc.Source (Join-Path $root "tools\mapreport.py") $map
+            if ($LASTEXITCODE -ne 0) { Fail "mapreport: a memory region is over budget or a pin moved" }
+        }
+    }
 }
 
 # --- run the emulator and capture CHROUT output until a pattern --------
@@ -244,6 +251,7 @@ function Stage-SdRoot {
     Copy-Item (Join-Path $build "AUTOBOOT.X16")  $sdroot
     Copy-Item (Join-Path $build "CXKERNEL.PRG")  $sdroot
     Copy-Item (Join-Path $build "CXBANKS.BIN")   $sdroot
+    Copy-Item (Join-Path $build "CXBANKS2.BIN")  $sdroot
     Copy-Item (Join-Path $root  "fonts\pxl8.cxf") (Join-Path $sdroot "PXL8.CXF")
     Copy-Item (Join-Path $root  "fonts\pxl6.cxf") (Join-Path $sdroot "PXL6.CXF")
     Copy-Item (Join-Path $build "SHELL.CXA")     $sdroot
@@ -412,6 +420,26 @@ if ($Test) {
     $text = Invoke-Emulator @('-cartbin', $cartbin, '-fsroot', $sdroot) $TimeoutSec '(?m)^CXGEOS SHELL' "boot-cart"
     if ($text -notmatch '(?m)^CXGEOS SHELL') { Fail "boot smoke: the cartridge never reached the desktop" }
     Write-Host "      boot: cartridge via -cartbin, desktop up" -ForegroundColor Green
+
+    # ---- the skew sentinels: a wrong SD set must refuse, loudly --------
+    # Four kernel files ship together (AUTOBOOT, CXKERNEL, CXBANKS,
+    # CXBANKS2); a hand-copied card can carry yesterday's copy of one.
+    # Stage-0 compares the build word across all of them (banksig.asm),
+    # and these two boots pin the refusal: one with the file missing,
+    # one with a signature that loads fine but does not match.
+    Write-Host "x16emu (boot smoke: missing/stale CXBANKS2 refuses)"
+    Remove-Item (Join-Path $sdroot "CXBANKS2.BIN") -Force
+    $text = Invoke-Emulator @('-fsroot', $sdroot) $TimeoutSec 'NO CXBANKS2' "boot-nobanks2"
+    if ($text -notmatch 'NO CXBANKS2') { Fail "negative smoke: the missing-CXBANKS2 refusal never printed" }
+    Write-Host "      boot: missing CXBANKS2.BIN refused" -ForegroundColor Green
+
+    $bytes = [IO.File]::ReadAllBytes((Join-Path $build "CXBANKS2.BIN"))
+    $bytes[4] = $bytes[4] -bxor 0xFF   # bank 16's CX_KBUILD low byte
+    [IO.File]::WriteAllBytes((Join-Path $sdroot "CXBANKS2.BIN"), $bytes)
+    $text = Invoke-Emulator @('-fsroot', $sdroot) $TimeoutSec 'STALE OR SHORT' "boot-skew"
+    if ($text -notmatch 'STALE OR SHORT') { Fail "negative smoke: the stale-CXBANKS2 refusal never printed" }
+    Copy-Item (Join-Path $build "CXBANKS2.BIN") (Join-Path $sdroot "CXBANKS2.BIN") -Force
+    Write-Host "      boot: stale CXBANKS2.BIN refused" -ForegroundColor Green
     exit 0
 }
 

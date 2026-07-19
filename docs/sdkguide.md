@@ -377,7 +377,7 @@ fonts, charsets, bitmaps and sample data come off the disk. *(Added in 0.4.0.)*
 |---|---|---|---|---|
 | 88 | `CX_FILE_LOAD` | `$8118` | A/X=name, Y=len, P0/P1=dst, P2/P3=cap → carry clear, P4/P5=bytes; carry set, A=1 missing / 2 read error / 3 too big | load a file into a RAM buffer |
 | 90 | `CX_VLOAD` | `$811E` | A/X=name, Y=len, P0/P1=VRAM addr, P2=VRAM bank, P3 bit0=raw → P4/P5=end; carry set, A=KERNAL error | load into VRAM |
-| 91 | `CX_BLOAD` | `$8121` | A/X=name, Y=len, P0=RAM bank (16+), P1/P2=addr, P3 bit0=raw → P4/P5=end, P6=end bank; carry set, A=error | load into a banked buffer |
+| 91 | `CX_BLOAD` | `$8121` | A/X=name, Y=len, P0=RAM bank (20+), P1/P2=addr, P3 bit0=raw → P4/P5=end, P6=end bank; carry set, A=error | load into a banked buffer |
 
 ---
 

@@ -27,6 +27,9 @@
 ; built before the type existed cannot be handed one.
 ; =====================================================================
 
+; b2_sig quotes the banked code's size as a change fingerprint
+.import __B2CODE_SIZE__, __B5CODE_SIZE__
+
 CX_MENU_H    = 12               ; the bar strip's height
 CX_MENU_ROWH = 10               ; a drop-down row
 CX_MENU_MAXI = 10               ; items per menu; 10 rows of save fit
@@ -120,6 +123,16 @@ mn_h     .byte 0                ; $A03C
 mn_pick  .byte 0                ; $A03D
 mn_trace .byte 0                ; $A03E  breadcrumbs: mn_bar +1, open +$10
 mn_hot   .byte 0                ; $A03F  the highlighted row; $FF = none
+
+; CXBANKS.BIN's build signature, at the FIXED $A040 right behind the
+; peekable state: "CXB", the bank, the build word, then the banked-code
+; size as a change fingerprint. Stage-0 (kernel/boot/auto.asm) compares
+; the first six bytes before believing this file matches CXKERNEL.PRG.
+; (The state below is bank-internal; it moved down 8 bytes for this.)
+b2_sig   .byte "CXB", 2
+         .word CX_KBUILD
+         .word __B2CODE_SIZE__ + __B5CODE_SIZE__
+
 mn_i     .byte 0
 mn_t     .byte 0, 0
 mn_t2    .byte 0, 0

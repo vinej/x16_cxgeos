@@ -27,7 +27,8 @@ import sys
 # --- the ledger this tool asserts (mirror of kernel/kernel.cfg) --------
 
 JTAB_START = 0x8010
-JTAB_SIZE = 0x0150          # the slot reserve: JTAB_SIZE // 3 slots
+JTAB_SIZE = 0x014C          # the slot reserve: JTAB_SIZE // 3 slots
+                            # ($815C-$815F is the build word, banks.inc)
 RESIDENT_START = 0x8160     # pinned: the byte after the slot reserve
 RESIDENT_SIZE = 0x14A0
 OVL_START = 0x9600
@@ -154,7 +155,7 @@ def selftest() -> int:
     sink = io.StringIO()
     assert report(segs, sink) == 0, sink.getvalue()
     text = sink.getvalue()
-    assert "95 slots, 17 in reserve" in text, text
+    assert "95 slots, 15 in reserve" in text, text
     assert re.search(r"RESIDENT\s+5260\s+20", text), text
     assert re.search(r"BANK5\s+5731\s+2461", text), text
     # an overflowed bank must fail
