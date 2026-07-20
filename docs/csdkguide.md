@@ -106,7 +106,7 @@ toolkit's look exactly (`CX_BOX` and `CX_THUMB` mirror the kernel's own
 | `CX_THUMB` | 16 | the width of a slider's draggable thumb |
 | `CX_SLIDER_H` | 16 | the overall height of a slider trough |
 
-### Audio *(0.2.0)*
+### Audio 
 
 The constants the audio wrappers (in the **Audio** section further down)
 take.
@@ -141,7 +141,7 @@ volume (0–15), so `0x0F` is 8-bit mono at full volume:
 | `CX_PCM_16BIT` | `$20` | 16-bit samples (else 8-bit) |
 | `CX_PCM_STEREO` | `$10` | stereo (else mono) |
 
-### Joystick buttons *(0.3.0)*
+### Joystick buttons 
 
 The button bits `cx_joy(pad)` returns and a `CX_ET_JOY` event carries in its
 `x` (current buttons) and `y` (which bits changed). They are **active-high**:
@@ -163,7 +163,7 @@ a set bit means pressed. Test them by ANDing the mask, e.g.
 | `CX_J_START` | `$0010` | START |
 | `CX_J_SELECT` | `$0020` | SELECT |
 
-### Graphics modes *(0.3.0)*
+### Graphics modes 
 
 The canvas `cx_mode(m)` switches to (and the `mode` field
 `cx_screen_info` reports):
@@ -175,7 +175,7 @@ The canvas `cx_mode(m)` switches to (and the `mode` field
 | `CX_MODE_TILE` | 2 | two hardware tile layers + sprites — for games |
 | `CX_MODE_TEXT` | 3 | 80×60 text cells, 16 colours — coordinates become cells, "colour" an attribute |
 
-### Event sources *(0.4.0)*
+### Event sources 
 
 The bits `cx_ev_mask(sources)` uses to pick which inputs the per-frame tick
 samples — mask off what you don't use to reclaim the KERNAL time it costs:
@@ -185,7 +185,7 @@ samples — mask off what you don't use to reclaim the KERNAL time it costs:
 | `CX_EVS_MOUSE` | 1 | the mouse (an SMC round-trip each frame) |
 | `CX_EVS_KEYS` | 2 | the keyboard (a `GETIN` drain each frame) |
 
-### Tiles *(0.3.0)*
+### Tiles 
 
 Constants for the tile mode (used with the [Tiles](#tiles-030--cx_mode_tile-only)
 functions below):
@@ -197,7 +197,7 @@ functions below):
 | `CX_CELL_HF` | OR into a cell to flip that tile horizontally |
 | `CX_CELL_VF` | OR into a cell to flip that tile vertically |
 
-## Sprite constants *(0.2.0)*
+## Sprite constants 
 
 The values the sprite wrappers (under [Sprites](#sprites-020) further down)
 take. Sprite 0 is the KERNAL mouse pointer; apps drive sprites **1–127**.
@@ -328,7 +328,7 @@ typedef struct { unsigned char type, detail; unsigned int x, y; unsigned char fr
 | `cx_post(&ev)` | enqueue a synthetic event (looks real to a poll) |
 | `cx_timer(frames)` | post `CX_ET_TIMER` every `frames` (60/sec); 0 = off |
 | `cx_frames()` → `unsigned char` | the free-running frame counter |
-| `cx_ev_mask(sources)` *(0.4.0)* | which sources the tick samples (`CX_EVS_MOUSE` \| `CX_EVS_KEYS`) |
+| `cx_ev_mask(sources)`  | which sources the tick samples (`CX_EVS_MOUSE` \| `CX_EVS_KEYS`) |
 | `cx_mainloop()` | run the kernel dispatch loop forever (asm-handler apps) |
 | `cx_handlers(table)` | register a `CX_ET_TYPES`-entry handler table (asm interop) |
 
@@ -355,7 +355,7 @@ what you don't use (a game: `cx_ev_mask(CX_EVS_KEYS)` for keyboard + pads, no
 mouse). `cx_ev_init` resets to mouse+keys; the timer, the pads
 (`cx_joy_enable`) and PCM keep their own switches.
 
-### Lending the raster line to a game *(0.5.1)*
+### Lending the raster line to a game 
 
 A game owns the raster IRQ for smooth, frame-locked motion and reads input
 directly, never starting the sampler. To ask the user something it borrows the
@@ -394,7 +394,7 @@ its scanline after `cx_ev_stop`.
 | `cx_menu_set(bar)` → 0 ok / 1 full | install + draw a menu bar (after `cx_ev_init`); owns the top strip |
 | `cx_menu_off()` | forget the menu (only with none open) |
 | `cx_menu_key(key)` → 1 if a menu key | drive the bar from the keyboard; **clobbers X/Y** |
-| `cx_menu_active()` → 1 / 0 *(0.7.1)* | is a menu dropped, by mouse **or** keyboard? |
+| `cx_menu_active()` → 1 / 0  | is a menu dropped, by mouse **or** keyboard? |
 | `cx_wg_set(list)` | install + draw a widget list; routes clicks, posts `CX_ET_WIDGET` |
 | `cx_wg_draw()` | redraw the current list (e.g. after `cx_theme`) |
 | `cx_wg_key(key)` → 1 if a widget key | drive widgets from the keyboard (TAB/arrows/SPACE/type); **clobbers X/Y** |
@@ -430,7 +430,7 @@ directly, in either bitmap mode.
 
 | function | purpose |
 |---|---|
-| `cx_icon(id, x, y)` *(0.6.1)* | draw a built-in 24×24 icon at `(x, y)`; `CX_MODE_GUI`/`CX_MODE_BMP8` only |
+| `cx_icon(id, x, y)`  | draw a built-in 24×24 icon at `(x, y)`; `CX_MODE_GUI`/`CX_MODE_BMP8` only |
 
 ```c
 cx_icon(CX_ICON_FOLDER, 40, 60);           /* paint one icon directly */
@@ -599,7 +599,7 @@ for (;;) {
 | `cx_theme(rec12)` | swap to a 12-byte theme; the palette changes instantly (follow with `cx_wg_draw`) |
 | `cx_alert(desc)` → button | a **synchronous** modal alert; RETURN picks button 0 |
 | `cx_prompt(msg, buf, cap)` → len / −1 | a **synchronous** one-line editor over `buf`; −1 if cancelled (ESC) |
-| `cx_panel(desc)` → button *(0.5)* | a **synchronous** modal panel (box + widget list + ≤3 buttons); records update in place |
+| `cx_panel(desc)` → button  | a **synchronous** modal panel (box + widget list + ≤3 buttons); records update in place |
 
 All three are synchronous — they run their own dispatch loop and return the
 chosen button (`cx_panel`: 0 = confirm, last = cancel). Read a panel's or
@@ -621,9 +621,9 @@ if (cx_panel(&options) == 0) apply(options_widgets);  /* OK, not Cancel */
 | `cx_launch(name)` → reason | load + run a `.CXA`; returns **only on failure** (1 not an app, 2 too new) |
 | `cx_da_open(name)` → 0 ok / 1 fail | open a `.CXD` desk accessory over the running app |
 | `cx_da_close()` | close the desk accessory, restoring the screen |
-| `cx_file_load(name, dst, cap)` → n / −1 *(0.4.0)* | load any file into a buffer (≤ `cap` bytes; reason in `cx_a`) |
-| `cx_vload(name, vbank, addr, raw)` → 0 / 1 *(0.4.1)* | a file **straight into VRAM** (BASIC's `VLOAD`) |
-| `cx_bload(name, bank, addr, raw)` → 0 / 1 *(0.4.1)* | a file into **banked RAM** (BASIC's `BVLOAD`; banks 20+) |
+| `cx_file_load(name, dst, cap)` → n / −1  | load any file into a buffer (≤ `cap` bytes; reason in `cx_a`) |
+| `cx_vload(name, vbank, addr, raw)` → 0 / 1  | a file **straight into VRAM** (BASIC's `VLOAD`) |
+| `cx_bload(name, bank, addr, raw)` → 0 / 1  | a file into **banked RAM** (BASIC's `BVLOAD`; banks 20+) |
 
 `cx_file_load` is how **fonts and charsets become disk assets**; `cx_vload`
 takes the raw-VRAM shape the whole X16 tool ecosystem emits (Aloevera,
@@ -680,7 +680,7 @@ char buf[32]; unsigned char ty;
 unsigned n = cx_clip_get(buf, sizeof buf, &ty);
 ```
 
-## Audio *(0.2.0)*
+## Audio 
 
 The VERA PSG (16 voices), the YM2151 FM chip, and streamed PCM — all in a
 kernel bank, reached through the ABI. See `apps/beep`.
@@ -712,7 +712,7 @@ cx_ym_init();   cx_ym_patch(0, 1);  cx_ym_note(0, CX_YM(4, 1));
 cx_pcm_ctrl(0x0F);  cx_pcm_play(sample, sizeof sample, 64);
 ```
 
-## Joysticks *(0.3.0)*
+## Joysticks 
 
 Pad 0 is the keyboard joystick; 1–4 are SNES pads. Buttons are ACTIVE-HIGH
 `CX_J_*` masks (UP/DOWN/LEFT/RIGHT/A/B/X/Y/L/R/START/SELECT).
@@ -727,15 +727,15 @@ cx_joy_enable(1);
 if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
 ```
 
-## Graphics modes *(0.3.0)*
+## Graphics modes 
 
 | function | purpose |
 |---|---|
 | `cx_mode(m)` → carry if unknown | switch to `CX_MODE_GUI`/`BMP8`/`TILE`/`TEXT` |
 | `cx_screen_info(&s)` | fill `cx_screen` (mode, w, h, bpp, stride) |
-| `cx_ink(color)` *(0.4.0)* | text ink for the CURRENT mode (palette index in BMP8, attribute in TEXT) |
-| `cx_pal_set(index, rgb)` *(0.7.0)* | set one VERA palette entry (`rgb` = 12-bit `0x0RGB`) |
-| `cx_pal_load(src, first, count)` *(0.7.0)* | bulk-load `count` (1–128) entries from `src` |
+| `cx_ink(color)`  | text ink for the CURRENT mode (palette index in BMP8, attribute in TEXT) |
+| `cx_pal_set(index, rgb)`  | set one VERA palette entry (`rgb` = 12-bit `0x0RGB`) |
+| `cx_pal_load(src, first, count)`  | bulk-load `count` (1–128) entries from `src` |
 
 The same drawing calls work across the bitmap modes; in `CX_MODE_TEXT`
 coordinates are cells and "colour" is an attribute (`cx_clear`/`cx_rect` fill
@@ -746,19 +746,19 @@ safe no-op. Sprites, audio, joysticks, events, files and the shapes work in
 every mode; `cx_exit` always restores the desktop. `cx_ink` is mode-local (a
 mode switch resets it to white). `cx_pal_*` is handiest in `CX_MODE_BMP8`.
 
-## Shapes *(0.3.0)* — every bitmap mode
+## Shapes  — every bitmap mode
 
 | function | purpose |
 |---|---|
 | `cx_circle(cx, cy, r, color)` | an outline; clips wherever pset clips |
 | `cx_disc(cx, cy, r, color)` | the same, filled; no clipping — keep it on screen |
-| `cx_ellipse(cx, cy, rx, ry, color)` *(0.3.1)* | an axis-aligned ellipse outline |
+| `cx_ellipse(cx, cy, rx, ry, color)`  | an axis-aligned ellipse outline |
 | `cx_fellipse(cx, cy, rx, ry, color)` | the same, filled |
 | `cx_flood(x, y, color)` → 1 if overflowed | scanline fill of the region holding the seed |
-| `cx_polygon(cx, cy, r, sides, rot, color)` *(0.8.0)* | a regular convex N-gon outline (sides 3+), `rot` a byte angle |
-| `cx_fpolygon(cx, cy, r, sides, rot, color)` *(0.8.0)* | the same, filled |
-| `cx_arc(cx, cy, r, start, end, color)` *(0.8.0)* | a circle arc from `start` to `end` (byte angles) |
-| `cx_pie(cx, cy, r, start, end, color)` *(0.8.0)* | a filled wedge over that arc |
+| `cx_polygon(cx, cy, r, sides, rot, color)`  | a regular convex N-gon outline (sides 3+), `rot` a byte angle |
+| `cx_fpolygon(cx, cy, r, sides, rot, color)`  | the same, filled |
+| `cx_arc(cx, cy, r, start, end, color)`  | a circle arc from `start` to `end` (byte angles) |
+| `cx_pie(cx, cy, r, start, end, color)`  | a filled wedge over that arc |
 
 ```c
 cx_disc(250, 222, 7, 220);
@@ -772,7 +772,7 @@ Byte angles: 0 = east, 64 = south, 128 = west, 192 = north. The four
 0.8.0 shapes share one lean ABI slot (`CX_GFX_SHAPE`, X = kind); these
 wrappers pick the kind for you. `cx_shape(kind, ...)` is the raw call.
 
-## Tiles *(0.3.0)* — CX_MODE_TILE only
+## Tiles  — CX_MODE_TILE only
 
 Two 64×32 maps of 8×8 4bpp tiles. Upload tile pixels with
 `cx_vram_write(CX_TILE_IMG + n*32, data, len)`; a cell is
@@ -793,7 +793,7 @@ cx_tile_fill(0, CX_CELL(0, 0));
 cx_tile_scroll(0, h & 0x0FFF, 0);
 ```
 
-## Sprites *(0.2.0)*
+## Sprites 
 
 VERA hardware sprites. Sprite 0 is the mouse; drive sprites 1–127. Put image
 data in VRAM at `CX_SPR_VRAM` (32-byte aligned) with `cx_vram_write`, point
@@ -838,7 +838,7 @@ for (unsigned char i = 0; i < cx_dirty_count(); i++) {
 | function | purpose |
 |---|---|
 | `cx_print(s)` | CHROUT a NUL-terminated string + a return (the boot/debug marker) |
-| `cx_vram_write(addr, src, len)` *(0.2.0)* | copy `len` bytes from RAM into VRAM at `addr` (sprite/tile/raw uploads) |
+| `cx_vram_write(addr, src, len)` | copy `len` bytes from RAM into VRAM at `addr` (sprite/tile/raw uploads) |
 
 ## Picture files
 
@@ -969,12 +969,12 @@ Each palette colour is two little-endian bytes: byte0 = `GGGGBBBB`, byte1 =
   set, a dialog and two themes, driven by `cx_next`.
 - `apps/paint/paint.c` — mouse-drag drawing (`cx_line`/`cx_pset`/`cx_rect`) and
   `cx_pic_save`/`cx_pic_load` persistence.
-- `apps/gfx8/gfx8.c` *(0.3.0)* -- 256-colour mode: the same drawing calls
+- `apps/gfx8/gfx8.c`  -- 256-colour mode: the same drawing calls
   in `CX_MODE_BMP8`, plus the shapes.
-- `apps/tiles/tiles.c` *(0.3.0)* -- the tile mode: upload, fill, cells,
+- `apps/tiles/tiles.c`  -- the tile mode: upload, fill, cells,
   and hardware scrolling by keys, joystick, or drift.
-- `apps/beep/beep.c` *(0.2.0)* — audio: a PSG scale, a YM note, and a PCM blip.
-- `apps/sprite/sprite.c` *(0.2.0)* — a hardware sprite that follows the mouse.
+- `apps/beep/beep.c`  — audio: a PSG scale, a YM note, and a PCM blip.
+- `apps/sprite/sprite.c`  — a hardware sprite that follows the mouse.
 
 ## See also
 

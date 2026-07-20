@@ -83,7 +83,7 @@ When a code bank fills, it borrows reserve from a sibling (change the
 banks 2–5 + 16–19 — a THIRD `CXBANKS3.BIN` file needs a third boot LOAD
 and cartridge copy pass (the `docs/banks.md` "add a bank" playbook).
 
-### The graphics port and its banks *(0.3.0)*
+### The graphics port and its banks 
 
 The resident region `$9600`-`$9EFF` (2,304 bytes) is the graphics PORT:
 the current engine image lives there, copied from its bank by `cx_gfx_mode`

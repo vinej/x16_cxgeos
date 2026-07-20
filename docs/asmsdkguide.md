@@ -96,7 +96,7 @@ slot. A blank "args" cell means the macro takes none.
 | `cxm_gfx_circle` / `cxm_gfx_disc` | `cx, cy, r, col` |
 | `cxm_gfx_ellipse` / `cxm_gfx_fellipse` | `cx, cy, rx, ry, col` |
 | `cxm_gfx_flood` | `x, y, col` (→ carry if the seed stack overflowed) |
-| `cxm_gfx_shape` *(0.8.0)* | `kind, cx, cy, r, p5, p6, col` — one slot: kind 0 polygon, 1 fpolygon, 2 arc, 3 pie; polygon: p5=sides, p6=rot; arc/pie: p5=start, p6=end (byte angles) |
+| `cxm_gfx_shape` | `kind, cx, cy, r, p5, p6, col` — one slot: kind 0 polygon, 1 fpolygon, 2 arc, 3 pie; polygon: p5=sides, p6=rot; arc/pie: p5=start, p6=end (byte angles) |
 | `cxm_icon` | `id, x, y` (a built-in 24×24 icon; modes 0/1) |
 | `cxm_pal_set` | `index, rgb` (one entry; `rgb` is 12-bit `$0RGB`) |
 | `cxm_pal_load` | `src, first, count` |
