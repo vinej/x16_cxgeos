@@ -1,6 +1,6 @@
 # CXGEOS csdk Guide — the friendly C wrapper
 
-**Release 0.7.0** · header: `csdk/cxsdk.h`
+**Release 0.7.1** · header: `csdk/cxsdk.h`
 
 The csdk turns the low-level [ABI](sdkguide.md) into clean, named `cx_*`
 functions, a typed event record, the shared constants, immediate-mode widget
@@ -266,7 +266,7 @@ its scanline after `cx_ev_stop`.
 | `cx_menu_set(bar)` → 0 ok / 1 full | install + draw a menu bar (after `cx_ev_init`); owns the top strip |
 | `cx_menu_off()` | forget the menu (only with none open) |
 | `cx_menu_key(key)` → 1 if a menu key | drive the bar from the keyboard; **clobbers X/Y** |
-| `cx_menu_active()` → 1 / 0 *(slot 99)* | is a menu dropped, by mouse **or** keyboard? |
+| `cx_menu_active()` → 1 / 0 *(0.7.1)* | is a menu dropped, by mouse **or** keyboard? |
 | `cx_wg_set(list)` | install + draw a widget list; routes clicks, posts `CX_ET_WIDGET` |
 | `cx_wg_draw()` | redraw the current list (e.g. after `cx_theme`) |
 | `cx_wg_key(key)` → 1 if a widget key | drive widgets from the keyboard (TAB/arrows/SPACE/type); **clobbers X/Y** |

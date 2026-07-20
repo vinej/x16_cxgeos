@@ -1,17 +1,17 @@
 # CXGEOS
 
-V0.7.0 — **invisible hit regions and a palette API**. A new `WG_HIT` widget is
-a hotspot the app draws itself — rectangle, circle or ellipse — while the
-toolkit only routes the mouse (click, release, hover), making any shape
-clickable for zero resident bytes. `cx_pal_set` / `cx_pal_load` program VERA's
-256-colour palette directly; the desktop remembers its list-vs-icons view
-across an app launch; and re-vendoring x16lib's optimized gfx trimmed ~600 B
-of banked kernel code. The C SDK now wraps all 99 ABI slots.
-(v0.6.1 added a **graphical icon widget and an icon-view desktop** plus
-sprite-collision capture; v0.6.0 rebuilt the **memory architecture for
-growth** — kernel code themed one purpose per bank across two loadable files,
-banks 2–5 + 16–19; see [docs/banks.md](docs/banks.md).) See /docs for the
-guides.
+V0.7.1 — **a friendly assembly macro SDK, and desktop fixes**. `asmsdk/ca65`
+layers named one-line `cxm_*` macros and descriptor builders over the raw jump
+table — the assembly parallel of the C `csdk` — so an app reads by intent
+instead of hand-loading the parameter block, and expands **byte-identical** to
+hand code; all ten in-tree assembly apps now use it. A new `cx_menu_active`
+ABI slot (100 now) lets an app tell that a menu is dropped by the mouse **or**
+the keyboard, so the desktop sends the cursor keys to a menu you opened by
+clicking; and two exit-path fixes keep a mode-switching app (modes 1/3) from
+returning you to the desktop on the wrong file.
+(v0.7.0 added **invisible hit regions and a palette API**; v0.6.1 a **graphical
+icon widget and an icon-view desktop**; v0.6.0 the per-bank **memory
+architecture** — see [docs/banks.md](docs/banks.md).) See /docs for the guides.
 
 A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
 

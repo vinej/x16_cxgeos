@@ -1,7 +1,7 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.7.0** · ABI version 1 · 100 slots (append-only; slot 99
-`cx_menu_active` added since 0.7.0)
+**Release 0.7.1** · ABI version 1 · 100 slots (append-only; slot 99
+`cx_menu_active` added in 0.7.1)
 
 This documents `sdk/include_<compiler>/cxgeos.h` (and `.inc`) — the
 **generated**, low-level binding to the kernel. It is what every CXGEOS app
