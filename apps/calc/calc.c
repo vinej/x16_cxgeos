@@ -36,8 +36,8 @@ static const char keys[16] = {
     '0', '.', '=', '+',
 };
 
-static float acc, cur;
-static float frac;         /* 0 = whole-number entry; else the next   */
+static double acc, cur;
+static double frac;         /* 0 = whole-number entry; else the next   */
                            /* fractional digit's place value          */
 static char op;            /* the pending operator, 0 = none          */
 static char typing;        /* 1 while cur is being entered            */
@@ -48,7 +48,7 @@ static const char *note = "";
  * reads 0.3333333), trailing zeros (and a bare point) trimmed. Handles
  * the sign and guards the range where a u32 integer part would
  * overflow. */
-static void fmt(float v, char *out) {
+static void fmt(double v, char *out) {
     char tmp[12];
     char *p = out;
     unsigned long ip;
@@ -65,7 +65,7 @@ static void fmt(float v, char *out) {
     }
 
     ip = (unsigned long)v;
-    f = (unsigned long)((v - (float)ip) * 10000000.0f + 0.5f);
+    f = (unsigned long)((v - (double)ip) * 10000000.0f + 0.5f);
     if (f >= 10000000UL) {         /* the round carried into the ones */
         f -= 10000000UL;
         ip++;
@@ -143,9 +143,9 @@ static void feed(char c) {
 
     if (c >= '0' && c <= '9') {
         if (frac == 0.0f) {
-            cur = cur * 10.0f + (float)(c - '0');
+            cur = cur * 10.0f + (double)(c - '0');
         } else {
-            cur += (float)(c - '0') * frac;
+            cur += (double)(c - '0') * frac;
             frac *= 0.1f;
         }
         typing = 1;
