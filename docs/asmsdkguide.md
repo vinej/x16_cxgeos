@@ -152,34 +152,72 @@ it (see `apps/filer`).
 | `cxm_panel` | `desc` (→ `A` = the chosen button) |
 
 ### Audio — PSG, YM2151, PCM
-`cxm_psg_init`; `cxm_psg_freq voice, freq`; `cxm_psg_vol voice, vol, pan`;
-`cxm_psg_wave voice, wave, pw`; `cxm_psg_off voice`. `cxm_ym_init`;
-`cxm_ym_note chan, code` (`code` = `CX_YM(octave, note)`); `cxm_ym_off chan`;
-`cxm_ym_vol chan, atten`; `cxm_ym_patch chan, idx`. `cxm_pcm_ctrl ctrl`;
-`cxm_pcm_play src, len, rate`; `cxm_pcm_stop`; `cxm_pcm_active`.
+| macro | args |
+|---|---|
+| `cxm_psg_init` | — (silence all 16 voices) |
+| `cxm_psg_freq` | `voice, freq` |
+| `cxm_psg_vol` | `voice, vol, pan` (`pan` = `CX_PAN_*`) |
+| `cxm_psg_wave` | `voice, wave, pw` (`wave` = `CX_WAVE_*`) |
+| `cxm_psg_off` | `voice` |
+| `cxm_ym_init` | — (reset the chip, load the default patches) |
+| `cxm_ym_note` | `chan, code` (`code` = `CX_YM(octave, note)`; 0 releases) |
+| `cxm_ym_off` | `chan` |
+| `cxm_ym_vol` | `chan, atten` |
+| `cxm_ym_patch` | `chan, idx` (a ROM patch 0–162) |
+| `cxm_pcm_ctrl` | `ctrl` (`CX_PCM_*` \| volume 0–15) |
+| `cxm_pcm_play` | `src, len, rate` (rate 1–128; 128 = 48 kHz) |
+| `cxm_pcm_stop` | — |
+| `cxm_pcm_active` | — (→ `A` = 1 while a sample still plays) |
 
 ### Joysticks & sprites
-`cxm_joy_get pad`; `cxm_joy_enable mask`. `cxm_sprite_image spr, addr, mode`;
-`cxm_sprite_pos spr, x, y`; `cxm_sprite_size spr, w, h, pal`;
-`cxm_sprite_flags spr, flags`; `cxm_sprite_z spr, z`; `cxm_spr_collide`.
+| macro | args |
+|---|---|
+| `cxm_joy_get` | `pad` (→ `A`/`X` = buttons, carry if absent) |
+| `cxm_joy_enable` | `mask` (scan pads in `mask`, post `EV_JOY`; 0 = off) |
+| `cxm_sprite_image` | `spr, addr, mode` (`addr` = VRAM, `mode` = `CX_SPR_4BPP`/`8BPP`) |
+| `cxm_sprite_pos` | `spr, x, y` |
+| `cxm_sprite_size` | `spr, w, h, pal` (`w`/`h` = `CX_SPR_8`/`16`/`32`/`64`) |
+| `cxm_sprite_flags` | `spr, flags` (a full write; do once before `cxm_sprite_z`) |
+| `cxm_sprite_z` | `spr, z` (`CX_SPR_HIDE`/`BEHIND`/`MIDDLE`/`FRONT`) |
+| `cxm_spr_collide` | — (→ `A` = collision groups since last call) |
 
 ### Tiles *(CX_MODE_TILE)*
-`cxm_tile_setup layer`; `cxm_tile_scroll layer, h, v`;
-`cxm_tile_cell layer, column, row, cell`; `cxm_tile_fill layer, cell`.
+| macro | args |
+|---|---|
+| `cxm_tile_setup` | `layer` (→ carry outside mode 2) |
+| `cxm_tile_scroll` | `layer, h, v` (0–4095 each axis) |
+| `cxm_tile_cell` | `layer, column, row, cell` (`cell` = `CX_CELL(idx, pal)`) |
+| `cxm_tile_fill` | `layer, cell` (into every cell of the layer) |
 
 ### Loader, DA, asset loaders
-`cxm_app_load name, len`; `cxm_da_open name, len`; `cxm_da_close`;
-`cxm_file_load name, len, dst, cap`; `cxm_vload name, len, vaddr, vbank, raw`;
-`cxm_bload name, len, bank, addr, raw`.
+| macro | args |
+|---|---|
+| `cxm_app_load` | `name, len` (load + run a `.CXA`; returns only on failure) |
+| `cxm_da_open` | `name, len` (open a `.CXD` over the running app) |
+| `cxm_da_close` | — |
+| `cxm_file_load` | `name, len, dst, cap` (→ carry, else `P4/5` = bytes read) |
+| `cxm_vload` | `name, len, vaddr, vbank, raw` (a file straight into VRAM) |
+| `cxm_bload` | `name, len, bank, addr, raw` (a file into banked RAM, bank 20+) |
 
 ### Directory & DOS
-`cxm_dir_open pat, len`; `cxm_dir_next buf`; `cxm_dir_close`;
-`cxm_dos_cmd cmd, len`; `cxm_dos_msg buf`.
+| macro | args |
+|---|---|
+| `cxm_dir_open` | `pat, len` (→ carry on a DOS error) |
+| `cxm_dir_next` | `buf` (→ `A` = 0 file / 1 dir, carry = done) |
+| `cxm_dir_close` | — |
+| `cxm_dos_cmd` | `cmd, len` (→ `A` = status, carry if ≥ 20) |
+| `cxm_dos_msg` | `buf` (copies the last DOS reply; → `A` = its length) |
 
 ### Clipboard & dirty rectangles
-`cxm_clip_put type, src, len`; `cxm_clip_get dst, cap`; `cxm_clip_type`.
-`cxm_dirty_reset`; `cxm_dirty_add x, y, w, h`; `cxm_dirty_count`;
-`cxm_dirty_get idx`.
+| macro | args |
+|---|---|
+| `cxm_clip_put` | `type, src, len` (→ carry if too big) |
+| `cxm_clip_get` | `dst, cap` (→ `A` = type, `P2/3` = length copied) |
+| `cxm_clip_type` | — (→ `A` = type waiting, `P2/3` = length) |
+| `cxm_dirty_reset` | — |
+| `cxm_dirty_add` | `x, y, w, h` |
+| `cxm_dirty_count` | — (→ `A` = rects) |
+| `cxm_dirty_get` | `idx` (→ `P0/1`=x0, `P2/3`=y0, `P4/5`=x1, `P6/7`=y1) |
 
 > **A macro packs literals — not registers.** The wrappers load their
 > arguments as immediates (`lda #<x`). When a value is already in a register or
