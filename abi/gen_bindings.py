@@ -34,6 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import asmsdk                       # the friendly cxm_* macro-layer generator
+import prog8                        # the Prog8 extsub/asmsub binding generator
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "abi" / "cxgeos.abi"
@@ -917,6 +918,9 @@ def main():
     for d in asmsdk.EMIT:
         put(ROOT / "asmsdk" / d / "cxgeos.inc",
             asmsdk.gen(d, version, slots))
+    # the Prog8 binding (extsub / asmsub shims)
+    put(ROOT / "sdk" / "include_prog8" / "cxgeos.p8",
+        prog8.gen(version, slots))
 
     print("abi v%d: %d slots, $%04X..$%04X"
           % (version, len(slots), addr(0), addr(len(slots) - 1) + 2))

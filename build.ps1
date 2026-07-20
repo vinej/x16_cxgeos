@@ -394,6 +394,54 @@ function Build-Apps {
     } else {
         Write-Host "vbcc not found: skipping the vbcc smoke" -ForegroundColor Yellow
     }
+
+    # Prog8: prog8c.jar needs Java 11+ (prefer the newest Adoptium JDK, not the
+    # PATH java which may be 1.8) and shells out to its own 64tass.exe, so the
+    # prog8-sdk dir must be on PATH. The binding is sdk\include_prog8 (-srcdirs).
+    $p8sdk = $null
+    foreach ($d in @("C:\quartus\projects\X16_Prog8Debugger\prog8-sdk",
+                     "C:\quartus\projects\x16_CDebugger\prog8-sdk",
+                     "C:\quartus\projects\C64_Prog8Debugger\prog8-sdk")) {
+        if (Test-Path (Join-Path $d "prog8c.jar")) { $p8sdk = $d; break }
+    }
+    $p8java = $null
+    $adoptium = "C:\Program Files\Eclipse Adoptium"
+    if (Test-Path $adoptium) {
+        $jdk = Get-ChildItem $adoptium -Directory -Filter "jdk-*" -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending | Select-Object -First 1
+        if ($jdk) { $p8java = Join-Path $jdk.FullName "bin\java.exe" }
+    }
+    if ((-not $p8java) -or (-not (Test-Path $p8java))) {
+        $j = Get-Command java -ErrorAction SilentlyContinue
+        if ($j) { $p8java = $j.Source }
+    }
+    if ($p8sdk -and $p8java -and (Test-Path $p8java)) {
+        # both the smoke and the fuller calc example ride the same binding
+        # smoke uses only the raw `cx` binding; calc + uidemo also use the
+        # friendly p8sdk layer (p8sdk\cxui.p8), so both source dirs are searched.
+        $p8apps = @(
+            @{ src = "apps\smoke_prog8\smoke.p8";   prg = "smoke.prg";  cxa = "SMOKEP8.CXA"; name = "Smoke (prog8)" },
+            @{ src = "apps\calc\calc.p8";           prg = "calc.prg";   cxa = "CALC8.CXA";   name = "Calc (prog8)"  },
+            @{ src = "apps\uidemo_prog8\uidemo.p8"; prg = "uidemo.prg"; cxa = "UIDEMO.CXA";  name = "UI demo (prog8)" }
+        )
+        $savedPATH = $env:PATH
+        $env:PATH = $p8sdk + ";" + $env:PATH
+        foreach ($app in $p8apps) {
+            Write-Host "prog8 $($app.src) -> $build\$($app.cxa)"
+            & $p8java -jar (Join-Path $p8sdk "prog8c.jar") -target cx16 `
+                -srcdirs (Join-Path $root "sdk\include_prog8") -srcdirs (Join-Path $root "p8sdk") `
+                -out $build (Join-Path $root $app.src) 2>&1 |
+                Where-Object { $_ -match 'rror' } | ForEach-Object { Write-Host "      $_" }
+            if ($LASTEXITCODE -ne 0) { $env:PATH = $savedPATH; Fail "prog8c failed on $($app.src)" }
+            # mkcxap straight from prog8c's <name>.prg output (a rename to the
+            # CXA basename would collide with it case-insensitively on Windows)
+            & $py $mkcxap (Join-Path $build $app.prg) (Join-Path $build $app.cxa) --name $app.name
+            if ($LASTEXITCODE -ne 0) { $env:PATH = $savedPATH; Fail "mkcxap failed on $($app.cxa)" }
+        }
+        $env:PATH = $savedPATH
+    } else {
+        Write-Host "Prog8/Java not found: skipping the prog8 apps" -ForegroundColor Yellow
+    }
 }
 
 # --- stage everything a bootable disk needs -----------------------------
@@ -420,6 +468,12 @@ function Stage-SdRoot {
     }
     if (Test-Path (Join-Path $build "CALC.CXA")) {
         Copy-Item (Join-Path $build "CALC.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "CALC8.CXA")) {   # the Prog8 calc, alongside the C one
+        Copy-Item (Join-Path $build "CALC8.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "UIDEMO.CXA")) {  # the p8sdk widget showcase
+        Copy-Item (Join-Path $build "UIDEMO.CXA") $sdroot
     }
     if (Test-Path (Join-Path $build "CDEMO.CXA")) {
         Copy-Item (Join-Path $build "CDEMO.CXA") $sdroot
@@ -579,7 +633,10 @@ if ($Test) {
         @{ cxa = "SMOKEC.CXA";    mk = "SMOKE C OK" },
         @{ cxa = "SMOKEO64.CXA";  mk = "SMOKE C OK" },
         @{ cxa = "SMOKEKICKC.CXA"; mk = "SMOKE C OK" },
-        @{ cxa = "SMOKEVBCC.CXA"; mk = "SMOKE C OK" }
+        @{ cxa = "SMOKEVBCC.CXA"; mk = "SMOKE C OK" },
+        @{ cxa = "SMOKEP8.CXA";   mk = "SMOKE PROG8 OK" },
+        @{ cxa = "CALC8.CXA";     mk = "CALC P8 OK" },
+        @{ cxa = "UIDEMO.CXA";    mk = "UIDEMO OK" }
     )) {
         if (Test-Path (Join-Path $build $sm.cxa)) {
             $hellos += @{ cxa = $sm.cxa; up = $sm.mk; wait = $sm.mk }

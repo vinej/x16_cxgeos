@@ -536,6 +536,7 @@ fonts, charsets, bitmaps and sample data come off the disk. *(Added in 0.4.0.)*
 
 - [csdkguide.md](csdkguide.md) — the friendly C wrapper over these slots.
 - [asmsdkguide.md](asmsdkguide.md) — the friendly ca65 macros over these slots.
+- [p8sdkguide.md](p8sdkguide.md) — the Prog8 binding + friendly `ui` layer.
 - [formats.md](formats.md) — the byte layouts of fonts, apps, menus, widgets,
   dialogs and themes.
 - [memory-map.md](memory-map.md) — the ZP / RAM / VRAM ledger.
