@@ -534,6 +534,10 @@ static char cx_menu_key(unsigned char key) {    /* 1 if it was a menu key */
     cx_call_a(CX_MENU_KEY, key);
     return cx_c;
 }
+/* is a menu currently dropped? 1 if open (opened by the mouse OR the
+ * keyboard), 0 if none -- so an app with a menu bar can send the cursor
+ * keys to a menu the user opened by clicking, not to its own widgets. */
+static unsigned char cx_menu_active(void) { return cx_ret(CX_MENU_ACTIVE); }
 static void cx_wg_set(const void *list) { cx_call_p(CX_WG_SET, list); }
 static void cx_wg_draw(void) { cx_call(CX_WG_DRAW); }
 static char cx_wg_key(unsigned char key) {      /* 1 if it was a widget key */

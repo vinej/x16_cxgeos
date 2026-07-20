@@ -65,6 +65,10 @@ cx_do_menu_key
     jsr cxb_call
     .byte 2
     .addr $A000 + 11*3
+cx_do_menu_active
+    jsr cxb_call                ; -> A = mn_open (0 = no menu), Z from A
+    .byte 2
+    .addr $A000 + 5*3           ; repurposed filler slot 5 -> mn_active
 
 ; =====================================================================
 ; bank 2 from here on
@@ -81,9 +85,10 @@ cx_do_menu_key
 ; SLOT MAP -- keep it in step with the stubs in each module's CODE half:
 ;   0 mn_set   1 mn_off   2 mn_bar   3 mn_drop     (menu.asm)
 ;   4 th_set                                        (theme.asm)
-;   5,6 -- were dg_alert/dg_hit; the dialog module moved to bank 5, so
-;         its resident stubs far-call bank 5 directly and these slots
-;         are retired (kept as filler to hold the state block at $A030)
+;   5 mn_active -- reads mn_open for cx_menu_active (was dg_alert filler)
+;   6 -- was dg_hit; the dialog module moved to bank 5, so its resident
+;         stub far-calls bank 5 directly and this slot is retired (kept
+;         as filler to hold the state block at $A030)
 ;   7 -- was dos_cmd; the fs/dos code moved to bank 18, far-called by
 ;         label, so this slot is retired
 ;   8,9,10 -- were wg_set/wg_draw/wg_hit; the widget toolkit moved to
@@ -103,7 +108,7 @@ b2_table
     jmp mn_bar                  ; 2
     jmp mn_drop                 ; 3
     jmp th_set                  ; 4
-    jmp mn_off                  ; 5  retired -> dialog is bank 5 now
+    jmp mn_active               ; 5  reads mn_open for cx_menu_active
     jmp mn_off                  ; 6  retired -> dialog is bank 5 now
     jmp mn_off                  ; 7  retired -> fs/dos is bank 18 now
     jmp mn_off                  ; 8  retired -> widgets are bank 16 now
@@ -810,6 +815,13 @@ mn_key
     rts
 @no
     clc
+    rts
+
+; mn_active -- cx_menu_active: A = mn_open (0 = no menu dropped), Z set from
+; it. Both the mouse and keyboard open paths set mn_open, so an app can tell
+; a menu is up however it opened and route the keyboard to it.
+mn_active
+    lda mn_open
     rts
 
 ; mn_kopen -- A = menu: open its drop-down and highlight item 0.

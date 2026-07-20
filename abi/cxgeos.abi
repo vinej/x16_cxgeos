@@ -300,3 +300,11 @@ version = 1
 # return the last host write, not the hardware state.
 97  cx_pal_set      1   X = index (0-255), A = low byte (Green<<4|Blue), Y = high byte (Red) -- set one entry
 98  cx_pal_load     1   P0/P1 = source (2 bytes/entry, low byte first), A = first index, X = count (1-128) -- bulk-load entries from RAM
+
+#= menu state
+# So an app that shows a menu bar can tell whether a menu is currently
+# dropped -- opened by the mouse OR the keyboard, both report open. The
+# desktop needs this to route the cursor keys: a menu the user opened by
+# clicking is invisible to the app otherwise, so the arrows would drive
+# the wrong widget.
+99  cx_menu_active  1   -> A = 1 if a menu is open (mouse or keyboard), 0 if none; Z set when none

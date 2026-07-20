@@ -19,7 +19,7 @@ cx_hdr_magic
 cx_hdr_version
     .word 1                    ; ABI version
 cx_hdr_slots
-    .word 99                    ; slots
+    .word 100                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
 cx_hdr_shell
@@ -199,6 +199,9 @@ cx_jumptab
 ; --- palette (VERA's 256-entry colour table at $1FA00) -----------
     jmp cx_do_pal_set    ; 97  X = index (0-255), A = low byte (Green<<4|Blue), Y = high byte (Red) -- set one entry
     jmp cx_do_pal_load   ; 98  P0/P1 = source (2 bytes/entry, low byte first), A = first index, X = count (1-128) -- bulk-load entries from RAM
+
+; --- menu state --------------------------------------------------
+    jmp cx_do_menu_active ; 99  -> A = 1 if a menu is open (mouse or keyboard), 0 if none; Z set when none
 
 .popseg
 

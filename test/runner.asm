@@ -78,6 +78,7 @@ main
     jsr test_abi_header
     jsr test_abi_table
     jsr test_abi_call
+    jsr test_menu_active
 
     jsr test_rg_stack
     jsr test_rg_route
@@ -1618,14 +1619,14 @@ test_abi_header
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #99                     ; 31 shipped with the table; loader, events,
+    cmp #100                    ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the
                                 ; graphics port, tiles, ellipses, asset loaders,
                                 ; the modal panel, the game raster + its
                                 ; borrow/return pair, sprite collision, the icon,
-                                ; the palette pair -- grew it
+                                ; the palette pair, cx_menu_active -- grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
@@ -1635,6 +1636,30 @@ test_abi_header
     ldy #>@name
     jmp t_result
 @name .byte "ABI_HEADER", 0
+
+; MENU_ACTIVE: cx_menu_active reads mn_open through mn_active, so an app can
+; tell a menu is dropped -- opened by the mouse or the keyboard, both set
+; mn_open. The far-call stub is exercised by test_farcall and the desktop;
+; this pins the bank-2 half's logic and its Z flag.
+test_menu_active
+    ldy #1                      ; assume fail
+    stz mn_open                 ; no menu open -> A = 0, Z set
+    jsr mn_active
+    bne @report                 ; nonzero: wrong
+    lda #1                      ; a menu open -> A = 1, Z clear
+    sta mn_open
+    jsr mn_active
+    beq @report                 ; zero: wrong
+    cmp #1
+    bne @report
+    stz mn_open                 ; leave it closed
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "MENU_ACTIVE", 0
 
 ; ABI_TABLE: every slot is a JMP ($4C), three bytes apart, to somewhere
 ; that is not zero. A slot whose impl went missing would be caught by

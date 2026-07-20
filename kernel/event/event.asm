@@ -610,11 +610,19 @@ ev_do_mouse
     lda ev_ny+1
     sta ev_my+1
     plp
-    beq @buttons                ; first sample: seeded, silent
+    beq @seedbtn                ; first sample: no move -- and seed the button
     lda #EV_MOUSE_MOVE
     sta ev_rec
     stz ev_rec+1
     jsr ev_push_move
+    bra @buttons
+@seedbtn                        ; the pointer just APPEARED (a fresh ev_init).
+    lda ev_btn_now              ; A button still HELD from the click that
+    sta ev_btn                  ; launched or exited the last program is not a
+                                ; fresh press for this one -- seed it, silent,
+                                ; the way ev_mx seeds the position. Without this
+                                ; a mouse-button exit's held click posts a stray
+                                ; DOWN the desktop reads on the wrong file.
 
 @buttons
     lda ev_btn_now
