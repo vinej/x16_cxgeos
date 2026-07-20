@@ -1,7 +1,7 @@
 # CXGEOS p8sdk Guide — Prog8 for CXGEOS
 
-**Release 0.7.1** · binding: `sdk/include_prog8/cxgeos.p8` (block `cx`) · friendly
-layer: `p8sdk/cxui.p8` (block `ui`)
+**Release 0.8.0** · ABI version 2 · binding: `sdk/include_prog8/cxgeos.p8`
+(block `cx`) · friendly layer: `p8sdk/cxui.p8` (block `ui`)
 
 Prog8 ([Irmen de Jong's structured 6502 language](https://prog8.readthedocs.io))
 is a first-class CXGEOS toolchain. There are **two layers**:

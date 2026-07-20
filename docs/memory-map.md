@@ -22,7 +22,7 @@ file in the same commit as the code that claims or releases a region.
 | $0200–$07FF | KERNAL/DOS | untouched — the X16_Geos project died on this hill: the IRQ handler lives at $038B on stock R49; we never go near it |
 | $0801–$7FFF | application | ~30KB, loaded/reset by the kernel loader |
 | $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector, `cx_hdr_shell` ($800A) desktop-state byte (survives app loads) |
-| $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 100 slots used ($8010–$813B), reserve caps at 135 (35 free) |
+| $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 101 slots used ($8010–$813E), reserve caps at 135 (34 free) |
 | $81A5–$81A8 | build word | `CX_KBUILD` (`banks.inc`), the reserve's tail; stage-0 checks it against the banked files |
 | $81A9–$95FF | resident kernel | ~5.2 KB budget, ~130 B free: event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard, port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
 | $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` ([graphics-port.md](graphics-port.md)) |
@@ -48,9 +48,9 @@ here are the v0.6.0 snapshot; run it for today's.
 | 10–13 | clipboard | typed text / bitmap-rect, up to 32 KB | — | — | data |
 | 14–15 | save-under | dialog save-unders / DA saved state | — | — | data |
 | 16 | **widgets** | `B16CODE`: the whole toolkit (code + `wg_*` state) + `wg_paint_t`; includes the icon and `WG_HIT` widgets | ~4.1 KB | ~4.1 KB | **a new widget** — and nowhere else |
-| 17 | **graphics extras** | `B17CODE`: shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects + the icon sheet + the palette API | ~4.3 KB | ~3.9 KB | **a new shape** |
-| 18 | **fs / system** | `B18CODE`: dir walk + `cx_file_load` + `cx_vload`/`cx_bload` + DOS channel + the font cold half (magic/header/cache builder) + `f_magic` | ~1.2 KB | ~7.0 KB | an fs/DOS feature; cold system code |
-| 19 | **audio / sprites** | `B19CODE`: PSG + YM (with the carry shims) + hardware sprites | ~0.9 KB | ~7.3 KB | an audio/sprite feature |
+| 17 | **graphics extras** | `B17CODE`: base shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects + the icon sheet + the palette API | ~4.4 KB | ~3.8 KB | **a new base shape** |
+| 18 | **fs / system / audio / sprites** | `B18CODE`: dir walk + `cx_file_load` + `cx_vload`/`cx_bload` + DOS channel + the font cold half (magic/header/cache builder) + `f_magic`; and (0.8.0) PSG + YM audio (with the carry shims) + hardware sprites | ~2.1 KB | ~6.1 KB | an fs/DOS feature; cold system code; audio/sprites |
+| 19 | **extra shapes** | `B19CODE` (0.8.0): the dispatched `cx_gfx_shape` family — polygon / fpolygon / arc / pie + the sin/cos table they need | ~4.1 KB | ~4.1 KB | **a new extra shape** |
 | 20+ | **the app's** | `cx_bload` targets (refuses < `CX_APP_BANK_FLOOR` = 20), window backing store, allocations, file buffers | — | — | — |
 
 **Each of banks 16–19 opens with an 8-byte signature** (`"CXB"`, bank #,
@@ -66,9 +66,11 @@ The banks are themed so a new feature touches exactly one, and each has
 ~5–7 KB of reserve so it does not reshuffle anything:
 
 - **A new widget** → bank 16, beside the toolkit (its state goes there too).
-- **A new shape** → bank 17. **A new tile op** → bank 17.
+- **A new base shape** → bank 17. **A new tile op** → bank 17.
 - **A new fs / DOS / loader routine** → bank 18. Cold system code → bank 18.
-- **A new audio voice or sprite feature** → bank 19.
+  **A new audio voice or sprite feature** → bank 18 (they share it since 0.8.0).
+- **A new extra shape** (polygon/arc/pie family) → bank 19, added as another
+  `kind` in the `cx_gfx_shape` dispatcher.
 - **A menu / theme / desk-accessory feature** → bank 2.
 - **A new overlay engine image** → bank 3, 4 or 5 storage (they hold ~6 KB
   free each); the image *runs* in the OVL window, which is the tighter

@@ -15,7 +15,7 @@ in [memory-map.md](memory-map.md).
   mapped — the IRQ + event loop, region routing, the far-call trampoline
   `cxb_call`, the loader, the clipboard, the save-under streamer, and the
   font *draw* path. Keeps ~130 free bytes; `mapreport` fails under 128.
-- **Jump table** (`$8010`–`$81A4`): 100 slots defined, 135 reserved (35 free).
+- **Jump table** (`$8010`–`$81A4`): 101 slots defined, 135 reserved (34 free).
   Slot *n* lives at `$8010 + n·3` **forever** — that and `$8000`/`$9F00` are
   the only external promises. The build word `CX_KBUILD` is the 4 bytes at
   `$81A5`, the reserve's tail.
@@ -24,7 +24,8 @@ in [memory-map.md](memory-map.md).
 - **Code banks 2–5** (`CXBANKS.BIN`, one boot LOAD): 2 UI core, 3/4 mode-0/1
   images, 5 dialogs + mode-2/3 images.
 - **Code banks 16–19** (`CXBANKS2.BIN`, a second boot LOAD): 16 widgets, 17
-  graphics extras, 18 fs/system, 19 audio/sprites. Each opens with an
+  graphics extras (base shapes/tiles/dirty), 18 fs/system + audio/sprites,
+  19 extra shapes (the 0.8.0 polygon/arc/pie family). Each opens with an
   8-byte build signature stage-0 checks.
 - **Data banks 6–15**, **app banks 20+** — see the ledger.
 
@@ -105,12 +106,22 @@ resolves the labels even though it never banks.
 
 ## Playbook: add a shape
 
-1. Add it to `kernel/video/shapes.asm` (bank 17, `B17CODE`) or the vendored
-   `x16lib/gfx/shapes.asm` it includes. Draw through the port override
-   symbols (`SHP_PSET`/`SHP_READ`/`SHP_HLINE`, bounds `cx_cur_w`/`cx_cur_h`)
-   so it is correct in every bitmap mode.
-2. New ABI slot → the ABI playbook. Keep any state in bank 17 with the code.
-3. Never call a shape from IRQ context.
+A shape lives in the vendored `x16lib/gfx/shapes.asm`, drawn through the port
+override symbols (`SHP_PSET`/`SHP_READ`/`SHP_HLINE`, bounds `cx_cur_w`/
+`cx_cur_h`) so it is correct in every bitmap mode. `kernel/video/shapes.asm`
+binds those and places the code in a bank. Two homes:
+
+- **A base shape** (circle-like, its own ABI slot): bank 17 (`B17CODE`), a
+  far-call stub per slot as circle/disc/ellipse/flood have.
+- **An extra shape** (the 0.8.0 polygon/arc/pie family): bank 19 (`B19CODE`),
+  reached through the ONE dispatched slot `cx_gfx_shape`. Enable its
+  `X16_USE_SHAPES_*` gate in the bank-19 include, add its routine to the
+  `shp_vec` table + a `kind` -- no new resident stub, no new ABI slot. The
+  `SKIP_BASE` guard lets shapes.asm be included in both banks without a
+  duplicate symbol; the sin/cos table (`util/math.asm`) rides bank 19 too.
+
+1. New base-shape ABI slot → the ABI playbook; keep state in the same bank.
+2. Never call a shape from IRQ context.
 4. Verify with PAINT (flood/circle/ellipse) on target.
 
 ## Playbook: add a bank (a third code file)

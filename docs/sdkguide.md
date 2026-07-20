@@ -1,7 +1,7 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.7.1** · ABI version 1 · 100 slots (append-only; slot 99
-`cx_menu_active` added in 0.7.1)
+**Release 0.8.0** · ABI version 2 · 101 slots (append-only; slot 100
+`cx_gfx_shape`)
 
 This documents `sdk/include_<compiler>/cxgeos.h` (and `.inc`) — the
 **generated**, low-level binding to the kernel. It is what every CXGEOS app
@@ -112,8 +112,8 @@ python tools/mkcxap.py build/MYAPP.PRG build/MYAPP.CXA --name "My App"
 
 | name | value | meaning |
 |---|---|---|
-| `CX_ABI_VERSION` | `1` | the ABI version these bindings were cut from |
-| `CX_ABI_SLOTS` | `100` | the number of slots defined (indices 0–99) |
+| `CX_ABI_VERSION` | `2` | the ABI version these bindings were cut from |
+| `CX_ABI_SLOTS` | `101` | the number of slots defined (indices 0–100) |
 
 Query the *running* kernel's version with `cx_version` (slot 0); the loader
 refuses an app whose min-ABI exceeds it.
@@ -356,7 +356,7 @@ bounding box.
 ### Audio — the VERA PSG (16 voices)
 
 Voice registers are write-only; a set is fire-and-forget. A frequency word
-is Hz × 2.68435 (A4 = 440 Hz is 1181). *(Added in 0.2.0.)*
+is Hz × 2.68435 (A4 = 440 Hz is 1181).
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
@@ -368,7 +368,7 @@ is Hz × 2.68435 (A4 = 440 Hz is 1181). *(Added in 0.2.0.)*
 
 ### Audio — the YM2151 FM chip
 
-Through the ROM audio driver (bank-switched). *(Added in 0.2.0.)*
+Through the ROM audio driver (bank-switched).
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
@@ -381,7 +381,7 @@ Through the ROM audio driver (bank-switched). *(Added in 0.2.0.)*
 ### Sprites — VERA hardware sprites
 
 Sprite 0 is the KERNAL mouse; apps drive 1–127 with image data in the
-`$1E000` VRAM region. Image data is 32-byte aligned. *(Added in 0.2.0.)*
+`$1E000` VRAM region. Image data is 32-byte aligned.
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
@@ -390,7 +390,7 @@ Sprite 0 is the KERNAL mouse; apps drive 1–127 with image data in the
 | 67 | `CX_SPRITE_SIZE` | `$80D9` | X=sprite, A=width code (0=8,1=16,2=32,3=64), Y=height code, P0=palette offset | size + palette |
 | 68 | `CX_SPRITE_FLAGS` | `$80DC` | X=sprite, A=collision<<4\|Z(0/4/8/`$C`)\|vflip<<1\|hflip | full write (do once before `CX_SPRITE_Z`) |
 | 69 | `CX_SPRITE_Z` | `$80DF` | X=sprite, A=Z-depth only (0 hides, 4 behind, 8 middle, `$C` front) | show/hide (RMW) |
-| 95 | `CX_SPR_COLLIDE` | `$812D` | → A=the collision groups seen since the last call (one bit per group, top nibble), Z if none | poll sprite collisions; arm with `CX_EV_MASK` bit 2 first. *(Added in 0.6.1.)* |
+| 95 | `CX_SPR_COLLIDE` | `$812D` | → A=the collision groups seen since the last call (one bit per group, top nibble), Z if none | poll sprite collisions; arm with `CX_EV_MASK` bit 2 first. |
 
 ### Icons — the built-in 24×24 sheet
 
@@ -433,8 +433,7 @@ file browser this exists for.
 Program palette entries directly — most useful to a mode-1 (8bpp) app that
 wants a few custom colours without loading a full 512-byte block through
 `CX_VLOAD`. A 12-bit `$0RGB` colour stores as byte 0 = `Green<<4 | Blue`,
-byte 1 = `Red` (so `$0F00` is pure red). The table is write-only. *(Added in
-0.7.0.)*
+byte 1 = `Red` (so `$0F00` is pure red). The table is write-only.
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
@@ -444,7 +443,7 @@ byte 1 = `Red` (so `$0F00` is pure red). The table is write-only. *(Added in
 ### PCM audio — the VERA 4 KB FIFO
 
 Refilled each frame off the event IRQ, so `CX_EV_INIT` must be running.
-The sample source is low RAM; samples are signed bytes. *(Added in 0.2.0.)*
+The sample source is low RAM; samples are signed bytes.
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
@@ -460,7 +459,7 @@ B/Y/SELECT/START/UP/DOWN/LEFT/RIGHT (bit 7..0), high byte A/X/L/R in bits
 7:4. Pad 0 is the keyboard joystick -- its presence tracks a physical
 pad, but its data is valid regardless. EV_JOY (event type 9) follows the
 EV_MENU precedent: posted only after CX_JOY_ENABLE, so old handler
-tables are never over-indexed. *(Added in 0.3.0.)*
+tables are never over-indexed.
 
 | slot | name | addr | args -> result | purpose |
 |---|---|---|---|---|
@@ -472,7 +471,7 @@ tables are never over-indexed. *(Added in 0.3.0.)*
 The gfx slots (2-14) always target the port's entry vector; which engine
 answers is the MODE -- see [graphics-port.md](graphics-port.md). Mode 0 =
 640x480 @2bpp (the GUI), mode 1 = 320x240 @8bpp, mode 2 = tiles.
-`CX_GFX_INIT` always lands in mode 0. *(Added in 0.3.0.)*
+`CX_GFX_INIT` always lands in mode 0.
 
 | slot | name | addr | args -> result | purpose |
 |---|---|---|---|---|
@@ -507,8 +506,7 @@ bytes for the family. The friendly layers unpack it into named calls
 
 Tile images live at VRAM `$00000` (4bpp 8x8, 32 bytes each; upload with
 the csdk's `cx_vram_write`); the maps are 64x32 cells at `$08000` (layer
-0) / `$09000` (layer 1). All refuse with carry outside mode 2. *(Added
-in 0.3.0.)*
+0) / `$09000` (layer 1). All refuse with carry outside mode 2.
 
 | slot | name | addr | args -> result | purpose |
 |---|---|---|---|---|
@@ -520,7 +518,7 @@ in 0.3.0.)*
 ### Asset loaders
 
 Read a file off the SD straight into RAM, VRAM, or a banked buffer — how
-fonts, charsets, bitmaps and sample data come off the disk. *(Added in 0.4.0.)*
+fonts, charsets, bitmaps and sample data come off the disk.
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|

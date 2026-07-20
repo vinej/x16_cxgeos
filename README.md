@@ -1,17 +1,18 @@
 # CXGEOS
 
-V0.7.1 — **a friendly assembly macro SDK, and desktop fixes**. `asmsdk/ca65`
-layers named one-line `cxm_*` macros and descriptor builders over the raw jump
-table — the assembly parallel of the C `csdk` — so an app reads by intent
-instead of hand-loading the parameter block, and expands **byte-identical** to
-hand code; all ten in-tree assembly apps now use it. A new `cx_menu_active`
-ABI slot (100 now) lets an app tell that a menu is dropped by the mouse **or**
-the keyboard, so the desktop sends the cursor keys to a menu you opened by
-clicking; and two exit-path fixes keep a mode-switching app (modes 1/3) from
-returning you to the desktop on the wrong file.
-(v0.7.0 added **invisible hit regions and a palette API**; v0.6.1 a **graphical
-icon widget and an icon-view desktop**; v0.6.0 the per-bank **memory
-architecture** — see [docs/banks.md](docs/banks.md).) See /docs for the guides.
+V0.8.0 — **Prog8 support, and more shapes**. Prog8 (Irmen de Jong's structured
+6502 language) joins as a **13th toolchain**: a generated `cx.*` binding to
+every ABI slot, plus `p8sdk/` — the Prog8 parallel of the C `csdk` — with
+immediate-mode widget painters, a one-call event poll, and runtime descriptor
+builders. `apps/calc/calc.p8` is the worked example (a floating-point
+calculator) and `apps/uidemo_prog8` the widget showcase. And x16lib 0.8.0's
+extra shapes — **polygon, filled polygon, arc, pie** — arrive through a single
+dispatched ABI slot (`cx_gfx_shape`, X selects the shape), just 6 resident
+bytes for the whole family; the friendly layers unpack it into named
+`cx_polygon` / `cx_arc` / … calls.
+(v0.7.1 added the **ca65 macro SDK**; v0.7.0 **invisible hit regions and a
+palette API**; v0.6.x the per-bank **memory architecture** — see
+[docs/banks.md](docs/banks.md).) See /docs for the guides.
 
 A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
 
@@ -43,11 +44,13 @@ A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
 - **Native CMDR-DOS FAT32 files** — no .d64 images, no disk swapping.
 - **Apps in any toolchain**: a GEOS-style fixed jump-table ABI with generated
   bindings for 7 assemblers (ACME, ca65, 64tass, KickAssembler, dasm, MADS,
-  vasm) and 5 C compilers (cc65, llvm-mos, KickC, Oscar64, vbcc).
+  vasm), 5 C compilers (cc65, llvm-mos, KickC, Oscar64, vbcc), and **Prog8**.
 - **A documented SDK**: friendly wrappers over the ABI — a header-only **C**
-  wrapper (`csdk/`, typed `cx_*` calls) and a **ca65 macro** layer
+  wrapper (`csdk/`, typed `cx_*` calls), a **ca65 macro** layer
   (`asmsdk/ca65/`, one-line `cxm_*` macros that pack the parameter block for
-  you and read byte-identical to hand code). Both cover graphics, text, events,
+  you and read byte-identical to hand code), and a **Prog8** layer (`p8sdk/`,
+  the `ui` block: widget painters, an event poll, descriptor builders). All
+  cover graphics, text, events,
   widgets, dialogs, themes, files, clipboard, **audio** (VERA PSG, the YM2151
   FM chip, streamed PCM) and **hardware sprites**, (0.3.0) **joysticks**, the
   four video modes above, and the mode-agnostic **shapes**, and **pluggable

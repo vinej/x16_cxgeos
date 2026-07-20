@@ -1,6 +1,6 @@
 # CXGEOS asmsdk Guide — the friendly ca65 macros
 
-**Release 0.7.1** · ABI version 1 · 100 slots · include: `asmsdk/ca65/cxgeos.inc`
+**Release 0.8.0** · ABI version 2 · 101 slots · include: `asmsdk/ca65/cxgeos.inc`
 
 The asmsdk is to assembly what [csdk](csdkguide.md) is to C: named one-line
 **macros** over the raw jump-table equates, plus the shared constants and
