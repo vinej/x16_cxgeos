@@ -25,7 +25,11 @@ assemblers and C compilers**. They live under `sdk/`:
 For assembly, pick whichever dialect you already use — swap the include
 in the examples below (`sdk/include_ca65/…` → `sdk/include_acme/…`, etc.)
 and assemble with that tool. This guide uses **ca65**, the dialect the
-sample apps and `build.ps1` are written in.
+sample apps and `build.ps1` are written in. On ca65 you can also layer the
+**asmsdk** (`asmsdk/ca65/cxgeos.inc`) on top — one-line `cxm_*` macros that
+pack the parameter block for you, plus descriptor builders; see
+[asmsdkguide.md](asmsdkguide.md). It expands byte-identical to hand code, so
+it costs nothing.
 
 For C, use **llvm-mos**. Its header carries the friendly `cx_*` calls,
 and the `csdk/` wrappers (a typed `cx_event`, `cx_rect`, `cx_say`, …) are
@@ -64,8 +68,9 @@ check from the repo root:
 
 ## 2. Where an app lives
 
-The SDK headers (`sdk/`), the C wrapper (`csdk/`), and the assembly HAL
-(`x16lib/`) are resolved by **include path relative to the repo root**.
+The SDK headers (`sdk/`), the friendly wrappers (`csdk/` for C,
+`asmsdk/ca65/` for ca65), and the assembly HAL (`x16lib/`) are resolved by
+**include path relative to the repo root**.
 The simplest, fully-supported flow is to develop your app *inside the
 tree*, next to the sample apps:
 

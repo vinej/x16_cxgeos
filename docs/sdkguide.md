@@ -1,12 +1,14 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.7.0** · ABI version 1 · 99 slots (append-only)
+**Release 0.7.0** · ABI version 1 · 100 slots (append-only; slot 99
+`cx_menu_active` added since 0.7.0)
 
-This documents `sdk/include_<compiler>/cxgeos.h` — the **generated**, low-level
-binding to the kernel. It is what every CXGEOS app ultimately calls. C
-developers will usually prefer the friendlier [csdk](csdkguide.md) layered on
-top of it, but the csdk is written *against* this header, so understanding it
-explains what the csdk does under the hood.
+This documents `sdk/include_<compiler>/cxgeos.h` (and `.inc`) — the
+**generated**, low-level binding to the kernel. It is what every CXGEOS app
+ultimately calls. Most developers prefer a friendly layer over it —
+[csdk](csdkguide.md) for C, [asmsdk](asmsdkguide.md) for ca65 assembly — but
+both are written *against* this binding, so understanding it explains what they
+do under the hood.
 
 The header is generated from `abi/cxgeos.abi` by `abi/gen_bindings.py`; do not
 edit it by hand. There is one per toolchain (`include_llvm`, `include_ca65`,
@@ -111,7 +113,7 @@ python tools/mkcxap.py build/MYAPP.PRG build/MYAPP.CXA --name "My App"
 | name | value | meaning |
 |---|---|---|
 | `CX_ABI_VERSION` | `1` | the ABI version these bindings were cut from |
-| `CX_ABI_SLOTS` | `99` | the number of slots defined (indices 0–98) |
+| `CX_ABI_SLOTS` | `100` | the number of slots defined (indices 0–99) |
 
 Query the *running* kernel's version with `cx_version` (slot 0); the loader
 refuses an app whose min-ABI exceeds it.
@@ -210,6 +212,7 @@ across the borrow and returns it on scanline 0. See
 | 33 | `CX_MENU_SET` | `$8073` | A/X=menu bar → carry if region stack full | install the menu bar (draws it, owns the top strip) |
 | 34 | `CX_MENU_OFF` | `$8076` | — | forget the menu (only with none open) |
 | 41 | `CX_MENU_KEY` | `$808B` | A=key → carry if it was a menu key | drive the bar from the keyboard; clobbers X/Y |
+| 99 | `CX_MENU_ACTIVE` | `$8139` | — → A=1 if a menu is open (mouse or keyboard), Z set if none | so an app can route the cursor keys to a menu the user opened by clicking |
 
 ### The pointer
 
@@ -423,6 +426,7 @@ fonts, charsets, bitmaps and sample data come off the disk. *(Added in 0.4.0.)*
 ## See also
 
 - [csdkguide.md](csdkguide.md) — the friendly C wrapper over these slots.
+- [asmsdkguide.md](asmsdkguide.md) — the friendly ca65 macros over these slots.
 - [formats.md](formats.md) — the byte layouts of fonts, apps, menus, widgets,
   dialogs and themes.
 - [memory-map.md](memory-map.md) — the ZP / RAM / VRAM ledger.

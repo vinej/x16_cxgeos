@@ -15,7 +15,7 @@ in [memory-map.md](memory-map.md).
   mapped — the IRQ + event loop, region routing, the far-call trampoline
   `cxb_call`, the loader, the clipboard, the save-under streamer, and the
   font *draw* path. Keeps ~130 free bytes; `mapreport` fails under 128.
-- **Jump table** (`$8010`–`$81A4`): 99 slots defined, 135 reserved (36 free).
+- **Jump table** (`$8010`–`$81A4`): 100 slots defined, 135 reserved (35 free).
   Slot *n* lives at `$8010 + n·3` **forever** — that and `$8000`/`$9F00` are
   the only external promises. The build word `CX_KBUILD` is the 4 bytes at
   `$81A5`, the reserve's tail.
@@ -134,7 +134,7 @@ theme bank genuinely overflows AND has no sibling reserve to borrow. Adding
 
 ## Playbook: add an ABI slot
 
-The table has 36 free slots (cap 135). Slots are **append-only** — never
+The table has 35 free slots (cap 135). Slots are **append-only** — never
 reorder or repurpose one; the frozen canary (`test/canary/CANARY.CXA`) is an
 app from the past that must keep passing.
 

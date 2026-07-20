@@ -44,17 +44,20 @@ A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
 - **Apps in any toolchain**: a GEOS-style fixed jump-table ABI with generated
   bindings for 7 assemblers (ACME, ca65, 64tass, KickAssembler, dasm, MADS,
   vasm) and 5 C compilers (cc65, llvm-mos, KickC, Oscar64, vbcc).
-- **A documented SDK**: a friendly header-only C wrapper (`csdk/`) over the
-  ABI — graphics, text, events, widgets, dialogs, themes, files, clipboard,
-   **audio** (VERA PSG, the YM2151 FM chip, streamed PCM) and
-  **hardware sprites**, (0.3.0) **joysticks**, the four video modes
-  above, and the mode-agnostic **shapes**, and **pluggable fonts
-  and charsets**, the **asset loaders** (`cx_file_load`, and
+- **A documented SDK**: friendly wrappers over the ABI — a header-only **C**
+  wrapper (`csdk/`, typed `cx_*` calls) and a **ca65 macro** layer
+  (`asmsdk/ca65/`, one-line `cxm_*` macros that pack the parameter block for
+  you and read byte-identical to hand code). Both cover graphics, text, events,
+  widgets, dialogs, themes, files, clipboard, **audio** (VERA PSG, the YM2151
+  FM chip, streamed PCM) and **hardware sprites**, (0.3.0) **joysticks**, the
+  four video modes above, and the mode-agnostic **shapes**, and **pluggable
+  fonts and charsets**, the **asset loaders** (`cx_file_load`, and
   `cx_vload`/`cx_bload` for the VLOAD-shaped binaries every X16 graphics
   tool exports), **mode-1 text** with `cx_ink`, and the **event source
   mask**. Music loads today (ZSM via `cx_bload`); a zsmkit-based player
   is planned, not in yet. Guides in
-  [docs/sdkguide.md](docs/sdkguide.md), [docs/csdkguide.md](docs/csdkguide.md)
+  [docs/sdkguide.md](docs/sdkguide.md), [docs/csdkguide.md](docs/csdkguide.md),
+  [docs/asmsdkguide.md](docs/asmsdkguide.md)
   and [docs/graphics-port.md](docs/graphics-port.md); the kernel's bank
   layout and how to extend it in [docs/banks.md](docs/banks.md).
 - Foundationed on [x16lib](https://github.com/vinej/x16_library): the kernel
@@ -67,12 +70,14 @@ A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
 kernel/           the OS: boot, resident core, gfx2, fonts, events, ui, shell, fs
 x16lib/           vendored x16_library src_ca65 tree (pinned; see below)
 abi/              jump-table manifest + binding generator
-sdk/              GENERATED bindings + app skeletons (committed)
+sdk/              GENERATED bindings, one per toolchain (committed)
+csdk/             friendly C wrapper over the ABI (cx_* functions)
+asmsdk/ca65/      friendly ca65 macro layer over the ABI (cxm_* macros)
 apps/             system applications and desk accessories
 spikes/           Phase 0 throwaway risk prototypes (perf numbers in docs/perf.md)
 tools/            font converter, SD-image builder, CXAP wrapper
 test/             on-target regression suites (x16lib runner pattern)
-docs/             the guides: graphics-port, sdk, csdk, formats, memory-map, perf, ui
+docs/             the guides: graphics-port, sdk, csdk, asmsdk, formats, memory-map, perf, ui
 ```
 
 ## Building

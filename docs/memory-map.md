@@ -22,7 +22,7 @@ file in the same commit as the code that claims or releases a region.
 | $0200–$07FF | KERNAL/DOS | untouched — the X16_Geos project died on this hill: the IRQ handler lives at $038B on stock R49; we never go near it |
 | $0801–$7FFF | application | ~30KB, loaded/reset by the kernel loader |
 | $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector, `cx_hdr_shell` ($800A) desktop-state byte (survives app loads) |
-| $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 99 slots used ($8010–$8138), reserve caps at 135 (36 free) |
+| $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 100 slots used ($8010–$813B), reserve caps at 135 (35 free) |
 | $81A5–$81A8 | build word | `CX_KBUILD` (`banks.inc`), the reserve's tail; stage-0 checks it against the banked files |
 | $81A9–$95FF | resident kernel | ~5.2 KB budget, ~130 B free: event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard, port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
 | $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` ([graphics-port.md](graphics-port.md)) |
@@ -75,7 +75,7 @@ The banks are themed so a new feature touches exactly one, and each has
   limit (2,304 B — the mode-0 image is 2,228, only 76 B of headroom).
 - **Resident code** (IRQ / event / hot-path only) → the resident image,
   which keeps ~130 B free; `mapreport.py` fails the build under 128 B.
-- **A new ABI slot** → the jump table has 36 free slots (cap 135); see
+- **A new ABI slot** → the jump table has 35 free slots (cap 135); see
   `docs/banks.md` for the append + regenerate + canary steps.
 
 When a code bank fills, it borrows reserve from a sibling (change the
@@ -219,7 +219,7 @@ pulls in, the image carries whether anything calls it or not.
   and writes the cache through a resident poke, because bank-18 code
   cannot page a bank into its own window. That freed 186 bytes, which the
   jump table spent widening from ~110 to 135 slots. Resident now holds
-  ~130 free bytes and the table 36 free slots — see the ledger above and
+  ~130 free bytes and the table 35 free slots — see the ledger above and
   `docs/banks.md`.
 
 ## The boot chain (Phase 4c)

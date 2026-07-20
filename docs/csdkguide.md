@@ -358,6 +358,12 @@ success, 1 if the region stack is full. Call after `cx_ev_init`.
 (DOWN opens, arrows walk, RETURN picks, ESC dismisses); returns 1 if it was a
 menu key. **Clobbers X/Y** — never carry a register across it.
 
+**`unsigned char cx_menu_active(void)`** *(slot 99)* — 1 if a menu is currently
+dropped, opened by the mouse **or** the keyboard, else 0. An app with both a
+menu bar and its own widgets uses it to send the cursor keys to a menu the user
+opened by clicking — otherwise a mouse-opened menu is invisible and the arrows
+drive the wrong widget: `if (cx_menu_active()) cx_menu_key(key); else …`.
+
 **`void cx_wg_set(const void *list)`** — install and draw a widget list; routes
 its clicks and posts `CX_ET_WIDGET`.
 
