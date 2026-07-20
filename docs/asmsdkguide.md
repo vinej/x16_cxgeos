@@ -248,6 +248,10 @@ events.
 | `cxm_wg_icon x, y, w, h, id, label` | a 24×24 icon (`id` = `CX_ICON_*`) |
 | `cxm_wg_hit x, y, w, h, shape, trig` | an invisible hit region (`shape` = `CX_WH_*`, `trig` = trigger mask) |
 
+`cxm_wg_icon` and, especially, `cxm_wg_hit` get a full section further down
+— see [Icons](#icons) and
+[Hit regions — build your own widget (`WG_HIT`)](#hit-regions--build-your-own-widget-wg_hit).
+
 **`cxm_wcount first, last`** — a widget list is a count byte then the records.
 Put a label at each end and let the count compute itself:
 
@@ -317,6 +321,188 @@ theme_night:
     cxm_theme_rec $0001, $0123, $0356, $0ABC, 0, 1, 3
     cxm_theme_set theme_night
 ```
+
+---
+
+## Icons
+
+The kernel ships a built-in 24×24 icon sheet — the same eight glyphs the
+desktop's file browser draws — plus `cxm_icon` to blit any one of them
+directly, in either bitmap mode.
+
+| id | constant | icon |
+|---|---|---|
+| 0 | `CX_ICON_UP` | up one directory level |
+| 1 | `CX_ICON_FOLDER` | a directory |
+| 2 | `CX_ICON_APP` | an application |
+| 3 | `CX_ICON_FONT` | a font |
+| 4 | `CX_ICON_ACCESSORY` | a desk accessory |
+| 5 | `CX_ICON_DATA` | any other file |
+| 6 | `CX_ICON_IMAGE` | a picture/image |
+| 7 | `CX_ICON_DISK` | a disk/volume |
+
+```asm
+cxm_icon CX_ICON_FOLDER, 40, 60      ; paint one icon directly
+cxm_say  s_projects, 44, 88          ; your own caption under it
+```
+
+### As a widget (`cxm_wg_icon`)
+
+The kernel-managed form draws the icon **and** a centred label, tracks
+clicks, and — like the desktop's icon view — tells a single click from a
+double: `EV_WIDGET` posts value 0 on click (select), 1 on double-click
+(open). It is one call in a widget list, same as any other builder:
+
+```asm
+files:
+    cxm_wcount   files, files_end
+    cxm_wg_icon   40, 60, 96, 66, CX_ICON_FOLDER, s_projects
+    cxm_wg_icon  140, 60, 96, 66, CX_ICON_APP,    s_editor
+files_end:
+
+    cxm_wg_set files
+    ; a click -> EV_WIDGET: P1 = index, P2 = 0 (select) or 1 (open)
+
+s_projects .byte "Projects", 0
+s_editor   .byte "Editor", 0
+```
+
+See `apps/filer/filer.asm` for the real icon-grid file browser this exists
+for — it builds the records at runtime, one per directory entry, rather
+than as a static list, but the 16-byte record is identical either way.
+
+## Hit regions — build your own widget (`WG_HIT`)
+
+Six of the seven widget types are the kernel drawing something. `WG_HIT`
+(`cxm_wg_hit`) is the exception, and it is the most important one: **it
+paints nothing at all.** You draw a shape with your own `cxm_gfx_*` calls —
+a dial, a sprite, a game piece, an image map over a picture you loaded —
+and lay an invisible `WG_HIT` record over it. The toolkit hit-tests that
+record with the same region-stack machinery already serving every button
+and checkbox on screen, including true **hover** tracking. This is the
+sanctioned way to build a custom widget in CXGEOS: the kernel does not need
+to know your shape, only its box and which of three built-in tests to run
+against it.
+
+### Why it earns its keep
+
+- **Any look.** The widget can be anything you can draw — the kernel's
+  contribution is purely "is the pointer inside," not pixels.
+- **Real geometry, not just a bounding box.** `WG_HIT` can test a
+  rectangle, a circle, or an ellipse inscribed in the box — the exact math
+  `cxm_gfx_circle`/`cxm_gfx_ellipse` use to draw the outline, so the hit
+  region lines up with what the user actually sees, not an invisible
+  square around it.
+- **Hover for free.** No other technique in the toolkit gives you
+  enter/leave tracking without polling the mouse position yourself every
+  frame.
+- **Zero cost when unused.** The shape math and hover state live in bank
+  16 with the rest of the widget engine; a click-only list, or a list with
+  no hit region at all, pays nothing extra on a mouse move.
+
+### The shape (`shape` / `WG_VAL`)
+
+| constant | value | tests |
+|---|---|---|
+| `CX_WH_RECT` | 0 | the box itself — the default, every other widget's test |
+| `CX_WH_CIRCLE` | 1 | a circle inscribed in the box — make the box square |
+| `CX_WH_ELLIPSE` | 2 | an ellipse inscribed in the box |
+
+Circle and ellipse share one normalised test — from the box's centre,
+`nx = |dx|·128/rx`, `ny = |dy|·128/ry`, inside when `nx²+ny² ≤ 128²` — the
+same fixed-point routine `cxm_gfx_circle`/`cxm_gfx_ellipse` use to draw the
+outline, so a hit region's edge lines up with the shape you actually drew.
+Keep the box's width and height each ≤ 510 px.
+
+### Mouse functionality — the trigger mask (`trig` / `WG_GRP`)
+
+| constant | bit | fires on |
+|---|---|---|
+| `CX_WH_CLICK` | `%001` | mouse button pressed inside the shape |
+| `CX_WH_RELEASE` | `%010` | mouse button released inside the shape |
+| `CX_WH_HOVER` | `%100` | the pointer enters or leaves the shape — no button needed |
+
+Combine bits with `|` in the macro call (ca65 evaluates it at assemble
+time); `trig = 0` means click-only. Every event a subscribed region posts
+arrives as `EV_WIDGET` — `X16_P1` is the region's index in the list,
+`X16_P2` is the **phase**:
+
+| `X16_P2` | phase |
+|---|---|
+| 2 | down — `CX_WH_CLICK` fired |
+| 3 | up — `CX_WH_RELEASE` fired |
+| 1 | hover-in: the pointer just entered |
+| 0 | hover-out: the pointer just left (or left everything) |
+
+A double-click inside the region still posts phase 2, same as a single
+click — hit regions do not distinguish the two the way the icon and list
+widgets do.
+
+### Building one
+
+`cxm_wg_hit x0, y0, w0, h0, shape, trig` lays down the whole 16-byte record
+— `.byte CX_WG_HIT, 0`, the box, the shape and trigger, a null label
+(unused), and the reserved pad — nothing to miscount, the same guarantee
+every `cxm_wg_*` builder gives. Put it in a list with `cxm_wcount`, exactly
+like a button or a checkbox:
+
+```asm
+hits:
+    cxm_wcount hits, hits_end
+    ;            x    y    w    h   shape          triggers
+    cxm_wg_hit  50, 130, 150, 130, CX_WH_RECT,    CX_WH_CLICK | CX_WH_HOVER
+    cxm_wg_hit 255, 120, 150, 150, CX_WH_CIRCLE,  CX_WH_CLICK | CX_WH_HOVER
+    cxm_wg_hit 450, 130, 180, 130, CX_WH_ELLIPSE, CX_WH_CLICK | CX_WH_HOVER
+hits_end:
+
+    cxm_wg_set hits
+```
+
+### Worked example — the shipped demo, `apps/hittest/hittest.asm`
+
+Three outlines the app draws itself — a rectangle, a circle, an ellipse —
+each backed by exactly the `hits` list above, click *and* hover both on.
+Hovering names the shape on the status line; clicking stamps a filled disc
+at its centre. The point of the demo: the fill only ever lands where the
+pointer is really inside the shape, not merely inside its bounding box,
+because bank 16 did the circle/ellipse math, not the app.
+
+```asm
+draw_shapes
+    cxm_gfx_frame   50, 130, 150, 130, 3    ; rectangle at (50,130) 150x130
+    cxm_gfx_circle  330, 195, 75, 3         ; circle:  centre (330,195) r 75
+    cxm_gfx_ellipse 540, 195, 90, 65, 3     ; ellipse: centre (540,195) rx 90 ry 65
+    rts
+
+; on_widget -- a WG_HIT fired: P1 = region index, P2 = phase
+on_widget
+    lda X16_P2
+    cmp #2
+    beq @click
+    cmp #1
+    beq @hover
+    jsr status_idle              ; hover-out: back to the prompt
+    rts
+@hover
+    lda X16_P1                   ; hover-in: name the shape
+    jmp status_name
+@click
+    lda X16_P1
+    jmp stamp                    ; stamp a dot at that shape's centre
+```
+
+The full source also builds with `-DHITTEST_SELFTEST`, which synthesises a
+click in each shape at start-up for a headless `-gif` capture; run normally
+it is mouse-driven end to end, ESC to quit. See `apps/hittest/hittest.asm`.
+
+### See also
+
+- [formats.md](formats.md#the-icon-and-hit-region-widgets-types-6-7) — the
+  exact byte layout both `WG_ICON` and `WG_HIT` share with every widget.
+- [sdkguide.md](sdkguide.md#hit-regions--the-widget-you-draw-yourself-wg_hit) —
+  the ABI mechanics: the shape test, the far-call cost, the raw record.
+- [csdkguide.md](csdkguide.md#hit-regions--build-your-own-widgets-wg_hit) —
+  the same feature for C apps, with a full worked poll loop.
 
 ---
 

@@ -238,6 +238,91 @@ across the borrow and returns it on scanline 0. See
 | 40 | `CX_WG_DRAW` | `$8088` | — | redraw the current list (e.g. after a theme change) |
 | 42 | `CX_WG_KEY` | `$808E` | A=key → carry if it was a widget key | drive widgets from the keyboard; clobbers X/Y |
 
+### Hit regions — the widget you draw yourself (`WG_HIT`)
+
+`CX_WG_SET` accepts eight widget types, and type 7 is the odd one out:
+**`WG_HIT` paints nothing.** Every other type is the toolkit drawing a
+control it owns; a hit region is a hotspot the *app* draws with its own
+`CX_GFX_*`/`CX_ICON`/sprite calls, overlaid with an invisible record so the
+same region-stack routing that serves buttons and checkboxes also serves it.
+This is how a CXGEOS app gets a **custom widget** — a dial, a game piece, a
+clickable sprite, an odd-shaped icon, an image map — without the kernel
+knowing anything about its shape: the app owns the pixels, `WG_HIT` owns
+the mouse. It is the one widget type built specifically so app authors are
+not limited to the built-in set.
+
+**Why it costs nothing.** The shape math and hover-state tracking live
+entirely in bank 16 with the rest of the widget engine (`kernel/ui/widget.asm`),
+reached through the exact same far-call every other widget slot already
+pays for. A list with no `WG_HIT` — or one whose hit regions only ask for
+`CX_WH_CLICK` — walks no extra code on a mouse move; hover tracking is
+skipped wholesale unless some region in the current list asked for it.
+
+**Geometry — `WG_VAL` (record byte 9).** Picks the shape the box is tested
+against:
+
+| `WG_VAL` | constant | test |
+|---|---|---|
+| 0 | `CX_WH_RECT` | the box itself — the same test every other widget uses |
+| 1 | `CX_WH_CIRCLE` | a circle inscribed in the box (make the box square) |
+| 2 | `CX_WH_ELLIPSE` | an ellipse inscribed in the box |
+
+Circle and ellipse share one normalised test — from the box's centre,
+`nx = |dx|·128/rx`, `ny = |dy|·128/ry`, inside when `nx²+ny² ≤ 128²` — the
+same routine `CX_GFX_CIRCLE`/`CX_GFX_ELLIPSE` use to draw the outline, so a
+hit region's edge lines up with the shape you actually drew. Keep the box
+≤ 510 px on a side (`rx`/`ry` must each fit a byte).
+
+**Mouse functionality — `WG_GRP` (record byte 10).** A trigger mask: which
+mouse phases the region reports.
+
+| bit | constant | fires on |
+|---|---|---|
+| `%001` | `CX_WH_CLICK` | button down inside the shape (the default when `WG_GRP` is 0) |
+| `%010` | `CX_WH_RELEASE` | button up inside the shape |
+| `%100` | `CX_WH_HOVER` | the pointer enters/leaves the shape on a plain move |
+
+Combine bits with `|`. Every enabled trigger posts `EV_WIDGET` — `P1` = the
+region's index in the list, `P2` = **phase**, reusing the raw mouse event
+codes so there is no separate numbering to learn:
+
+| `P2` | phase |
+|---|---|
+| 2 | down (`CX_WH_CLICK`) |
+| 3 | up (`CX_WH_RELEASE`) |
+| 1 | hover-in (pointer just entered) |
+| 0 | hover-out (pointer just left, or left everything) |
+
+A double-click inside the region still posts phase 2 — `WG_HIT` collapses
+`EV_DBLCLICK` into a plain click, unlike the list and icon widgets, which
+distinguish single from double.
+
+**The record.** `WG_HIT` uses the same 16-byte layout as every widget
+([formats.md](formats.md#the-icon-and-hit-region-widgets-types-6-7)); only
+these fields differ from a visible widget:
+
+| offset | field | for `WG_HIT` |
+|---|---|---|
+| 0 | type | `CX_WG_HIT` = 7 |
+| 9 | val | the shape, `CX_WH_RECT`/`CIRCLE`/`ELLIPSE` |
+| 10 | grp | the trigger mask, `CX_WH_CLICK`\|`RELEASE`\|`HOVER` |
+| 11 | label | unused — leave it 0 |
+
+**How to use it.** Lay one such record per hotspot into your widget list —
+by hand at this ABI level, or with the one-line builders the friendly
+layers add for exactly this (see [csdkguide.md](csdkguide.md#hit-regions--build-your-own-widgets-wg_hit)
+for C, [asmsdkguide.md](asmsdkguide.md#hit-regions--build-your-own-widget-wg_hit)
+for ca65) — draw the matching shape yourself with the graphics slots, then
+call `CX_WG_SET` and read hits back from `CX_EV_NEXT`/`CX_EV_GET` like any
+other `EV_WIDGET`. The desktop's icon grid ([`WG_ICON`, below](#icons--the-built-in-2424-sheet))
+is built from this same record type — a hit region is simply one that draws
+nothing. The runnable demo is `apps/hittest/hittest.asm`: a rectangle, a
+circle and an ellipse, each an outline the app draws plus a matching
+`WG_HIT` with click *and* hover on — hovering names the shape on the status
+line, clicking stamps a dot at its centre, and the fill only ever lands
+where the pointer is really inside the shape, not merely inside its
+bounding box.
+
 ### The directory
 
 | slot | name | addr | args → result | purpose |
@@ -310,14 +395,38 @@ Sprite 0 is the KERNAL mouse; apps drive 1–127 with image data in the
 ### Icons — the built-in 24×24 sheet
 
 One 2bpp definition per icon serves both bitmap modes: mode 0 blits it, mode
-1 expands each 2-bit index to an 8bpp pixel (tiles/text ignore it). The eight
-ids are 0 up, 1 folder, 2 app, 3 font, 4 accessory, 5 data, 6 image, 7 disk.
-The desktop's icon view and the `CX_WG_ICON` widget draw these; an app can blit
-one directly. *(Added in 0.6.1.)*
+1 expands each 2-bit index to an 8bpp pixel (tiles/text ignore it — `CX_ICON`
+is a no-op there). The desktop's icon view and the `CX_WG_ICON` widget both
+draw from this sheet (`kernel/ui/icon.asm`, built by `tools/icongen.py`); an
+app can also blit an icon directly with `CX_ICON` — to badge a button, mark
+a list row, or label a hit region without hand-drawing anything.
+
+| id | constant | icon |
+|---|---|---|
+| 0 | `CX_ICON_UP` | up one directory level |
+| 1 | `CX_ICON_FOLDER` | a directory |
+| 2 | `CX_ICON_APP` | an application |
+| 3 | `CX_ICON_FONT` | a font |
+| 4 | `CX_ICON_ACCESSORY` | a desk accessory |
+| 5 | `CX_ICON_DATA` | any other file |
+| 6 | `CX_ICON_IMAGE` | a picture/image |
+| 7 | `CX_ICON_DISK` | a disk/volume |
+
+*(Added in 0.6.1.)*
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
 | 96 | `CX_ICON` | `$8130` | A=icon id (0–7), P0/P1=x, P2/P3=y | draw a 24×24 icon at that pixel (modes 0 and 1) |
+
+**As a widget.** `WG_ICON` (widget type 6, `WG_VAL` = the id above) is the
+toolkit-managed form: it draws the icon with `WG_LBL` centred in text
+beneath it and distinguishes select from open the way the desktop's icon
+view does — a single click posts `EV_WIDGET(index, 0)`, a double-click
+`EV_WIDGET(index, 1)`. It shares the same 16-byte record and the same
+`CX_WG_SET` list as `WG_HIT` above — the two are siblings: one is the
+kernel's own clickable icon, the other is what you reach for when the
+built-in eight are not enough. See `apps/filer/filer.asm` for the icon-grid
+file browser this exists for.
 
 ### Palette — VERA's 256-entry table at `$1FA00`
 

@@ -53,18 +53,10 @@ Named `CX_ET_*` (event **t**ype), distinct from the generated header's
 `CX_WG_BUTTON`=0, `CX_WG_CHECK`=1, `CX_WG_RADIO`=2, `CX_WG_SCROLL`=3,
 `CX_WG_FIELD`=4, `CX_WG_LIST`=5, `CX_WG_ICON`=6, `CX_WG_HIT`=7.
 
-`CX_WG_ICON` draws a 24×24 icon (its `val` is the icon id 0–7) with the label
-centred beneath it; a single click posts `EV_WIDGET(index, 0)`, a double-click
-`(index, 1)` — select versus open. The desktop's icon view is a grid of these.
-
-`CX_WG_HIT` is an **invisible hit region** — a hotspot the app draws itself
-while the toolkit only routes the mouse. Its `val` is the shape (`CX_WH_RECT`,
-`CX_WH_CIRCLE`, `CX_WH_ELLIPSE` — circle/ellipse are inscribed in `x/y/w/h`),
-and its `grp` is a trigger mask (`CX_WH_CLICK | CX_WH_RELEASE | CX_WH_HOVER`;
-0 means click-only). It posts `EV_WIDGET(index, phase)` where phase is the mouse
-event — 2 down, 3 up, 1 hover-in, 0 hover-out — and paints nothing. Build a list
-of these over your own drawing (an image map / clickable shapes) and read the
-region from the event's `detail`. See `apps/hittest` for a worked demo.
+`CX_WG_ICON` and `CX_WG_HIT` are documented in full further down — see
+[Icons](#icons) and, especially,
+[Hit regions — build your own widgets (`WG_HIT`)](#hit-regions--build-your-own-widgets-wg_hit),
+the toolkit's mechanism for a widget the kernel didn't have to invent.
 
 ### Font style flags
 
@@ -78,39 +70,175 @@ drawing with these recolours automatically. Index 2 has no role name.
 
 ### Keys (PETSCII, as `EV_KEY` delivers them)
 
-`CX_K_ENTER`=`$0D`, `CX_K_ESC`=`$1B`, `CX_K_TAB`=`$09`, `CX_K_BTAB`=`$18`
-(shift-TAB), `CX_K_DEL`=`$14`, `CX_K_UP`=`$91`, `CX_K_DOWN`=`$11`,
-`CX_K_LEFT`=`$9D`, `CX_K_RIGHT`=`$1D`, `CX_K_SPACE`=`$20`.
+A `CX_ET_KEY` event carries the key in `ev.detail` as a PETSCII code. These
+are the named non-printable ones an app usually tests for; printable keys
+arrive as their plain ASCII/PETSCII value (`'a'`, `'1'`, …).
+
+| constant | value | key | typical use |
+|---|---|---|---|
+| `CX_K_ENTER` | `$0D` | RETURN | confirm / activate the focused control |
+| `CX_K_ESC` | `$1B` | ESC | cancel / quit / dismiss a dialog |
+| `CX_K_TAB` | `$09` | TAB | move focus to the next widget |
+| `CX_K_BTAB` | `$18` | shift-TAB | move focus to the previous widget |
+| `CX_K_DEL` | `$14` | DEL / backspace | erase the character before the caret |
+| `CX_K_UP` | `$91` | cursor up | move up a list / menu |
+| `CX_K_DOWN` | `$11` | cursor down | move down a list / menu |
+| `CX_K_LEFT` | `$9D` | cursor left | step left / switch menus |
+| `CX_K_RIGHT` | `$1D` | cursor right | step right / switch menus |
+| `CX_K_SPACE` | `$20` | space bar | toggle the focused checkbox / press a button |
+
+The toolkit's own key handlers (`cx_menu_key`, `cx_wg_key`) already act on
+these; the table matters when an app reads keys itself with `cx_poll`, or
+wants to handle a shortcut before passing the key on.
 
 ### Painter geometry
 
-`CX_FONT_H`=8 (glyph height), `CX_BOX`=12 (checkbox marker), `CX_THUMB`=16
-(slider thumb width), `CX_SLIDER_H`=16 (slider height).
+The fixed pixel dimensions the immediate-mode
+[widget painters](#immediate-mode-widget-painters) draw with, exposed as
+constants so hand-laid-out code can align to them and match the kernel
+toolkit's look exactly (`CX_BOX` and `CX_THUMB` mirror the kernel's own
+`WG_BOX` / `WG_THUMB`).
+
+| constant | value | what it measures |
+|---|---|---|
+| `CX_FONT_H` | 8 | the system font's glyph height, in pixels — the baseline for vertically centring text in a control |
+| `CX_BOX` | 12 | the side of a checkbox / radio marker square |
+| `CX_THUMB` | 16 | the width of a slider's draggable thumb |
+| `CX_SLIDER_H` | 16 | the overall height of a slider trough |
 
 ### Audio *(0.2.0)*
 
-PSG waveforms: `CX_WAVE_PULSE`=`$00`, `CX_WAVE_SAW`=`$40`, `CX_WAVE_TRI`=`$80`,
-`CX_WAVE_NOISE`=`$C0`. Panning: `CX_PAN_LEFT`=`$40`, `CX_PAN_RIGHT`=`$80`,
-`CX_PAN_BOTH`=`$C0`. `CX_YM(octave, note)` packs a YM note code. PCM format:
-`CX_PCM_16BIT`=`$20`, `CX_PCM_STEREO`=`$10` (low nibble is volume 0–15).
+The constants the audio wrappers (in the **Audio** section further down)
+take.
 
-### Joysticks, modes, shapes, tiles *(0.3.0)*
+**PSG waveforms** — the shape of a VERA PSG voice, passed to
+`cx_psg_wave(voice, wave, pw)`:
 
-Joystick button masks (ACTIVE HIGH): `CX_J_UP/DOWN/LEFT/RIGHT`,
-`CX_J_A/B/X/Y`, `CX_J_L/R`, `CX_J_START/SELECT`. Graphics modes:
-`CX_MODE_GUI` (0), `CX_MODE_BMP8` (1), `CX_MODE_TILE` (2),
-`CX_MODE_TEXT` (3). Event sources (0.4.0): `CX_EVS_MOUSE` (1),
-`CX_EVS_KEYS` (2), for `cx_ev_mask`. Tiles:
-`CX_TILE_IMG`, `CX_CELL(index, palette)`, `CX_CELL_HF`, `CX_CELL_VF`.
-(The functions are in the sections further down.)
+| constant | value | waveform |
+|---|---|---|
+| `CX_WAVE_PULSE` | `$00` | pulse / square (the `pw` argument sets its width) |
+| `CX_WAVE_SAW` | `$40` | sawtooth |
+| `CX_WAVE_TRI` | `$80` | triangle |
+| `CX_WAVE_NOISE` | `$C0` | noise |
 
-## Sprites *(0.2.0)*
+**Panning** — where a voice sits in the stereo field, passed to
+`cx_psg_vol(voice, vol, pan)`:
 
-Depth: `CX_SPR_4BPP`=`$00`, `CX_SPR_8BPP`=`$80`. Size codes: `CX_SPR_8`=0,
-`CX_SPR_16`=1, `CX_SPR_32`=2, `CX_SPR_64`=3. Z-depth: `CX_SPR_HIDE`=`$00`,
-`CX_SPR_BEHIND`=`$04`, `CX_SPR_MIDDLE`=`$08`, `CX_SPR_FRONT`=`$0C`. Flips:
-`CX_SPR_HFLIP`=`$01`, `CX_SPR_VFLIP`=`$02`. `CX_SPR_VRAM`=`$1E000` is the
-reserved app sprite-image region (sprite 0 is the mouse; apps use 1–127).
+| constant | value | routing |
+|---|---|---|
+| `CX_PAN_LEFT` | `$40` | left channel only |
+| `CX_PAN_RIGHT` | `$80` | right channel only |
+| `CX_PAN_BOTH` | `$C0` | both channels (centred) |
+
+**YM2151 note codes** — `CX_YM(octave, note)` packs an octave (0–7) and a
+note (1–12) into the single byte `cx_ym_note(chan, code)` expects.
+
+**PCM format** — OR these into the `cx_pcm_ctrl` byte; the low nibble is the
+volume (0–15), so `0x0F` is 8-bit mono at full volume:
+
+| constant | value | selects |
+|---|---|---|
+| `CX_PCM_16BIT` | `$20` | 16-bit samples (else 8-bit) |
+| `CX_PCM_STEREO` | `$10` | stereo (else mono) |
+
+### Joystick buttons *(0.3.0)*
+
+The button bits `cx_joy(pad)` returns and a `CX_ET_JOY` event carries in its
+`x` (current buttons) and `y` (which bits changed). They are **active-high**:
+a set bit means pressed. Test them by ANDing the mask, e.g.
+`if (buttons & CX_J_LEFT)`.
+
+| constant | mask | button |
+|---|---|---|
+| `CX_J_UP` | `$0008` | D-pad up |
+| `CX_J_DOWN` | `$0004` | D-pad down |
+| `CX_J_LEFT` | `$0002` | D-pad left |
+| `CX_J_RIGHT` | `$0001` | D-pad right |
+| `CX_J_A` | `$8000` | A |
+| `CX_J_B` | `$0080` | B |
+| `CX_J_X` | `$4000` | X |
+| `CX_J_Y` | `$0040` | Y |
+| `CX_J_L` | `$2000` | left shoulder |
+| `CX_J_R` | `$1000` | right shoulder |
+| `CX_J_START` | `$0010` | START |
+| `CX_J_SELECT` | `$0020` | SELECT |
+
+### Graphics modes *(0.3.0)*
+
+The canvas `cx_mode(m)` switches to (and the `mode` field
+`cx_screen_info` reports):
+
+| constant | value | canvas |
+|---|---|---|
+| `CX_MODE_GUI` | 0 | 640×480, 4 colours — the desktop; the only mode the toolkit, fonts and dialogs run in |
+| `CX_MODE_BMP8` | 1 | 320×240, 256 colours — for richer bitmaps and `cx_pal_*` custom palettes |
+| `CX_MODE_TILE` | 2 | two hardware tile layers + sprites — for games |
+| `CX_MODE_TEXT` | 3 | 80×60 text cells, 16 colours — coordinates become cells, "colour" an attribute |
+
+### Event sources *(0.4.0)*
+
+The bits `cx_ev_mask(sources)` uses to pick which inputs the per-frame tick
+samples — mask off what you don't use to reclaim the KERNAL time it costs:
+
+| constant | value | samples |
+|---|---|---|
+| `CX_EVS_MOUSE` | 1 | the mouse (an SMC round-trip each frame) |
+| `CX_EVS_KEYS` | 2 | the keyboard (a `GETIN` drain each frame) |
+
+### Tiles *(0.3.0)*
+
+Constants for the tile mode (used with the [Tiles](#tiles-030--cx_mode_tile-only)
+functions below):
+
+| constant | meaning |
+|---|---|
+| `CX_TILE_IMG` | the VRAM base address of the tile-image sheet (`0x00000`); upload tiles here with `cx_vram_write` |
+| `CX_CELL(index, palette)` | pack a tile index and 4-bit palette into a 2-byte map cell |
+| `CX_CELL_HF` | OR into a cell to flip that tile horizontally |
+| `CX_CELL_VF` | OR into a cell to flip that tile vertically |
+
+## Sprite constants *(0.2.0)*
+
+The values the sprite wrappers (under [Sprites](#sprites-020) further down)
+take. Sprite 0 is the KERNAL mouse pointer; apps drive sprites **1–127**.
+
+**Colour depth** — for `cx_sprite_image(s, addr, mode)`:
+
+| constant | value | image format |
+|---|---|---|
+| `CX_SPR_4BPP` | `$00` | 4 bits per pixel (16 colours from a palette offset) |
+| `CX_SPR_8BPP` | `$80` | 8 bits per pixel (256 colours) |
+
+**Size codes** — the per-axis width and height for `cx_sprite_size(s, w, h, pal)`:
+
+| constant | value | pixels |
+|---|---|---|
+| `CX_SPR_8` | 0 | 8 |
+| `CX_SPR_16` | 1 | 16 |
+| `CX_SPR_32` | 2 | 32 |
+| `CX_SPR_64` | 3 | 64 |
+
+**Z-depth** — where the sprite sits in the layer stack, for `cx_sprite_z(s, z)`
+(or the low bits of `cx_sprite_flags`). This is also how you show or hide a
+sprite:
+
+| constant | value | placement |
+|---|---|---|
+| `CX_SPR_HIDE` | `$00` | not drawn (hidden) |
+| `CX_SPR_BEHIND` | `$04` | behind both bitmap/tile layers |
+| `CX_SPR_MIDDLE` | `$08` | between layer 0 and layer 1 |
+| `CX_SPR_FRONT` | `$0C` | in front of everything |
+
+**Flips** — OR into `cx_sprite_flags(s, flags)` to mirror the image:
+
+| constant | value | effect |
+|---|---|---|
+| `CX_SPR_HFLIP` | `$01` | flip horizontally |
+| `CX_SPR_VFLIP` | `$02` | flip vertically |
+
+**Image region** — `CX_SPR_VRAM` (`$1E000`) is the 4 KB block of VRAM the
+desktop reserves for app sprite images. Upload 32-byte-aligned image data
+here with `cx_vram_write`, then point a sprite at it.
 
 ---
 
@@ -282,6 +410,187 @@ cx_menu_set(&bar);
 cx_wg_set(&panel);
 /* then poll with cx_next; feed CX_ET_KEY to cx_menu_key + cx_wg_key */
 ```
+
+## Icons
+
+The kernel ships a built-in 24×24 icon sheet — the same eight glyphs the
+desktop's file browser draws — plus `cx_icon` to blit any one of them
+directly, in either bitmap mode.
+
+| constant | id | icon |
+|---|---|---|
+| `CX_ICON_UP` | 0 | up one directory level |
+| `CX_ICON_FOLDER` | 1 | a directory |
+| `CX_ICON_APP` | 2 | an application |
+| `CX_ICON_FONT` | 3 | a font |
+| `CX_ICON_ACCESSORY` | 4 | a desk accessory |
+| `CX_ICON_DATA` | 5 | any other file |
+| `CX_ICON_IMAGE` | 6 | a picture/image |
+| `CX_ICON_DISK` | 7 | a disk/volume |
+
+| function | purpose |
+|---|---|
+| `cx_icon(id, x, y)` *(0.6.1)* | draw a built-in 24×24 icon at `(x, y)`; `CX_MODE_GUI`/`CX_MODE_BMP8` only |
+
+```c
+cx_icon(CX_ICON_FOLDER, 40, 60);           /* paint one icon directly */
+cx_say("Projects", 44, 88);                /* your own caption under it */
+```
+
+### As a widget (`CX_WG_ICON`)
+
+The kernel-managed form draws the icon **and** a centred label, tracks
+clicks, and — like the desktop's icon view — tells a single click from a
+double: `EV_WIDGET(index, 0)` on click (select), `(index, 1)` on
+double-click (open).
+
+`cxsdk.h` has no `CX_ICON(...)` compound-literal constructor the way it does
+for `CX_BUTTON`/`CX_CHECK`/etc. — the name is already taken by the ABI's
+`cx_icon`/`CX_ICON` call — so build the 16-byte `cx_widget` record directly,
+or define a small helper once, in the same shape as the others:
+
+```c
+#define CX_ICONW(x, y, w, h, id, lbl) \
+    (cx_widget){ CX_WG_ICON, 0, (x), (y), (w), (h), (id), 0, (lbl), {0,0,0} }
+
+CX_WIDGETS(files,
+    CX_ICONW( 40, 60, 96, 66, CX_ICON_FOLDER, "Projects"),
+    CX_ICONW(140, 60, 96, 66, CX_ICON_APP,    "Editor"));
+
+cx_wg_set(&files);
+/* ev.type == CX_ET_WIDGET; ev.x == 0 selects, ev.x == 1 opens */
+```
+
+See `apps/filer/filer.asm` for the real icon-grid file browser this exists
+for (it builds the records at runtime, one per directory entry, rather than
+as a static list — the record layout is identical either way).
+
+## Hit regions — build your own widgets (`WG_HIT`)
+
+Six of the seven widget types are the kernel drawing something. `CX_WG_HIT`
+is the exception, and it is the most important one: **it paints nothing at
+all.** You draw a shape with your own `cx_*` calls — a dial, a sprite, a
+game piece, an image map over a picture you loaded — and lay an invisible
+`WG_HIT` record over it. The toolkit hit-tests that record with the same
+region-stack machinery already serving every button and checkbox on screen,
+including true **hover** tracking. This is the sanctioned way to build a
+custom widget in CXGEOS: the kernel does not need to know your shape, only
+its box and which of three built-in tests to run against it.
+
+### Why it earns its keep
+
+- **Any look.** The widget can be anything you can draw — the kernel's
+  contribution is purely "is the pointer inside," not pixels.
+- **Real geometry, not just a bounding box.** `WG_HIT` can test a rectangle,
+  a circle, or an ellipse inscribed in the box — the exact math
+  `cx_circle`/`cx_ellipse` use to draw the outline, so the hit region lines
+  up with what the user actually sees, not with an invisible square around it.
+- **Hover for free.** No other technique in the toolkit gives you
+  enter/leave tracking without polling the mouse position yourself every
+  frame.
+- **Zero cost when unused.** The shape math and hover state live in the
+  kernel's widget bank; a click-only list, or a list with no hit region at
+  all, pays nothing extra on a mouse move.
+
+### The shape (`val`)
+
+| constant | value | tests |
+|---|---|---|
+| `CX_WH_RECT` | 0 | the box itself — the default, every other widget's test |
+| `CX_WH_CIRCLE` | 1 | a circle inscribed in the box — make the box square |
+| `CX_WH_ELLIPSE` | 2 | an ellipse inscribed in the box |
+
+Circle and ellipse accept a point when, measured from the box's centre,
+`(dx/rx)² + (dy/ry)² ≤ 1` (the kernel computes this in fixed point, not
+floats, but that is exactly what it tests). Keep the box's width and height
+each ≤ 510 px.
+
+### Mouse functionality — the trigger mask (`grp`)
+
+| constant | bit | fires on |
+|---|---|---|
+| `CX_WH_CLICK` | `0x01` | mouse button pressed inside the shape |
+| `CX_WH_RELEASE` | `0x02` | mouse button released inside the shape |
+| `CX_WH_HOVER` | `0x04` | the pointer enters or leaves the shape — no button needed |
+
+Combine bits with `|`; `grp = 0` means click-only. Every event a region is
+subscribed to arrives as `CX_ET_WIDGET`: `detail` is the region's index in
+the list, `x` is the **phase**:
+
+| `ev.x` | phase |
+|---|---|
+| 2 | down — `CX_WH_CLICK` fired |
+| 3 | up — `CX_WH_RELEASE` fired |
+| 1 | hover-in: the pointer just entered |
+| 0 | hover-out: the pointer just left (or left everything) |
+
+A double-click inside the region still reports phase 2, same as a single
+click — hit regions do not distinguish the two the way `CX_WG_ICON` and
+`CX_WG_LIST` do.
+
+### Building one
+
+`cxsdk.h` has no `CX_HIT(...)` compound-literal constructor either (only the
+six kernel-drawn types get one) — fill the `cx_widget` record directly, or
+define a one-line helper of your own, in the same shape as `CX_BUTTON`:
+
+```c
+#define CX_HIT(x, y, w, h, shape, trig) \
+    (cx_widget){ CX_WG_HIT, 0, (x), (y), (w), (h), (shape), (trig), 0, {0,0,0} }
+```
+
+### Worked example — three hand-drawn shapes, invisibly clickable
+
+This mirrors the shipped ca65 demo, `apps/hittest/hittest.asm`, in C: three
+outlines the app draws itself, each backed by a `WG_HIT` of the matching
+shape with click *and* hover both on. Hovering names the shape; clicking
+stamps a dot at its centre — and the fill only ever lands where the pointer
+is really inside the shape, not merely inside its bounding box, because the
+toolkit did the circle/ellipse math.
+
+```c
+#define CX_HIT(x, y, w, h, shape, trig) \
+    (cx_widget){ CX_WG_HIT, 0, (x), (y), (w), (h), (shape), (trig), 0, {0,0,0} }
+
+CX_WIDGETS(hotspots,
+    CX_HIT( 50, 130, 150, 130, CX_WH_RECT,    CX_WH_CLICK | CX_WH_HOVER),
+    CX_HIT(255, 120, 150, 150, CX_WH_CIRCLE,  CX_WH_CLICK | CX_WH_HOVER),
+    CX_HIT(450, 130, 180, 130, CX_WH_ELLIPSE, CX_WH_CLICK | CX_WH_HOVER));
+
+static const char    *names[] = { "rectangle", "circle", "ellipse" };
+static const unsigned centre_x[] = { 125, 330, 540 };   /* each shape's own centre -- */
+static const unsigned centre_y[] = { 195, 195, 195 };   /* the app drew it, so it knows */
+
+cx_gfx_init();  cx_clear(CX_PAPER);
+cx_frame  ( 50, 130, 150, 130, CX_FRAME);   /* the app draws the shapes; the */
+cx_circle (330, 195,  75,      CX_FRAME);   /* WG_HIT records above are laid */
+cx_ellipse(540, 195,  90,  65, CX_FRAME);   /* over them, invisibly          */
+
+cx_ev_init();
+cx_mouse_show(1);
+cx_wg_set(&hotspots);
+
+cx_event ev;
+for (;;) {
+    if (!cx_next(&ev)) continue;
+    if (ev.type == CX_ET_KEY && ev.detail == CX_K_ESC) break;
+    if (ev.type != CX_ET_WIDGET) continue;
+    if (ev.x == 1)                                  /* hover-in: name it   */
+        cx_say(names[ev.detail], 24, 36);
+    else if (ev.x == 2)                              /* click: stamp a dot */
+        cx_disc(centre_x[ev.detail], centre_y[ev.detail], 16, CX_FRAME);
+}
+```
+
+### See also
+
+- [formats.md](formats.md#the-icon-and-hit-region-widgets-types-6-7) — the
+  exact byte layout both `WG_ICON` and `WG_HIT` share with every widget.
+- [sdkguide.md](sdkguide.md#hit-regions--the-widget-you-draw-yourself-wg_hit) —
+  the ABI mechanics: the shape test, the far-call cost, the raw record.
+- [asmsdkguide.md](asmsdkguide.md#hit-regions--build-your-own-widget-wg_hit) —
+  the same feature with the `cxm_wg_hit` builder macro, for ca65 apps.
+- `apps/hittest/hittest.asm` — the runnable demo this example is based on.
 
 ## Themes & dialogs
 
