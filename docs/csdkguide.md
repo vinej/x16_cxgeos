@@ -116,93 +116,46 @@ reserved app sprite-image region (sprite 0 is the mouse; apps use 1–127).
 
 ## System
 
-**`void cx_exit(void)`** — end the app and reload the shell. Never returns;
-`main` must not fall past it.
-```c
-cx_exit();
-```
-
-**`unsigned cx_version(void)`** — the running kernel's ABI version.
-```c
-if (cx_version() < 1) { /* too old */ }
-```
+| function | purpose |
+|---|---|
+| `cx_exit()` | end the app and reload the shell (never returns; `main` must not fall past it) |
+| `cx_version()` → `unsigned` | the running kernel's ABI version |
 
 ## Screen / graphics
 
-All take a colour 0–3. Coordinates and sizes are in pixels.
+The same calls in every mode; a colour is 0–3, coordinates and sizes are pixels.
 
-**`void cx_gfx_init(void)`** — set up the bitmap layer. Call once at start.
+| function | purpose |
+|---|---|
+| `cx_gfx_init()` | set up the bitmap layer (once, at start) |
+| `cx_clear(color)` | fill the whole screen |
+| `cx_pset(x, y, color)` | plot one pixel (clipped) |
+| `cx_pget(x, y)` → `color` | read a pixel's colour; `0xFF` off-screen |
+| `cx_hline(x, y, len, color)` | horizontal line, `len` pixels |
+| `cx_vline(x, y, len, color)` | vertical line, `len` pixels |
+| `cx_rect(x, y, w, h, color)` | filled rectangle |
+| `cx_frame(x, y, w, h, color)` | 1-pixel outline |
+| `cx_line(x0, y0, x1, y1, color)` | an arbitrary line |
+| `cx_pattern(pat8, bg, fg)` | set an 8×8 fill pattern (`pat8` = 8 bytes) |
+| `cx_patrect(x, y, w, h)` | fill a rectangle with the current pattern |
+| `cx_blit(x, y, wbytes, h, src, op)` | blit a packed 2bpp bitmap (`wbytes`×4 px wide, `h` rows) |
+| `cx_blitm(x, y, h, cols, src)` | masked blit (transparent pixels skipped) |
 
-**`void cx_clear(unsigned char color)`** — fill the whole screen.
-```c
-cx_gfx_init();
-cx_clear(CX_PAPER);
-```
-
-**`void cx_pset(unsigned x, unsigned y, unsigned char color)`** — plot one
-pixel (clipped to the screen).
-
-**`unsigned char cx_pget(unsigned x, unsigned y)`** — read a pixel's colour;
-returns `0xFF` if off-screen.
-```c
-cx_pset(100, 50, CX_FRAME);
-unsigned char c = cx_pget(100, 50);        /* -> 3 */
-```
-
-**`void cx_hline(unsigned x, unsigned y, unsigned len, unsigned char color)`**
-**`void cx_vline(unsigned x, unsigned y, unsigned len, unsigned char color)`**
-— axis-aligned lines `len` pixels long.
-```c
-cx_hline(10, 10, 200, CX_FRAME);
-cx_vline(10, 10, 100, CX_FRAME);
-```
-
-**`void cx_rect(unsigned x, unsigned y, unsigned w, unsigned h, unsigned char color)`**
-— filled rectangle.
-
-**`void cx_frame(unsigned x, unsigned y, unsigned w, unsigned h, unsigned char color)`**
-— 1-pixel rectangle outline.
-```c
-cx_rect(20, 20, 120, 60, CX_PAPER);        /* fill */
-cx_frame(20, 20, 120, 60, CX_FRAME);       /* border */
-```
-
-**`void cx_line(unsigned x0, unsigned y0, unsigned x1, unsigned y1, unsigned char color)`**
-— an arbitrary line.
-```c
-cx_line(0, 0, 320, 240, CX_FRAME);
-```
-
-**`void cx_pattern(const void *pat8, unsigned char bg, unsigned char fg)`** —
-set an 8×8 fill pattern (`pat8` = 8 bytes) with background/foreground colours.
-
-**`void cx_patrect(unsigned x, unsigned y, unsigned w, unsigned h)`** — fill a
-rectangle with the current pattern.
 ```c
 static const unsigned char hatch[8] = {0x88,0x44,0x22,0x11,0x88,0x44,0x22,0x11};
 cx_pattern(hatch, CX_PAPER, CX_FRAME);
-cx_patrect(40, 40, 160, 80);
+cx_patrect(40, 40, 160, 80);               /* a hatched fill */
 ```
-
-**`void cx_blit(unsigned x, unsigned y, unsigned char wbytes, unsigned char h, const void *src, unsigned char op)`**
-— blit a packed 2bpp bitmap `wbytes`×4 pixels wide, `h` rows, `op` = blit
-operation.
-
-**`void cx_blitm(unsigned x, unsigned y, unsigned char h, unsigned char cols, const void *src)`**
-— masked blit (transparent pixels skipped).
 
 ## Text
 
-**`char cx_font(const void *cxf)`** — select a CXF font image; returns 0 on
-success, 1 if it was rejected.
+| function | purpose |
+|---|---|
+| `cx_font(cxf)` → 0 ok / 1 bad | select a CXF font image |
+| `cx_style(flags)` | set the text style (`CX_BOLD` \| `CX_UNDER`; 0 clears) |
+| `cx_measure(s)` → `unsigned` | the pixel width `s` would draw |
+| `cx_say(s, x, y)` → pen x | draw `s` at `(x,y)`; the return chains calls or places a caret |
 
-**`void cx_style(unsigned char flags)`** — set the text style, e.g.
-`cx_style(CX_BOLD | CX_UNDER)` or `cx_style(0)` to clear.
-
-**`unsigned cx_measure(const char *s)`** — the pixel width `s` would draw.
-
-**`unsigned cx_say(const char *s, unsigned x, unsigned y)`** — draw `s` at
-`(x,y)`; returns the pen x just past the text (chain calls, or place a caret).
 ```c
 unsigned pen = cx_say("Name: ", 10, 10);
 cx_say(name, pen, 10);                      /* continue on the same line */
@@ -216,100 +169,63 @@ the toolkit's look and use the theme role colours, so a hand-painted control
 sits beside a real one. For *interactive* widgets the kernel manages, use the
 [descriptor builders](#descriptor-builders) + `cx_wg_set` instead.
 
-**`void cx_button(unsigned x, unsigned y, unsigned w, unsigned h, const char *label)`**
-— a framed button with its label centred both ways.
+| function | purpose |
+|---|---|
+| `cx_button(x, y, w, h, label)` | a framed button, label centred both ways |
+| `cx_checkbox(x, y, label, checked)` | a marker box (filled when `checked`) + a label (radios share this look) |
+| `cx_slider(x, y, w, value, max)` | a trough with a thumb at `value/max` (0..max inclusive); height `CX_SLIDER_H` |
+| `cx_edit(x, y, w, h, text)` | a framed field showing `text`, no caret (repaint to update) |
+
 ```c
 cx_button(520, 448, 100, 24, "exit");
 if (ev.type == CX_ET_DOWN && ev.x >= 520 && ev.x < 620
       && ev.y >= 448 && ev.y < 472) exit_now();   /* you hit-test */
 ```
 
-**`void cx_checkbox(unsigned x, unsigned y, const char *label, unsigned char checked)`**
-— a marker box (filled when `checked`) with a label to its right. (Radios look
-the same in this toolkit; manage the group's exclusivity yourself.)
-```c
-cx_checkbox(40, 100, "wrap lines", wrap_on);
-```
-
-**`void cx_slider(unsigned x, unsigned y, unsigned w, unsigned char value, unsigned char max)`**
-— a trough with a thumb at `value/max` (0..max inclusive: a 1–10 slider passes
-`value` 0–9, `max` 9). Height is `CX_SLIDER_H`.
-```c
-cx_slider(360, 116, 200, 2, 9);            /* shows 3 of 1..10 */
-```
-
-**`void cx_edit(unsigned x, unsigned y, unsigned w, unsigned h, const char *text)`**
-— a framed field showing `text`, left-aligned and vertically centred. No caret
-(the app owns the text; repaint to update it).
-```c
-cx_edit(40, 290, 300, 24, buffer);
-```
-
 ## Events
 
-**`typedef struct { unsigned char type; unsigned char detail; unsigned int x, y; unsigned char frame; } cx_event;`**
-The one record every poll fills. For a mouse event `x`/`y` are the point; for
+The one record every poll fills:
+```c
+typedef struct { unsigned char type, detail; unsigned int x, y; unsigned char frame; } cx_event;
+```
+`type` is `CX_ET_*`. For a mouse event `x`/`y` are the point; for
 `CX_ET_WIDGET`, `detail` is the widget index and `x` its value; for
 `CX_ET_MENU`, `detail` is the item and `x` the menu.
 
-**`void cx_ev_init(void)`** — clear the queue and hook the raster. Call once,
-**before** `cx_menu_set`/`cx_wg_set` (it resets the region stack).
+| function | purpose |
+|---|---|
+| `cx_ev_init()` | clear the queue + hook the raster (once, **before** `cx_menu_set`/`cx_wg_set`) |
+| `cx_poll(&ev)` → 1 / 0 | **raw** poll: mouse arrives as `CX_ET_DOWN`/`MOVE`/`UP`, you hit-test |
+| `cx_next(&ev)` → 1 / 0 | **toolkit** poll: routes the mouse through the widget/menu regions first |
+| `cx_post(&ev)` | enqueue a synthetic event (looks real to a poll) |
+| `cx_timer(frames)` | post `CX_ET_TIMER` every `frames` (60/sec); 0 = off |
+| `cx_frames()` → `unsigned char` | the free-running frame counter |
+| `cx_ev_mask(sources)` *(0.4.0)* | which sources the tick samples (`CX_EVS_MOUSE` \| `CX_EVS_KEYS`) |
+| `cx_mainloop()` | run the kernel dispatch loop forever (asm-handler apps) |
+| `cx_handlers(table)` | register a `CX_ET_TYPES`-entry handler table (asm interop) |
 
-**`char cx_poll(cx_event *ev)`** — **raw** poll: fills `*ev`, returns 1 if an
-event was waiting, 0 if idle. Mouse events arrive as `CX_ET_DOWN`/`MOVE`/`UP`
-for an app that hit-tests its own pixels. Hides the carry a raw C call cannot
-see.
 ```c
-cx_event ev;
+cx_event ev;                                 /* RAW: hit-test your own pixels */
 for (;;) {
     if (!cx_poll(&ev)) continue;
     if (ev.type == CX_ET_KEY && ev.detail == CX_K_ESC) break;
     if (ev.type == CX_ET_DOWN) draw_at(ev.x, ev.y);
 }
 ```
-
-**`char cx_next(cx_event *ev)`** — **toolkit** poll: like `cx_poll`, but first
-routes every pending mouse event through the widget/menu regions, so a click
-surfaces as the `CX_ET_WIDGET`/`CX_ET_MENU` the toolkit posts. This is the loop
-for an app built on `cx_wg_set`/`cx_menu_set` — `cx_poll` never reaches the
-widget engine.
 ```c
-cx_wg_set(&panel);
+cx_wg_set(&panel);                           /* TOOLKIT: cx_next routes clicks */
 for (;;) {
-    if (!cx_next(&ev)) continue;             /* routes the mouse for you */
+    if (!cx_next(&ev)) continue;
     if (ev.type == CX_ET_WIDGET && ev.detail == W_EXIT) break;
     if (ev.type == CX_ET_KEY) { cx_menu_key(ev.detail); cx_wg_key(ev.detail); }
 }
 ```
 
-**`void cx_post(const cx_event *ev)`** — enqueue a synthetic event (looks real
-to a poll).
-
-**`void cx_timer(unsigned char frames)`** — post a `CX_ET_TIMER` every `frames`
-frames (60/sec); 0 = off.
-```c
-cx_timer(60);                               /* one tick a second */
-```
-
-**`unsigned char cx_frames(void)`** — the free-running frame counter (for
-timing/animation).
-
-**`void cx_ev_mask(unsigned char sources)`** *(0.4.0)* — choose which
-sources the frame tick samples: `CX_EVS_MOUSE` (the SMC round-trip)
-and/or `CX_EVS_KEYS` (the GETIN drain). Both are KERNAL calls paid every
-frame, so masking off the ones you do not use gives that time back —
-with both off and the pads off, the tick costs only a few cycles.
-`cx_ev_init` resets to mouse+keys; the timer, the pads (`cx_joy_enable`)
-and PCM keep their own switches.
-```c
-cx_ev_mask(CX_EVS_KEYS);       /* a game: keyboard + joypads, no mouse */
-```
-
-**`void cx_mainloop(void)`** — run the kernel dispatch loop forever (asm-handler
-apps; never returns).
-
-**`void cx_handlers(const void *table)`** — register a `CX_ET_TYPES`-entry
-handler-vector table (advanced / asm interop).
+`cx_ev_mask` earns back real time: `CX_EVS_MOUSE` is an SMC round-trip and
+`CX_EVS_KEYS` a `GETIN` drain, both KERNAL calls paid every frame — mask off
+what you don't use (a game: `cx_ev_mask(CX_EVS_KEYS)` for keyboard + pads, no
+mouse). `cx_ev_init` resets to mouse+keys; the timer, the pads
+(`cx_joy_enable`) and PCM keep their own switches.
 
 ### Lending the raster line to a game *(0.5.1)*
 
@@ -317,15 +233,15 @@ A game owns the raster IRQ for smooth, frame-locked motion and reads input
 directly, never starting the sampler. To ask the user something it borrows the
 events for one modal dialog, then takes the line back.
 
-**`void cx_ev_raster(void (*handler)(void))`** — install a per-frame handler on
-scanline 0 (the top of the frame), or pass 0 to remove it. The handler runs
-**inside the IRQ** — registers and the VERA address port are saved around it,
-but it shares the app's zero page and soft stack, so keep it tiny (bump a
-counter, poke VERA) or mark it `__attribute__((interrupt))`. It also chains the
-KERNAL IRQ, so `GETIN` and the DOS keep working during play.
+| function | purpose |
+|---|---|
+| `cx_ev_raster(handler)` | install a per-frame handler on scanline 0, or 0 to remove it |
+| `cx_ev_stop()` | stop the sampler and hand the raster line back to that handler |
 
-**`void cx_ev_stop(void)`** — stop the sampler `cx_ev_init` started and hand the
-raster line back to the `cx_ev_raster` handler installed before it.
+The handler runs **inside the IRQ** — registers and the VERA address port are
+saved around it, but it shares the app's zero page and soft stack, so keep it
+tiny (bump a counter, poke VERA) or mark it `__attribute__((interrupt))`. It
+also chains the KERNAL IRQ, so `GETIN` and the DOS keep working during play.
 ```c
 cx_ev_raster(game_irq);          /* own the line; play, game_irq animates */
 for (;;) { if (want_menu()) break; /* ... GETIN / cx_joy ... */ }
@@ -338,40 +254,28 @@ its scanline after `cx_ev_stop`.
 
 ## Pointer
 
-**`void cx_mouse_show(unsigned char sprite)`** — show the pointer (1 = the
-arrow). The loader hides it between apps, so show it if you want it.
-
-**`void cx_mouse_hide(void)`** — hide the pointer.
-```c
-cx_mouse_show(1);
-```
+| function | purpose |
+|---|---|
+| `cx_mouse_show(sprite)` | show the pointer (1 = the arrow); the loader hides it between apps |
+| `cx_mouse_hide()` | hide the pointer |
 
 ## Menus & widgets
 
-**`char cx_menu_set(const void *bar)`** — install and draw a menu bar (see
-[descriptor builders](#descriptor-builders)); owns the top strip. Returns 0 on
-success, 1 if the region stack is full. Call after `cx_ev_init`.
+| function | purpose |
+|---|---|
+| `cx_menu_set(bar)` → 0 ok / 1 full | install + draw a menu bar (after `cx_ev_init`); owns the top strip |
+| `cx_menu_off()` | forget the menu (only with none open) |
+| `cx_menu_key(key)` → 1 if a menu key | drive the bar from the keyboard; **clobbers X/Y** |
+| `cx_menu_active()` → 1 / 0 *(slot 99)* | is a menu dropped, by mouse **or** keyboard? |
+| `cx_wg_set(list)` | install + draw a widget list; routes clicks, posts `CX_ET_WIDGET` |
+| `cx_wg_draw()` | redraw the current list (e.g. after `cx_theme`) |
+| `cx_wg_key(key)` → 1 if a widget key | drive widgets from the keyboard (TAB/arrows/SPACE/type); **clobbers X/Y** |
 
-**`void cx_menu_off(void)`** — forget the menu (only with none open).
+`cx_menu_active` lets an app with both a menu bar and its own widgets send the
+cursor keys to a menu the user opened **by clicking** — otherwise a mouse-opened
+menu is invisible and the arrows drive the wrong widget:
+`if (cx_menu_active()) cx_menu_key(key); else cx_wg_key(key);`
 
-**`char cx_menu_key(unsigned char key)`** — drive the bar from the keyboard
-(DOWN opens, arrows walk, RETURN picks, ESC dismisses); returns 1 if it was a
-menu key. **Clobbers X/Y** — never carry a register across it.
-
-**`unsigned char cx_menu_active(void)`** *(slot 99)* — 1 if a menu is currently
-dropped, opened by the mouse **or** the keyboard, else 0. An app with both a
-menu bar and its own widgets uses it to send the cursor keys to a menu the user
-opened by clicking — otherwise a mouse-opened menu is invisible and the arrows
-drive the wrong widget: `if (cx_menu_active()) cx_menu_key(key); else …`.
-
-**`void cx_wg_set(const void *list)`** — install and draw a widget list; routes
-its clicks and posts `CX_ET_WIDGET`.
-
-**`void cx_wg_draw(void)`** — redraw the current list (e.g. after `cx_theme`).
-
-**`char cx_wg_key(unsigned char key)`** — drive widgets from the keyboard
-(TAB/arrows move focus, SPACE/RETURN activate, printable keys type into a
-focused field); returns 1 if it was a widget key. **Clobbers X/Y.**
 ```c
 cx_ev_init();
 cx_menu_set(&bar);
@@ -381,109 +285,67 @@ cx_wg_set(&panel);
 
 ## Themes & dialogs
 
-**`void cx_theme(const void *rec12)`** — swap to a 12-byte theme
-(`cx_theme_rec`): four palette colours plus the paper/hi/frame role indices.
-The palette changes instantly; follow with `cx_wg_draw` to recolour widgets.
-```c
-cx_theme(&night);
-cx_wg_draw();
-```
+| function | purpose |
+|---|---|
+| `cx_theme(rec12)` | swap to a 12-byte theme; the palette changes instantly (follow with `cx_wg_draw`) |
+| `cx_alert(desc)` → button | a **synchronous** modal alert; RETURN picks button 0 |
+| `cx_prompt(msg, buf, cap)` → len / −1 | a **synchronous** one-line editor over `buf`; −1 if cancelled (ESC) |
+| `cx_panel(desc)` → button *(0.5)* | a **synchronous** modal panel (box + widget list + ≤3 buttons); records update in place |
 
-**`unsigned char cx_alert(const void *desc)`** — a **synchronous** modal alert
-(see `CX_DIALOG`); returns the chosen button index. RETURN picks button 0.
-```c
-if (cx_alert(&confirm) == 1) do_delete();   /* button 1 = "delete" */
-```
+All three are synchronous — they run their own dispatch loop and return the
+chosen button (`cx_panel`: 0 = confirm, last = cancel). Read a panel's or
+prompt's values straight back from the descriptor/buffer afterward.
 
-**`int cx_prompt(const char *msg, char *buf, unsigned char cap)`** — a
-**synchronous** one-line editor over `buf` (seeded if non-empty), capacity
-`cap`; returns the new length, or −1 if cancelled (ESC).
 ```c
+if (cx_alert(&confirm) == 1) do_delete();             /* button 1 = "delete" */
+
 char name[24] = "";
 if (cx_prompt("New folder:", name, sizeof name) >= 0) make_folder(name);
-```
 
-**`unsigned char cx_panel(const void *desc)`** *(0.5)* — a **synchronous** modal
-panel: a box with a title, a widget list, and up to three buttons along the
-bottom. It runs its own dispatch loop and returns the chosen button (0 =
-confirm/RETURN, last = cancel/ESC). The widget records update **in place**, so
-read your values straight back from the descriptor afterward. Works in modes 0,
-1 and 3. Descriptor layout: [formats.md](formats.md).
-```c
 if (cx_panel(&options) == 0) apply(options_widgets);  /* OK, not Cancel */
 ```
 
 ## Loader & desk accessories
 
-**`unsigned char cx_launch(const char *name)`** — load and run a `.CXA`;
-computes the length itself. Returns **only on failure**: 1 = not an app, 2 =
-needs a newer kernel (on success, control never comes back).
+| function | purpose |
+|---|---|
+| `cx_launch(name)` → reason | load + run a `.CXA`; returns **only on failure** (1 not an app, 2 too new) |
+| `cx_da_open(name)` → 0 ok / 1 fail | open a `.CXD` desk accessory over the running app |
+| `cx_da_close()` | close the desk accessory, restoring the screen |
+| `cx_file_load(name, dst, cap)` → n / −1 *(0.4.0)* | load any file into a buffer (≤ `cap` bytes; reason in `cx_a`) |
+| `cx_vload(name, vbank, addr, raw)` → 0 / 1 *(0.4.1)* | a file **straight into VRAM** (BASIC's `VLOAD`) |
+| `cx_bload(name, bank, addr, raw)` → 0 / 1 *(0.4.1)* | a file into **banked RAM** (BASIC's `BVLOAD`; banks 20+) |
+
+`cx_file_load` is how **fonts and charsets become disk assets**; `cx_vload`
+takes the raw-VRAM shape the whole X16 tool ecosystem emits (Aloevera,
+X16PngConverter, TilemapEd, Tiled+tmx2vera, the GIMP plugins) behind the
+standard 2-byte header (`raw = 1` for headerless); `cx_bload` gets **ZSM music**
+and level data into banked RAM. Both loaders return the end address in
+`cx_p[4]/[5]` (`cx_bload` the end bank in `cx_p[6]`).
+
 ```c
-unsigned char why = cx_launch("CALC.CXA");  /* returns => it refused */
-```
+if (cx_file_load("MYFONT.CXF", buf, sizeof buf) > 0) cx_font(buf);  /* a font */
 
-**`char cx_da_open(const char *name)`** — open a `.CXD` desk accessory over the
-running app; returns 0 on success, 1 on failure.
-
-**`void cx_da_close(void)`** — close the desk accessory, restoring the screen.
-
-**`int cx_file_load(const char *name, void *dst, unsigned cap)`** *(0.4.0)* —
-load any file into a buffer, at most `cap` bytes. Returns the byte count, or
--1 with the reason in `cx_a` (1 not there, 2 read error, 3 bigger than `cap`
-— the first `cap` bytes are in). This is how **fonts and charsets become
-disk assets**:
-```c
-/* a custom face for the GUI: any BDF through tools/fontconv.py */
-if (cx_file_load("MYFONT.CXF", buf, sizeof buf) > 0) cx_font(buf);
-
-/* a custom charset for modes 1 and 3: 2KB of 8x8 glyphs in screen-code
- * order, uploaded AFTER cx_mode (whose init resets the ROM set) */
-cx_mode(CX_MODE_TEXT);
-if (cx_file_load("MYCHARS.BIN", cs, 2048) == 2048)
-    cx_vram_write(0x1F000UL, cs, 2048);
-```
-
-**`char cx_vload(const char *name, unsigned char vbank, unsigned addr, char raw)`**
-*(0.4.1)* — a file **straight into VRAM**, BASIC's `VLOAD`: sprite images,
-tile images, tile maps, palettes (to `$1FA00`), charsets (to `$1F000`),
-bitmaps. The whole X16 tool ecosystem emits exactly this shape —
-**Aloevera**, **X16PngConverter**, the **Vera Graphics Converter**,
-**TilemapEd**, **Tiled + tmx2vera**, the **GIMP export plugins** — raw
-VERA data behind the standard 2-byte header (`raw = 1` for a headerless
-file). Returns 0 done / 1 failed; the end address lands in `cx_p[4]/[5]`.
-```c
 cx_mode(CX_MODE_TILE);
-cx_vload("TILES.BIN",   0, 0x0000, 0);   /* tile images at $00000  */
-cx_vload("MAP.BIN",     0, 0x8000, 0);   /* layer-0 map at $08000  */
-cx_vload("PALETTE.BIN", 1, 0xFA00, 0);   /* the palette at $1FA00  */
-```
+cx_vload("TILES.BIN",   0, 0x0000, 0);   /* tile images at $00000 */
+cx_vload("MAP.BIN",     0, 0x8000, 0);   /* layer-0 map at $08000 */
+cx_vload("PALETTE.BIN", 1, 0xFA00, 0);   /* the palette at $1FA00 */
 
-**`char cx_bload(const char *name, unsigned char bank, unsigned addr, char raw)`**
-*(0.4.1)* — a file into **banked RAM**, BASIC's `BVLOAD`: the KERNAL wraps
-banks at `$BFFF` on its own, so a big asset just keeps going. This is how
-**ZSM music** (composed in **Furnace**, which exports the X16-native ZSM
-format) gets into memory for a future player, and how level data and
-collision maps load. Banks below 20 belong to the kernel and refuse
-(16-19 carry the kernel's second banked-code file since the pre-1.0
-memory restructure; the floor was 16 before that).
-The end address comes back in `cx_p[4]/[5]`, the end bank in `cx_p[6]`.
-```c
 cx_bload("SONG.ZSM", 20, 0xA000, 0);     /* banks 20+ are the app's */
 ```
-
-*(Playing that song is the missing half: a **zsmkit**-based player —
-ticked from the frame IRQ, with play/stop slots — is planned but **not in
-yet**. Today `cx_bload` gets the ZSM into memory; the player comes in a
-later release.)*
+*(Playing that ZSM is the missing half: a **zsmkit**-based player is planned but
+**not in yet**. Today `cx_bload` gets it into memory; the player comes later.)*
 
 ## Directory & DOS
 
-**`char cx_dir_open(const char *pattern)`** — open the directory channel
-(e.g. `"$"` for all); returns 0 on success, 1 on a DOS error.
+| function | purpose |
+|---|---|
+| `cx_dir_open(pattern)` → 0 / 1 | open the directory channel (`"$"` = all); 1 on a DOS error |
+| `cx_dir_next(buf17)` → 0 file / 1 dir / −1 end | read the next entry name (≥17 B; the first is the volume header) |
+| `cx_dir_close()` | close the directory channel |
+| `cx_dos(cmd)` → status | run a CMDR-DOS command (`"S:"`, `"R:NEW=OLD"`, `"MD:"`, `"CD:"`); ≥20 = error |
+| `cx_dos_msg(buf64)` → len | copy the last DOS reply (e.g. `"62,FILE NOT FOUND,00,00"`) |
 
-**`signed char cx_dir_next(char *buf17)`** — read the next entry name into
-`buf17` (≥17 bytes); returns 0 (file), 1 (directory), or −1 (listing done).
-The first entry is the volume header.
 ```c
 char nm[17];
 if (!cx_dir_open("$")) {
@@ -492,32 +354,17 @@ if (!cx_dir_open("$")) {
     while ((t = cx_dir_next(nm)) >= 0) { /* t: 0 file, 1 dir */ }
     cx_dir_close();
 }
-```
-
-**`void cx_dir_close(void)`** — close the directory channel.
-
-**`unsigned char cx_dos(const char *cmd)`** — run a CMDR-DOS command
-(`"S:F"` scratch, `"R:NEW=OLD"` rename, `"MD:D"`, `"CD:D"`, …); returns the
-status code (≥20 is an error), computing the length itself.
-```c
 cx_dos("MD:PROJECTS");                       /* make a folder */
 ```
 
-**`unsigned char cx_dos_msg(char *buf64)`** — copy the last DOS reply
-(e.g. `"62,FILE NOT FOUND,00,00"`) into `buf64` (≥64 bytes); returns its length.
-
 ## Clipboard
 
-**`char cx_clip_put(unsigned char type, const void *src, unsigned len)`** — put
-`len` bytes on the clipboard (`type` 1 = TEXT; 0 or `len` 0 empties it);
-returns 0 on success, 1 if too big (~32KB fits).
+| function | purpose |
+|---|---|
+| `cx_clip_put(type, src, len)` → 0 / 1 | put bytes on the clipboard (`type` 1 = TEXT; 0/len 0 empties); 1 if too big (~32 KB) |
+| `cx_clip_get(dst, cap, type_out)` → n | copy the clipboard into `dst`; `type_out` (may be NULL) gets the type |
+| `cx_clip_type(len_out)` → type | the waiting type (0 = empty) without consuming; `len_out` may be NULL |
 
-**`unsigned cx_clip_get(void *dst, unsigned cap, unsigned char *type_out)`** —
-copy the clipboard into `dst` (up to `cap`); returns the length copied and, via
-`type_out` (may be NULL), the type.
-
-**`unsigned char cx_clip_type(unsigned *len_out)`** — the waiting type (0 =
-empty) without consuming; `len_out` (may be NULL) receives its length.
 ```c
 cx_clip_put(1, "hello", 5);
 char buf[32]; unsigned char ty;
@@ -526,52 +373,46 @@ unsigned n = cx_clip_get(buf, sizeof buf, &ty);
 
 ## Audio *(0.2.0)*
 
-The VERA PSG (16 voices), the YM2151 FM chip, and streamed PCM. All three
-live in a kernel bank, reached through the ABI like everything else. See
-`apps/beep`.
+The VERA PSG (16 voices), the YM2151 FM chip, and streamed PCM — all in a
+kernel bank, reached through the ABI. See `apps/beep`.
 
-**PSG** — `void cx_psg_init(void)` silences all voices;
-`void cx_psg_freq(voice, freq)` sets pitch (`freq` = Hz × 2.68435, A4 = 1181);
-`void cx_psg_vol(voice, vol, pan)` sets volume 0–63 and `CX_PAN_*`;
-`void cx_psg_wave(voice, wave, pw)` sets a `CX_WAVE_*` and pulse width;
-`void cx_psg_off(voice)` silences one voice.
-`void cx_tone(voice, freq, vol)` is a one-call pulse tone.
-```c
-cx_psg_init();
-cx_tone(0, 1181, 50);            /* A4 on voice 0 */
-/* ...hold for a while... */  cx_psg_off(0);
-```
+| function | purpose |
+|---|---|
+| `cx_psg_init()` | silence all voices |
+| `cx_psg_freq(voice, freq)` | pitch (`freq` = Hz × 2.68435, A4 = 1181) |
+| `cx_psg_vol(voice, vol, pan)` | volume 0–63 and `CX_PAN_*` |
+| `cx_psg_wave(voice, wave, pw)` | a `CX_WAVE_*` and pulse width |
+| `cx_psg_off(voice)` | silence one voice |
+| `cx_tone(voice, freq, vol)` | a one-call pulse tone |
+| `cx_ym_init()` | reset + default patches (once) |
+| `cx_ym_note(chan, code)` | play `CX_YM(octave, note)` on chan 0–7 (0 releases) |
+| `cx_ym_off(chan)` | release the note |
+| `cx_ym_vol(chan, atten)` | attenuation |
+| `cx_ym_patch(chan, idx)` | load ROM instrument 0–162 |
+| `cx_pcm_ctrl(ctrl)` | format/volume (`0x0F` = 8-bit mono, full) |
+| `cx_pcm_play(src, len, rate)` | stream signed samples from low RAM at rate 1–128 |
+| `cx_pcm_stop()` | stop |
+| `cx_pcm_active()` → 1 / 0 | 1 while a sample still plays |
 
-**YM (FM)** — `void cx_ym_init(void)` (once); `void cx_ym_note(chan, code)`
-plays `CX_YM(octave, note)` on a channel 0–7 (0 releases);
-`void cx_ym_off(chan)`; `void cx_ym_vol(chan, atten)`;
-`void cx_ym_patch(chan, idx)` loads ROM instrument 0–162.
-```c
-cx_ym_init();
-cx_ym_patch(0, 1);
-cx_ym_note(0, CX_YM(4, 1));      /* C, octave 4 */
-```
+PCM needs `cx_ev_init` running (the FIFO is topped up each frame off the event
+IRQ).
 
-**PCM** — needs `cx_ev_init` running (the FIFO is topped up each frame off
-the event IRQ). `void cx_pcm_ctrl(ctrl)` sets format/volume (e.g. `0x0F` =
-8-bit mono, full volume); `void cx_pcm_play(src, len, rate)` streams signed
-sample bytes from low RAM at `rate` 1–128; `void cx_pcm_stop(void)`;
-`unsigned char cx_pcm_active(void)` is 1 while playing.
 ```c
-cx_pcm_ctrl(0x0F);
-cx_pcm_play(sample, sizeof sample, 64);
+cx_psg_init();  cx_tone(0, 1181, 50);                 /* A4 on voice 0 */
+cx_ym_init();   cx_ym_patch(0, 1);  cx_ym_note(0, CX_YM(4, 1));
+cx_pcm_ctrl(0x0F);  cx_pcm_play(sample, sizeof sample, 64);
 ```
 
 ## Joysticks *(0.3.0)*
 
-Pad 0 is the keyboard joystick; 1-4 are SNES pads. Buttons are ACTIVE
-HIGH `CX_J_*` masks (UP/DOWN/LEFT/RIGHT/A/B/X/Y/L/R/START/SELECT).
+Pad 0 is the keyboard joystick; 1–4 are SNES pads. Buttons are ACTIVE-HIGH
+`CX_J_*` masks (UP/DOWN/LEFT/RIGHT/A/B/X/Y/L/R/START/SELECT).
 
-**`unsigned cx_joy(unsigned char pad)`** -- the pad's buttons (0 = none);
-after the call `cx_c` is 1 if no physical pad is plugged in (pad 0's
-keyboard data stays valid regardless).
-**`void cx_joy_enable(unsigned char mask)`** -- scan the masked pads each
-frame and post `CX_ET_JOY` on any change; 0 stops.
+| function | purpose |
+|---|---|
+| `cx_joy(pad)` → buttons | the pad's buttons (0 = none); `cx_c` = 1 if no physical pad |
+| `cx_joy_enable(mask)` | scan the masked pads each frame, post `CX_ET_JOY`; 0 stops |
+
 ```c
 cx_joy_enable(1);
 if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
@@ -579,69 +420,52 @@ if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
 
 ## Graphics modes *(0.3.0)*
 
-**`char cx_mode(unsigned char m)`** -- switch to `CX_MODE_GUI` (0),
-`CX_MODE_BMP8` (1: 320x240, colours 0-255), `CX_MODE_TILE` (2) or
-`CX_MODE_TEXT` (3: 80x60 text cells, 16 colours -- coordinates are
-cells, "colour" a text attribute. `cx_clear`/`cx_rect` fill cells and
-set the paper; `cx_frame` draws a real box in the PETSCII frame glyphs;
-`cx_hline`/`cx_vline` are ruled lines, and `cx_line` works for
-horizontal/vertical runs (diagonals refuse); `cx_say` prints mixed-case
-ASCII. The pixel-only calls refuse).
-The same drawing calls work across the bitmap modes. The toolkit and fonts
-(`cx_say`, `cx_measure`, `cx_wg_*`, `cx_menu_*`, dialogs, DAs) are
-GUI-only: outside mode 0 they refuse with carry (`cx_c`) and do nothing,
-so a stray call is a safe no-op, not a crash. Sprites, audio, joysticks,
-events, files, and the shapes work in every mode. `cx_exit` always
-restores the desktop.
-**`void cx_screen_info(cx_screen *s)`** -- mode, w, h, bpp, stride: how
-`cx_pic_*` (and your code) adapt to any canvas. See
-[graphics-port.md](graphics-port.md).
+| function | purpose |
+|---|---|
+| `cx_mode(m)` → carry if unknown | switch to `CX_MODE_GUI`/`BMP8`/`TILE`/`TEXT` |
+| `cx_screen_info(&s)` | fill `cx_screen` (mode, w, h, bpp, stride) |
+| `cx_ink(color)` *(0.4.0)* | text ink for the CURRENT mode (palette index in BMP8, attribute in TEXT) |
+| `cx_pal_set(index, rgb)` *(0.7.0)* | set one VERA palette entry (`rgb` = 12-bit `0x0RGB`) |
+| `cx_pal_load(src, first, count)` *(0.7.0)* | bulk-load `count` (1–128) entries from `src` |
 
-**`void cx_ink(unsigned char color)`** *(0.4.0)* -- the text ink for the
-CURRENT mode: a palette index in `CX_MODE_BMP8` (whose `cx_say` draws
-8x8 charset glyphs from VRAM `$1F000` now), an attribute 0-15 in
-`CX_MODE_TEXT`. The GUI's text ink belongs to the theme and ignores it.
-Mode-local by construction: every mode switch resets it to white, so an
-ink set in one mode never leaks into another where the same number is a
-different colour space.
+The same drawing calls work across the bitmap modes; in `CX_MODE_TEXT`
+coordinates are cells and "colour" is an attribute (`cx_clear`/`cx_rect` fill
+cells, `cx_frame` draws a PETSCII box, `cx_say` prints ASCII, pixel-only calls
+refuse). The **toolkit and fonts** (`cx_say`, `cx_wg_*`, `cx_menu_*`, dialogs,
+DAs) are GUI-only — outside mode 0 they refuse with carry and do nothing, a
+safe no-op. Sprites, audio, joysticks, events, files and the shapes work in
+every mode; `cx_exit` always restores the desktop. `cx_ink` is mode-local (a
+mode switch resets it to white). `cx_pal_*` is handiest in `CX_MODE_BMP8`.
 
-**`void cx_pal_set(unsigned char index, unsigned rgb)`** *(0.7.0)* -- set one
-VERA palette entry; `rgb` is a 12-bit `0x0RGB` (`0x0F00` = red). **`void
-cx_pal_load(const void *src, unsigned char first, unsigned char count)`** --
-bulk-load `count` (1-128) entries from `src` (2 bytes each, low byte first).
-Handiest in `CX_MODE_BMP8`, where a few custom colours beat loading a whole
-512-byte block.
+## Shapes *(0.3.0)* — every bitmap mode
 
-## Shapes *(0.3.0)* -- every bitmap mode
+| function | purpose |
+|---|---|
+| `cx_circle(cx, cy, r, color)` | an outline; clips wherever pset clips |
+| `cx_disc(cx, cy, r, color)` | the same, filled; no clipping — keep it on screen |
+| `cx_ellipse(cx, cy, rx, ry, color)` *(0.3.1)* | an axis-aligned ellipse outline |
+| `cx_fellipse(cx, cy, rx, ry, color)` | the same, filled |
+| `cx_flood(x, y, color)` → 1 if overflowed | scanline fill of the region holding the seed |
 
-**`void cx_circle(unsigned cx, unsigned cy, unsigned char r, unsigned char color)`**
--- an outline; clips wherever pset clips.
-**`void cx_disc(...)`** -- the same, filled; no clipping, keep it on screen.
-**`void cx_ellipse(unsigned cx, unsigned cy, unsigned char rx, unsigned char ry, unsigned char color)`**
-*(0.3.1)* -- an axis-aligned ellipse outline; clips wherever pset clips.
-**`void cx_fellipse(...)`** -- the same, filled; no clipping.
-**`char cx_flood(unsigned x, unsigned y, unsigned char color)`** --
-scanline fill of the region containing the seed; returns 1 if the seed
-stack overflowed on a very tortured region.
 ```c
 cx_disc(250, 222, 7, 220);
 cx_circle(250, 222, 13, 15);
 cx_flood(250, 212, 110);       /* fills the moat between them */
-cx_fellipse(70, 222, 22, 9, 175);
-cx_ellipse(70, 222, 28, 13, 15);
 ```
 
-## Tiles *(0.3.0)* -- CX_MODE_TILE only
+## Tiles *(0.3.0)* — CX_MODE_TILE only
 
-Two 64x32 maps of 8x8 4bpp tiles. Upload tile pixels with
+Two 64×32 maps of 8×8 4bpp tiles. Upload tile pixels with
 `cx_vram_write(CX_TILE_IMG + n*32, data, len)`; a cell is
 `CX_CELL(index, palette)`, optionally `| CX_CELL_HF | CX_CELL_VF`.
 
-**`char cx_tile_setup(unsigned char layer)`** -- configure + enable a layer.
-**`void cx_tile_fill(unsigned char layer, unsigned cell)`** -- carpet the map.
-**`void cx_tile_cell(unsigned char layer, unsigned char col, unsigned char row, unsigned cell)`** -- one cell.
-**`void cx_tile_scroll(unsigned char layer, unsigned h, unsigned v)`** --
-hardware scroll: a register write, nothing redrawn.
+| function | purpose |
+|---|---|
+| `cx_tile_setup(layer)` → carry | configure + enable a layer |
+| `cx_tile_fill(layer, cell)` | carpet the map |
+| `cx_tile_cell(layer, col, row, cell)` | one cell |
+| `cx_tile_scroll(layer, h, v)` | hardware scroll (a register write, nothing redrawn) |
+
 ```c
 cx_mode(CX_MODE_TILE);
 cx_vram_write(CX_TILE_IMG, tiles, sizeof tiles);
@@ -657,11 +481,14 @@ data in VRAM at `CX_SPR_VRAM` (32-byte aligned) with `cx_vram_write`, point
 the sprite at it, size and position it, then set flags to show it. See
 `apps/sprite`.
 
-- `void cx_sprite_image(s, addr, mode)` — VRAM image address, `CX_SPR_4BPP`/`8BPP`.
-- `void cx_sprite_pos(s, x, y)` — move it.
-- `void cx_sprite_size(s, w, h, pal)` — `CX_SPR_8/16/32/64` per axis, palette offset.
-- `void cx_sprite_flags(s, flags)` — collision<<4 \| Z \| `CX_SPR_VFLIP` \| `CX_SPR_HFLIP` (a full write; do once before `cx_sprite_z`).
-- `void cx_sprite_z(s, z)` — change only Z-depth: `CX_SPR_HIDE`/`BEHIND`/`MIDDLE`/`FRONT`.
+| function | purpose |
+|---|---|
+| `cx_sprite_image(s, addr, mode)` | VRAM image address, `CX_SPR_4BPP`/`8BPP` |
+| `cx_sprite_pos(s, x, y)` | move it |
+| `cx_sprite_size(s, w, h, pal)` | `CX_SPR_8/16/32/64` per axis, palette offset |
+| `cx_sprite_flags(s, flags)` | collision<<4 \| Z \| flips (a full write; before `cx_sprite_z`) |
+| `cx_sprite_z(s, z)` | change only Z-depth (`CX_SPR_HIDE`/`BEHIND`/`MIDDLE`/`FRONT`) |
+
 ```c
 cx_vram_write(CX_SPR_VRAM, img, sizeof img);   /* upload the pixels */
 cx_sprite_image(1, CX_SPR_VRAM, CX_SPR_4BPP);
@@ -672,12 +499,13 @@ cx_sprite_flags(1, CX_SPR_FRONT);              /* show it */
 
 ## Dirty rectangles
 
-**`void cx_dirty_reset(void)`** — clear the dirty list.
-**`void cx_dirty_add(unsigned x, unsigned y, unsigned w, unsigned h)`** — mark a
-region changed.
-**`unsigned char cx_dirty_count(void)`** — how many merged rectangles.
-**`void cx_dirty_get(unsigned char i, unsigned *x0, unsigned *y0, unsigned *x1, unsigned *y1)`**
-— read merged rectangle `i` (any pointer may be NULL).
+| function | purpose |
+|---|---|
+| `cx_dirty_reset()` | clear the dirty list |
+| `cx_dirty_add(x, y, w, h)` | mark a region changed |
+| `cx_dirty_count()` → n | how many merged rectangles |
+| `cx_dirty_get(i, &x0, &y0, &x1, &y1)` | read merged rectangle `i` (any pointer may be NULL) |
+
 ```c
 cx_dirty_reset();
 cx_dirty_add(10, 10, 40, 40);
@@ -688,36 +516,28 @@ for (unsigned char i = 0; i < cx_dirty_count(); i++) {
 
 ## Utility
 
-**`void cx_print(const char *s)`** — CHROUT a NUL-terminated string plus a
-carriage return, through the KERNAL — the boot/debug marker every app prints.
-```c
-cx_print("MYAPP UP");
-```
+| function | purpose |
+|---|---|
+| `cx_print(s)` | CHROUT a NUL-terminated string + a return (the boot/debug marker) |
+| `cx_vram_write(addr, src, len)` *(0.2.0)* | copy `len` bytes from RAM into VRAM at `addr` (sprite/tile/raw uploads) |
 
 ## Picture files
 
-Save or restore a screen rectangle to a SEQ file in one call. The rectangle
-streams as native framebuffer bytes straight through VERA's data port (four
-2-bit pixels a byte), far faster than a `cx_pget`/`cx_pset` per pixel.
-Interrupts are masked around the transfer. **`x` and `w` must be multiples of
-4**; a row is at most 640 pixels. Device 8 (the SD).
+Save or restore a screen rectangle to a SEQ file in one call — it streams as
+native framebuffer bytes straight through VERA's data port (four 2-bit pixels a
+byte), far faster than a `cx_pget`/`cx_pset` per pixel, interrupts masked
+around it. **`x` and `w` must be multiples of 4**; a row is at most 640 pixels.
+Device 8 (the SD).
 
-**`void cx_pic_save(const char *name, unsigned x, unsigned y, unsigned w, unsigned h)`**
-— save the `w`×`h` rectangle at `(x,y)` to SEQ file `name` (replacing any
-existing one).
+| function | purpose |
+|---|---|
+| `cx_pic_save(name, x, y, w, h)` | save the `w`×`h` rect at `(x,y)` to SEQ file `name` (replaces any) |
+| `cx_pic_load(name, x, y, w, h)` → rows | load it back; 0 = no file / empty |
 
-**`unsigned cx_pic_load(const char *name, unsigned x, unsigned y, unsigned w, unsigned h)`**
-— load `name` back into the rectangle; returns the number of rows restored
-(0 = no file / empty).
 ```c
 cx_pic_save("PAINT.DAT", 120, 72, 400, 288);
 if (!cx_pic_load("PAINT.DAT", 120, 72, 400, 288)) show("nothing saved yet");
 ```
-
-**`void cx_vram_write(unsigned long addr, const void *src, unsigned len)`**
-*(0.2.0)* — copy `len` bytes from RAM into VRAM at `addr`, through VERA's
-auto-incrementing data port. For uploading sprite images (to `CX_SPR_VRAM`),
-tiles, or any raw VRAM.
 
 ---
 
