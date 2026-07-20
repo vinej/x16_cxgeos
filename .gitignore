@@ -16,3 +16,6 @@
 
 # local project brief for Claude -- kept local, never published
 /CLAUDE.md
+
+# python bytecode
+__pycache__/

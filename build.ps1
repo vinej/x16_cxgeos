@@ -248,6 +248,152 @@ function Build-Apps {
     } else {
         Write-Host "llvm-mos not found: skipping the C apps" -ForegroundColor Yellow
     }
+
+    # --- the multi-toolchain SDK smokes ---------------------------------
+    # Each proves a GENERATED SDK variant drives the kernel end to end. The
+    # binaries live in the sibling x16_library / x16_clib; a machine without
+    # one skips that smoke, exactly like llvm-mos above. mkcxap wraps any
+    # $0801 PRG, so the .CXA/boot stages are toolchain-agnostic.
+    $xlib = "C:\quartus\projects\x16_library"
+
+    $t64 = "$xlib\64tass\64tass.exe"; $src64 = "$xlib\src_64tass"
+    if ((Test-Path $t64) -and (Test-Path $src64)) {
+        $prg = Join-Path $build "SMOKE64.PRG"
+        Write-Host "64tass apps\smoke_64tass\smoke.asm -> $prg"
+        & $t64 -C -a --cbm-prg -I $root -I $src64 -o $prg (Join-Path $root "apps\smoke_64tass\smoke.asm")
+        if ($LASTEXITCODE -ne 0) { Fail "64tass failed on the smoke app (asmsdk/64tass)" }
+        & $py $mkcxap $prg (Join-Path $build "SMOKE64.CXA") --name "Smoke (64tass)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKE64" }
+    } else { Write-Host "64tass not found: skipping the 64tass smoke" -ForegroundColor Yellow }
+
+    $acme = "$xlib\acme\acme.exe"; $srcAcme = "$xlib\src_acme"
+    if ((Test-Path $acme) -and (Test-Path $srcAcme)) {
+        $prg = Join-Path $build "SMOKEACME.PRG"
+        Write-Host "acme  apps\smoke_acme\smoke.asm -> $prg"
+        & $acme -I $root -I $srcAcme -f cbm -o $prg (Join-Path $root "apps\smoke_acme\smoke.asm")
+        if ($LASTEXITCODE -ne 0) { Fail "acme failed on the smoke app (asmsdk/acme)" }
+        & $py $mkcxap $prg (Join-Path $build "SMOKEACME.CXA") --name "Smoke (acme)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKEACME" }
+    } else { Write-Host "acme not found: skipping the acme smoke" -ForegroundColor Yellow }
+
+    $dasm = "$xlib\dasm\dasm.exe"; $srcDasm = "$xlib\src_dasm"
+    if ((Test-Path $dasm) -and (Test-Path $srcDasm)) {
+        $prg = Join-Path $build "SMOKEDASM.PRG"
+        Write-Host "dasm  apps\smoke_dasm\smoke.asm -> $prg"
+        # dasm -f1 prepends the PRG load address; flags take no space
+        & $dasm (Join-Path $root "apps\smoke_dasm\smoke.asm") "-I$root" "-I$srcDasm" -f1 "-o$prg"
+        if ($LASTEXITCODE -ne 0) { Fail "dasm failed on the smoke app (asmsdk/dasm)" }
+        & $py $mkcxap $prg (Join-Path $build "SMOKEDASM.CXA") --name "Smoke (dasm)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKEDASM" }
+    } else { Write-Host "dasm not found: skipping the dasm smoke" -ForegroundColor Yellow }
+
+    $mads = "$xlib\mads\mads.exe"; $srcMads = "$xlib\src_mads"
+    if ((Test-Path $mads) -and (Test-Path $srcMads)) {
+        $raw = Join-Path $build "SMOKEMADS.raw"
+        $prg = Join-Path $build "SMOKEMADS.PRG"
+        Write-Host "mads  apps\smoke_mads\smoke.asm -> $prg"
+        # MADS has no linker (opt h-); prepend the CBM load address ourselves
+        & $mads (Join-Path $root "apps\smoke_mads\smoke.asm") -c "-i:$root" "-i:$srcMads" "-o:$raw"
+        if ($LASTEXITCODE -ne 0) { Fail "mads failed on the smoke app (asmsdk/mads)" }
+        $rb = [IO.File]::ReadAllBytes($raw)
+        $pb = New-Object byte[] ($rb.Length + 2)
+        $pb[0] = 0x01; $pb[1] = 0x08
+        [Array]::Copy($rb, 0, $pb, 2, $rb.Length)
+        [IO.File]::WriteAllBytes($prg, $pb)
+        & $py $mkcxap $prg (Join-Path $build "SMOKEMADS.CXA") --name "Smoke (mads)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKEMADS" }
+    } else { Write-Host "mads not found: skipping the mads smoke" -ForegroundColor Yellow }
+
+    $vasm = "$xlib\vasm\vasm6502_oldstyle.exe"; $srcVasm = "$xlib\src_vasm"
+    if ((Test-Path $vasm) -and (Test-Path $srcVasm)) {
+        $prg = Join-Path $build "SMOKEVASM.PRG"
+        Write-Host "vasm  apps\smoke_vasm\smoke.asm -> $prg"
+        & $vasm -c02 -Fbin -cbm-prg -I $root -I $srcVasm -o $prg (Join-Path $root "apps\smoke_vasm\smoke.asm")
+        if ($LASTEXITCODE -ne 0) { Fail "vasm failed on the smoke app (asmsdk/vasm)" }
+        & $py $mkcxap $prg (Join-Path $build "SMOKEVASM.CXA") --name "Smoke (vasm)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKEVASM" }
+    } else { Write-Host "vasm not found: skipping the vasm smoke" -ForegroundColor Yellow }
+
+    $kickJar = "$xlib\kickass\KickAss.jar"; $srcKick = "$xlib\src_kick"
+    $java = Get-Command java -ErrorAction SilentlyContinue
+    if ($java -and (Test-Path $kickJar) -and (Test-Path $srcKick)) {
+        $prg = Join-Path $build "SMOKEKICK.PRG"
+        Write-Host "kick  apps\smoke_kick\smoke.asm -> $prg"
+        & $java.Source -jar $kickJar (Join-Path $root "apps\smoke_kick\smoke.asm") -libdir $root -libdir $srcKick -o $prg | Out-Null
+        if ($LASTEXITCODE -ne 0) { Fail "KickAssembler failed on the smoke app (asmsdk/kick)" }
+        & $py $mkcxap $prg (Join-Path $build "SMOKEKICK.CXA") --name "Smoke (kick)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKEKICK" }
+    } else { Write-Host "KickAssembler/Java not found: skipping the kick smoke" -ForegroundColor Yellow }
+
+    $cl65 = "C:\quartus\projects\x16_clib\ca65\bin\cl65.exe"
+    if (-not (Test-Path $cl65)) { $cl65 = "C:\quartus\projects\x16_CDebugger\cc65-sdk\bin\cl65.exe" }
+    if (Test-Path $cl65) {
+        $prg = Join-Path $build "SMOKEC.PRG"
+        Write-Host "cc65  apps\smoke_c\smoke.c -> $prg"
+        # one portable C source + the generated cc65 crossing (cxrun.s)
+        & $cl65 -t cx16 -O -I $root -o $prg (Join-Path $root "apps\smoke_c\smoke.c") (Join-Path $root "sdk\include_cc65\cxrun.s")
+        if ($LASTEXITCODE -ne 0) { Fail "cl65 failed on the smoke app (cc65 csdk)" }
+        & $py $mkcxap $prg (Join-Path $build "SMOKEC.CXA") --name "Smoke (cc65)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKEC" }
+    } else {
+        Write-Host "cc65 (cl65) not found: skipping the cc65 smoke" -ForegroundColor Yellow
+    }
+
+    # oscar64: the one portable smoke.c, crossing INLINED in the header
+    $o64 = "C:\quartus\projects\x16_clib\oscar64\bin\oscar64.exe"
+    if (Test-Path $o64) {
+        $prg = Join-Path $build "SMOKEO64.PRG"
+        Write-Host "oscar64 apps\smoke_c\smoke.c -> $prg"
+        & $o64 -tm=x16 -n -dCX_OSCAR64 "-i=$root" "-o=$prg" (Join-Path $root "apps\smoke_c\smoke.c") 2>&1 |
+            Where-Object { $_ -match 'error|Error' } | ForEach-Object { Write-Host "      $_" }
+        if ($LASTEXITCODE -ne 0) { Fail "oscar64 failed on the smoke app (oscar64 csdk)" }
+        & $py $mkcxap $prg (Join-Path $build "SMOKEO64.CXA") --name "Smoke (oscar64)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKEO64" }
+    } else {
+        Write-Host "oscar64 not found: skipping the oscar64 smoke" -ForegroundColor Yellow
+    }
+
+    # KickC: a Java jar with its own include/lib/fragment/target trees
+    $kickcHome = "C:\quartus\projects\x16_clib\kickc"
+    $kickcJar = @(Get-ChildItem (Join-Path $kickcHome "jar") -Filter "kickc-*.jar" -ErrorAction SilentlyContinue)
+    $java = Get-Command java -ErrorAction SilentlyContinue
+    if ($java -and $kickcJar.Count -gt 0) {
+        $jar = $kickcJar[0].FullName
+        Write-Host "kickc apps\smoke_c\smoke.c -> $build\SMOKEKICKC.PRG"
+        & $java.Source -jar $jar `
+            -I (Join-Path $kickcHome "include") -L (Join-Path $kickcHome "lib") `
+            -F (Join-Path $kickcHome "fragment") -P (Join-Path $kickcHome "target") `
+            -p cx16 -a -DCX_KICKC -I $root -odir $build (Join-Path $root "apps\smoke_c\smoke.c") 2>&1 |
+            Where-Object { $_ -match 'rror' } | ForEach-Object { Write-Host "      $_" }
+        if ($LASTEXITCODE -ne 0) { Fail "kickc failed on the smoke app (kickc csdk)" }
+        Copy-Item (Join-Path $build "smoke.prg") (Join-Path $build "SMOKEKICKC.PRG") -Force
+        & $py $mkcxap (Join-Path $build "SMOKEKICKC.PRG") (Join-Path $build "SMOKEKICKC.CXA") --name "Smoke (kickc)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKEKICKC" }
+    } else {
+        Write-Host "KickC/Java not found: skipping the kickc smoke" -ForegroundColor Yellow
+    }
+
+    # vbcc: the +x16 target compiles smoke.c and assembles/links the vasm
+    # crossing (cxrun.s). vc.exe shells out to vbcc6502/vasm/vlink by bare
+    # name, so VBCC (its config dir) must be set and its bin on PATH.
+    $vbccHome = "C:\quartus\projects\x16_clib\vbcc6502\vbcc6502_win\vbcc"
+    if (Test-Path (Join-Path $vbccHome "bin\vc.exe")) {
+        $prg = Join-Path $build "SMOKEVBCC.PRG"
+        Write-Host "vbcc  apps\smoke_c\smoke.c -> $prg"
+        $savedVBCC = $env:VBCC; $savedPATH = $env:PATH
+        $env:VBCC = $vbccHome
+        $env:PATH = (Join-Path $vbccHome "bin") + ";" + $env:PATH
+        & (Join-Path $vbccHome "bin\vc.exe") +x16 "-I$root" `
+            (Join-Path $root "apps\smoke_c\smoke.c") (Join-Path $root "sdk\include_vbcc\cxrun.s") -o $prg 2>&1 |
+            Where-Object { $_ -match 'rror' } | ForEach-Object { Write-Host "      $_" }
+        $ok = ($LASTEXITCODE -eq 0)
+        $env:VBCC = $savedVBCC; $env:PATH = $savedPATH
+        if (-not $ok) { Fail "vbcc failed on the smoke app (vbcc csdk)" }
+        & $py $mkcxap $prg (Join-Path $build "SMOKEVBCC.CXA") --name "Smoke (vbcc)"
+        if ($LASTEXITCODE -ne 0) { Fail "mkcxap failed on SMOKEVBCC" }
+    } else {
+        Write-Host "vbcc not found: skipping the vbcc smoke" -ForegroundColor Yellow
+    }
 }
 
 # --- stage everything a bootable disk needs -----------------------------
@@ -318,6 +464,29 @@ if ($Test) {
         & $py.Source (Join-Path $root "tools\mapreport.py") --selftest | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail "mapreport: selftest failed" }
         Write-Host "abi + fontconv + mkcxap + mapreport: host checks pass"
+
+        # The asmsdk fidelity gate: the spec (abi/asmsdk.py) generates the
+        # friendly cxm_* layer for every assembler. ca65's stays hand-written
+        # as the reference, and this proves the spec reproduces it EXACTLY --
+        # the coverage stub invokes every macro; assembled with the hand file
+        # and with the spec's ca65 rendering, the two binaries must be equal
+        # (byte-identical expansion, as the project has always meant it).
+        $gendir = Join-Path $build "asmsdk_gen\asmsdk\ca65"
+        New-Item -ItemType Directory -Force -Path $gendir | Out-Null
+        & $py.Source (Join-Path $root "abi\asmsdk.py") ca65 |
+            Set-Content -Encoding ascii (Join-Path $gendir "cxgeos.inc")
+        if ($LASTEXITCODE -ne 0) { Fail "asmsdk: ca65 generation failed" }
+        $cover = Join-Path $root "test\asmsdk_cover.asm"
+        & $ca65 --cpu 65C02 -I $lib -I $root -o (Join-Path $build "cover_hand.o") $cover
+        if ($LASTEXITCODE -ne 0) { Fail "asmsdk gate: the cover stub failed to assemble (hand ca65)" }
+        & $ld65 -C (Join-Path $root "prg.cfg") -o (Join-Path $build "cover_hand.PRG") (Join-Path $build "cover_hand.o")
+        & $ca65 --cpu 65C02 -I $lib -I (Join-Path $build "asmsdk_gen") -I $root -o (Join-Path $build "cover_gen.o") $cover
+        if ($LASTEXITCODE -ne 0) { Fail "asmsdk gate: the cover stub failed to assemble (generated ca65)" }
+        & $ld65 -C (Join-Path $root "prg.cfg") -o (Join-Path $build "cover_gen.PRG") (Join-Path $build "cover_gen.o")
+        $hh = (Get-FileHash (Join-Path $build "cover_hand.PRG")).Hash
+        $gh = (Get-FileHash (Join-Path $build "cover_gen.PRG")).Hash
+        if ($hh -ne $gh) { Fail "asmsdk gate: the spec's ca65 layer does NOT expand identically to the hand file" }
+        Write-Host "asmsdk fidelity: spec's ca65 == hand file (every macro, byte-identical)" -ForegroundColor Green
     } else {
         Write-Host "python not found: skipping the host checks" -ForegroundColor Yellow
     }
@@ -395,13 +564,35 @@ if ($Test) {
     if (Test-Path (Join-Path $build "HELLO2.CXA")) {
         $hellos += @{ cxa = "HELLO2.CXA"; up = "HELLO C UP" }
     }
+    # the multi-toolchain SDK smokes: each boots, drives the kernel through
+    # its GENERATED SDK variant, and prints its OK marker AFTER surviving a
+    # spread of calls -- that marker (not the shell banner) is the success
+    # signal, because a C app can leave the text cursor mid-line so the
+    # shell's "CXGEOS SHELL" is not at column 0 for the ^-anchored wait.
+    foreach ($sm in @(
+        @{ cxa = "SMOKE64.CXA";   mk = "SMOKE 64TASS OK" },
+        @{ cxa = "SMOKEACME.CXA"; mk = "SMOKE ACME OK" },
+        @{ cxa = "SMOKEDASM.CXA"; mk = "SMOKE DASM OK" },
+        @{ cxa = "SMOKEMADS.CXA"; mk = "SMOKE MADS OK" },
+        @{ cxa = "SMOKEVASM.CXA"; mk = "SMOKE VASM OK" },
+        @{ cxa = "SMOKEKICK.CXA"; mk = "SMOKE KICK OK" },
+        @{ cxa = "SMOKEC.CXA";    mk = "SMOKE C OK" },
+        @{ cxa = "SMOKEO64.CXA";  mk = "SMOKE C OK" },
+        @{ cxa = "SMOKEKICKC.CXA"; mk = "SMOKE C OK" },
+        @{ cxa = "SMOKEVBCC.CXA"; mk = "SMOKE C OK" }
+    )) {
+        if (Test-Path (Join-Path $build $sm.cxa)) {
+            $hellos += @{ cxa = $sm.cxa; up = $sm.mk; wait = $sm.mk }
+        }
+    }
     foreach ($h in $hellos) {
         Copy-Item (Join-Path $build $h.cxa) (Join-Path $sdroot "AUTORUN.CXA") -Force
-        $text = Invoke-Emulator @('-fsroot', $sdroot) $TimeoutSec '(?m)^CXGEOS SHELL' "boot-$($h.cxa)"
+        $wait = if ($h.wait) { $h.wait } else { '(?m)^CXGEOS SHELL' }
+        $text = Invoke-Emulator @('-fsroot', $sdroot) $TimeoutSec $wait "boot-$($h.cxa)"
         # not ^-anchored: -echo renders a control byte ahead of the text
         # as \X0F, so the marker is not at column 0
         if ($text -notmatch [regex]::Escape($h.up)) { Fail "boot smoke: $($h.cxa) never came up" }
-        Write-Host "      boot: $($h.cxa) up, timed exit, shell up" -ForegroundColor Green
+        Write-Host "      boot: $($h.cxa) up" -ForegroundColor Green
     }
 
     # The SD-image path: fold the staged root into one FAT32 image and

@@ -24,7 +24,37 @@
 #ifndef CXSDK_H
 #define CXSDK_H
 
-#include <cbm.h>          /* cbm_k_chrout, for cx_print */
+/* <cbm.h> (cbm_k_chrout etc.) exists on the cbm-style toolchains; oscar64 and
+ * kickc reach the KERNAL through their own inline asm instead, so the few
+ * wrappers that need it (cx_print, the picture-file streams) are gated to the
+ * compilers that have it. Everything else in this header is portable C. */
+/* directives are NOT indented after '#': oscar64's preprocessor (and other
+ * older ones) reject a space between '#' and the keyword */
+#if defined(__clang__) || defined(__CC65__)
+#define CX_HAVE_CBM 1
+#include <cbm.h>
+#endif
+
+/* A packed struct spelling that every compiler accepts. clang needs the
+ * attribute; cc65/oscar64/kickc/vbcc never pad a struct of byte-aligned
+ * members on the 6502, so it is empty there. */
+#ifdef __clang__
+#define CX_PACKED __attribute__((packed))
+#else
+#define CX_PACKED
+#endif
+
+/* Disable/enable interrupts around the picture-file streams (clang only, so
+ * only clang ever expands these); the bare-mnemonic form is for future ports. */
+#ifndef CX_SEI
+#ifdef __clang__
+#define CX_SEI() __asm__ volatile ("sei" ::: "memory")
+#define CX_CLI() __asm__ volatile ("cli" ::: "memory")
+#else
+#define CX_SEI() __asm__ ("sei")
+#define CX_CLI() __asm__ ("cli")
+#endif
+#endif
 
 /* --- constants: event types (the record's `type`) ------------------ */
 /* CX_ET_*, not CX_EV_*, so they never clash with the CX_EV_* slot names
@@ -49,11 +79,12 @@
 #define CX_WG_FIELD   4
 #define CX_WG_LIST    5
 #define CX_WG_ICON    6         /* a 24x24 icon tile; `val` is the icon id */
-#define CX_WG_HIT     7         /* an invisible hit region the app draws itself:
-                                   `val` = shape (CX_WH_*), inscribed in x/y/w/h;
-                                   `grp` = trigger mask (CX_WH_CLICK/RELEASE/
-                                   HOVER; 0 = click). Posts EV_WIDGET(index,
-                                   phase): 2 down, 3 up, 1 hover-in, 0 hover-out */
+/* CX_WG_HIT: an invisible hit region the app draws itself. `val` = shape
+ * (CX_WH_*), inscribed in x/y/w/h; `grp` = trigger mask (CX_WH_CLICK/RELEASE/
+ * HOVER; 0 = click). Posts EV_WIDGET(index, phase): 2 down, 3 up, 1 hover-in,
+ * 0 hover-out. (Leading comment: oscar64's preprocessor mishandles a multi-
+ * line comment trailing a #define.) */
+#define CX_WG_HIT     7
 
 /* --- CX_WG_HIT shapes (a record's `val`) and triggers (its `grp`) --- */
 #define CX_WH_RECT    0
@@ -153,8 +184,14 @@
 /* The wrappers are `static` in a header, so an app that calls only some
  * would draw -Wunused-function for the rest under -Wall. They are all
  * meant to be optional; -Os drops the unused ones. Silence the noise. */
+#ifdef __clang__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
+#elif defined(__CC65__)
+/* cc65 flags unused statics at end-of-translation-unit, after any pop, so
+ * this stays off for the rest of the unit rather than being pushed/popped */
+#pragma warn (unused-func, off)
+#endif
 
 /* =====================================================================
  * system
@@ -514,9 +551,13 @@ static void cx_ev_mask(unsigned char sources) { cx_call_a(CX_EV_MASK, sources); 
  * saved around it, but it shares the app's zero page and soft stack, so
  * keep it tiny (bump a counter, poke VERA) -- on llvm-mos mark it
  * __attribute__((interrupt)) or write it in asm. Pass 0 to remove it. */
+/* KickC has no function-pointer type; a KickC game passes its handler with
+ * the low-level cx_call_p(CX_EV_RASTER, &handler) directly. */
+#ifndef CX_KICKC
 static void cx_ev_raster(void (*handler)(void)) {
     cx_call_p(CX_EV_RASTER, (const void *)handler);
 }
+#endif
 static void cx_ev_stop(void) { cx_call(CX_EV_STOP); }
 
 /* =====================================================================
@@ -813,13 +854,16 @@ static void          cx_dirty_get(unsigned char i, unsigned *x0, unsigned *y0,
 /* =====================================================================
  * utility -- not an ABI slot, but every app wants it
  * ===================================================================== */
-/* CHROUT a NUL-terminated string plus a return, through the KERNAL --
- * the boot/debug marker line every app prints */
+/* CHROUT a NUL-terminated string plus a return, through the KERNAL -- the
+ * boot/debug marker line every app prints. Uses <cbm.h>; on oscar64/kickc,
+ * CHROUT the bytes with the compiler's own inline asm instead. */
+#ifdef CX_HAVE_CBM
 static void cx_print(const char *s) {
     while (*s)
         cbm_k_chrout((unsigned char)*s++);
     cbm_k_chrout('\r');
 }
+#endif
 
 /* =====================================================================
  * picture files -- a framebuffer rectangle to/from a SEQ file
@@ -843,6 +887,11 @@ static void cx_print(const char *s) {
 #define CX__V_DATA0  (*(volatile unsigned char *)0x9F23)
 #define CX__V_CTRL   (*(volatile unsigned char *)0x9F25)
 
+/* The picture-file streams and their helpers use KERNAL calls whose cbm.h
+ * names differ across compilers (chkin/chkout/chrin); the portable ports
+ * land with the wider C rollout. clang builds them today. (cx_vram_write,
+ * below, uses only the VERA pokes and stays portable.) */
+#ifdef __clang__
 static unsigned char cx__row[160];       /* one framebuffer row segment */
 static char          cx__fn[28];         /* the built "name,S,x" filename */
 
@@ -889,7 +938,7 @@ static void cx_pic_save(const char *name, unsigned x, unsigned y,
     cbm_k_setnam(cx__fn);
     cbm_k_setlfs(3, 8, 3);
     cbm_k_open();
-    __asm__ volatile ("sei" ::: "memory");
+    CX_SEI();
     cbm_k_chkout(3);
     for (row = 0; row < h; row++) {
         cx__vseek(x, y + row);
@@ -898,7 +947,7 @@ static void cx_pic_save(const char *name, unsigned x, unsigned y,
     }
     cbm_k_clrch();
     cbm_k_close(3);
-    __asm__ volatile ("cli" ::: "memory");
+    CX_CLI();
 }
 
 /* load SEQ file `name` into the w x h rectangle at (x, y); returns the
@@ -914,7 +963,7 @@ static unsigned cx_pic_load(const char *name, unsigned x, unsigned y,
     cbm_k_setnam(cx__fn);
     cbm_k_setlfs(2, 8, 2);
     cbm_k_open();
-    __asm__ volatile ("sei" ::: "memory");
+    CX_SEI();
     cbm_k_chkin(2);
     for (row = 0; row < h && !done; row++) {
         char full;
@@ -932,15 +981,18 @@ static unsigned cx_pic_load(const char *name, unsigned x, unsigned y,
     }
     cbm_k_clrch();
     cbm_k_close(2);
-    __asm__ volatile ("cli" ::: "memory");
+    CX_CLI();
     return rows;
 }
+#endif /* __clang__ (picture-file streams) */
 
 /* copy `len` bytes from RAM `src` into VRAM at `addr`, through VERA's
  * auto-incrementing data port -- for uploading sprite images (to
- * CX_SPR_VRAM), tiles, or any raw VRAM. */
+ * CX_SPR_VRAM), tiles, or any raw VRAM. (KickC rejects the deref-of-cast-
+ * literal VERA pokes; a KickC app pokes $9F20.. with its own asm.) */
+#ifndef CX_KICKC
 static void cx_vram_write(unsigned long addr, const void *src, unsigned len) {
-    const unsigned char *p = (const unsigned char *)src;
+    const unsigned char *p = (unsigned char *)src;  /* no const in the cast: KickC */
     unsigned i;
     CX__V_CTRL   = 0;
     CX__V_ADDR_L = (unsigned char)addr;
@@ -949,8 +1001,11 @@ static void cx_vram_write(unsigned long addr, const void *src, unsigned len) {
     for (i = 0; i < len; i++)
         CX__V_DATA0 = p[i];
 }
+#endif
 
+#ifdef __clang__
 #pragma GCC diagnostic pop
+#endif
 
 /* =====================================================================
  * descriptor builders -- structs packed to the kernel's byte layouts
@@ -961,7 +1016,7 @@ static void cx_vram_write(unsigned long addr, const void *src, unsigned len) {
  * ===================================================================== */
 
 /* one 16-byte widget record */
-typedef struct __attribute__((packed)) {
+typedef struct CX_PACKED {
     unsigned char type, flags;
     unsigned int  x, y, w;
     unsigned char h, val, grp;
@@ -983,9 +1038,15 @@ typedef struct __attribute__((packed)) {
 #define CX_LIST(x, y, w, h, count, ptrs) \
     (cx_widget){ CX_WG_LIST, 0, (x), (y), (w), (h), 0, (count), (ptrs), {0,0,0} }
 
+/* The count-prefixed list builders below are C99 variadic macros. llvm and
+ * cc65 have them; oscar64/kickc do not (their preprocessor rejects `...` at
+ * the definition), so on those an app lays the descriptor bytes down itself
+ * (or with the asmsdk builders). The per-widget constructors above and the
+ * theme record below are plain macros and stay available everywhere. */
+#if defined(__clang__) || defined(__CC65__)
 /* a widget list: a count byte, then the records, one packed block */
 #define CX_WIDGETS(name, ...) \
-    static struct __attribute__((packed)) { \
+    static struct CX_PACKED { \
         unsigned char n; \
         cx_widget w[sizeof((cx_widget[]){ __VA_ARGS__ }) / sizeof(cx_widget)]; \
     } name = { \
@@ -994,10 +1055,10 @@ typedef struct __attribute__((packed)) {
     }
 
 /* a menu bar: a count, then (title, items) per menu */
-typedef struct __attribute__((packed)) { const void *title, *items; } cx_menu_entry;
+typedef struct CX_PACKED { const void *title, *items; } cx_menu_entry;
 #define CX_MENU(title, items)  (cx_menu_entry){ (title), (items) }
 #define CX_MENU_BAR(name, ...) \
-    static const struct __attribute__((packed)) { \
+    static const struct CX_PACKED { \
         unsigned char n; \
         cx_menu_entry m[sizeof((cx_menu_entry[]){ __VA_ARGS__ }) / sizeof(cx_menu_entry)]; \
     } name = { \
@@ -1007,7 +1068,7 @@ typedef struct __attribute__((packed)) { const void *title, *items; } cx_menu_en
 
 /* one menu's drop-down: a count, then a label pointer per item */
 #define CX_MENU_ITEMS(name, ...) \
-    static const struct __attribute__((packed)) { \
+    static const struct CX_PACKED { \
         unsigned char n; \
         const void *label[sizeof((const void *[]){ __VA_ARGS__ }) / sizeof(const void *)]; \
     } name = { \
@@ -1017,7 +1078,7 @@ typedef struct __attribute__((packed)) { const void *title, *items; } cx_menu_en
 
 /* an alert/prompt descriptor: a count, the message, then button labels */
 #define CX_DIALOG(name, message, ...) \
-    static const struct __attribute__((packed)) { \
+    static const struct CX_PACKED { \
         unsigned char n; \
         const void *msg; \
         const void *button[sizeof((const void *[]){ __VA_ARGS__ }) / sizeof(const void *)]; \
@@ -1025,10 +1086,11 @@ typedef struct __attribute__((packed)) { const void *title, *items; } cx_menu_en
         (unsigned char)(sizeof((const void *[]){ __VA_ARGS__ }) / sizeof(const void *)), \
         (message), { __VA_ARGS__ } \
     }
+#endif /* variadic list builders (llvm/cc65) */
 
 /* a 12-byte theme record: four palette colours (2 bytes each), then the
  * paper / highlight / frame role indices and one reserved byte */
-typedef struct __attribute__((packed)) {
+typedef struct CX_PACKED {
     unsigned char pal[8];
     unsigned char paper, hi, frame, reserved;
 } cx_theme_rec;

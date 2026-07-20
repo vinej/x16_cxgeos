@@ -1,0 +1,132 @@
+; ca65 -- GENERATED coverage stub: invokes every cxm_ macro once so the
+; asmsdk fidelity gate (hand vs generated) covers ALL of them. Assembles;
+; not meant to run. Regenerate with test/gen_cover.py if the spec changes.
+.include "x16.asm"
+.include "asmsdk/ca65/cxgeos.inc"
+.segment "LOADADDR"
+    .word $0801
+.segment "CODE"
+    basic_stub
+cover_calls:
+    cxm_version
+    cxm_exit
+    cxm_gfx_init
+    cxm_gfx_clear 1
+    cxm_gfx_mode 1
+    cxm_gfx_info
+    cxm_gfx_pset 1, 1, 1
+    cxm_gfx_read 1, 1
+    cxm_gfx_hline 1, 1, 1, 1
+    cxm_gfx_vline 1, 1, 1, 1
+    cxm_gfx_rect 1, 1, 1, 1, 1
+    cxm_gfx_frame 1, 1, 1, 1, 1
+    cxm_gfx_line 1, 1, 1, 1, 1
+    cxm_gfx_pattern 1, 1, 1
+    cxm_gfx_patrect 1, 1, 1, 1
+    cxm_gfx_blit 1, 1, 1, 1, 1, 1
+    cxm_gfx_blitm 1, 1, 1, 1, 1
+    cxm_gfx_circle 1, 1, 1, 1
+    cxm_gfx_disc 1, 1, 1, 1
+    cxm_gfx_ellipse 1, 1, 1, 1, 1
+    cxm_gfx_fellipse 1, 1, 1, 1, 1
+    cxm_gfx_flood 1, 1, 1
+    cxm_icon 1, 1, 1
+    cxm_pal_set 1, 1
+    cxm_pal_load 1, 1, 1
+    cxm_font_set 1
+    cxm_font_style 1
+    cxm_font_measure 1
+    cxm_say 1, 1, 1
+    cxm_ink 1
+    cxm_tile_setup 1
+    cxm_tile_scroll 1, 1, 1
+    cxm_tile_cell 1, 1, 1, 1
+    cxm_tile_fill 1, 1
+    cxm_ev_init
+    cxm_ev_handlers 1
+    cxm_ev_mainloop
+    cxm_ev_dispatch
+    cxm_ev_get
+    cxm_ev_next
+    cxm_ev_post
+    cxm_ev_count
+    cxm_ev_timer 1
+    cxm_ev_frames
+    cxm_ev_mask 1
+    cxm_ev_raster 1
+    cxm_ev_stop
+    cxm_dirty_reset
+    cxm_dirty_add 1, 1, 1, 1
+    cxm_dirty_count
+    cxm_dirty_get 1
+    cxm_mouse_show 1
+    cxm_mouse_hide
+    cxm_menu_set 1
+    cxm_menu_off
+    cxm_menu_key 1
+    cxm_menu_active
+    cxm_wg_set 1
+    cxm_wg_draw
+    cxm_wg_key 1
+    cxm_theme_set 1
+    cxm_dlg_alert 1
+    cxm_dlg_prompt 1, 1, 1
+    cxm_panel 1
+    cxm_psg_init
+    cxm_psg_freq 1, 1
+    cxm_psg_vol 1, 1, 1
+    cxm_psg_wave 1, 1, 1
+    cxm_psg_off 1
+    cxm_ym_init
+    cxm_ym_note 1, 1
+    cxm_ym_off 1
+    cxm_ym_vol 1, 1
+    cxm_ym_patch 1, 1
+    cxm_pcm_ctrl 1
+    cxm_pcm_play 1, 1, 1
+    cxm_pcm_stop
+    cxm_pcm_active
+    cxm_joy_get 1
+    cxm_joy_enable 1
+    cxm_sprite_image 1, 1, 1
+    cxm_sprite_pos 1, 1, 1
+    cxm_sprite_size 1, 1, 1, 1
+    cxm_sprite_flags 1, 1
+    cxm_sprite_z 1, 1
+    cxm_spr_collide
+    cxm_app_load 1, 1
+    cxm_da_open 1, 1
+    cxm_da_close
+    cxm_file_load 1, 1, 1, 1
+    cxm_vload 1, 1, 1, 1, 1
+    cxm_bload 1, 1, 1, 1, 1
+    cxm_dir_open 1, 1
+    cxm_dir_next 1
+    cxm_dir_close
+    cxm_dos_cmd 1, 1
+    cxm_dos_msg 1
+    cxm_clip_put 1, 1, 1
+    cxm_clip_get 1, 1
+    cxm_clip_type
+    cxm_font_draw 1, 1, 1
+    rts
+
+cover_data:
+    cxm_wg_button 1, 1, 1, 1, 1
+    cxm_wg_check 1, 1, 1, 1, 1, 1
+    cxm_wg_radio 1, 1, 1, 1, 1, 1, 1
+    cxm_wg_scroll 1, 1, 1, 1, 1, 1
+    cxm_wg_field 1, 1, 1, 1, 1, 1
+    cxm_wg_list 1, 1, 1, 1, 1, 1
+    cxm_wg_icon 1, 1, 1, 1, 1, 1
+    cxm_wg_hit 1, 1, 1, 1, 1, 1
+cover_wc_a:
+    cxm_wcount cover_wc_a, cover_wc_b
+cover_wc_b:
+    cxm_menu_bar 1
+    cxm_menu 1, 1
+    cxm_items 1
+    cxm_item 1
+    cxm_dialog 1, 1
+    cxm_panel_hdr 1, 1, 1, 1, 1, 1, 1
+    cxm_theme_rec 1, 1, 1, 1, 1, 1, 1
