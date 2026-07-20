@@ -15,10 +15,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
-
-EV_KEY    = 5
-EV_WIDGET = 8
+.include "asmsdk/ca65/cxgeos.inc"
 
 p4ptr = $60                     ; app zero page: parse4's buffer walker
 
@@ -36,24 +33,12 @@ main
     inx
     bne @mk
 @go
-    jsr cx_gfx_init
-    lda #0
-    jsr cx_gfx_clear
+    cxm_gfx_init
+    cxm_gfx_clear 0
 
-    lda #<s_title
-    ldx #>s_title
-    ldy #16
-    jsr text_at
-
-    lda #<s_theme
-    ldx #>s_theme
-    ldy #70
-    jsr text_at
-
-    lda #<s_clock
-    ldx #>s_clock
-    ldy #150
-    jsr text_at
+    cxm_say s_title, 40, 16
+    cxm_say s_theme, 40, 70
+    cxm_say s_clock, 40, 150
 
     lda #172                    ; a label left-aligned over each field
     sta coly
@@ -83,10 +68,7 @@ main
     ldx #>s_mm
     jsr lbl
 
-    lda #<s_hint                ; ...and the how-to below the fields
-    ldx #>s_hint
-    ldy #212
-    jsr text_at
+    cxm_say s_hint, 40, 212     ; ...and the how-to below the fields
 
     jsr CLOCK_GET_DATE_TIME     ; seed the fields with the date/time now
     lda $02                     ; year: r0L is (year-1900)
@@ -139,38 +121,21 @@ main
     lda #2
     sta wg_mm + 9
 
-    jsr cx_ev_init
-    lda #<widgets
-    ldx #>widgets
-    jsr cx_wg_set
-    lda #1
-    jsr cx_mouse_show
+    cxm_ev_init
+    cxm_wg_set widgets
+    cxm_mouse_show 1
 
-    lda #$09                    ; TAB three times: past the two radios to
-    jsr cx_wg_key               ; the year field, so a caret shows at once
-    lda #$09
-    jsr cx_wg_key
-    lda #$09
-    jsr cx_wg_key
+    cxm_wg_key CX_K_TAB          ; TAB three times: past the two radios to
+    cxm_wg_key CX_K_TAB          ; the year field, so a caret shows at once
+    cxm_wg_key CX_K_TAB
 
-    lda #60
-    jsr cx_ev_timer
+    cxm_ev_timer 60
     jsr on_timer
 
-    lda #<handlers
-    ldx #>handlers
-    jsr cx_ev_handlers
-    jmp cx_ev_mainloop
+    cxm_ev_handlers handlers
+    cxm_ev_mainloop
 
 ; ---------------------------------------------------------------------
-text_at                         ; A/X = string, Y = row; column 40
-    sty X16_P2
-    stz X16_P3
-    ldy #40
-    sty X16_P0
-    stz X16_P1
-    jmp cx_font_draw
-
 lbl                             ; A/X = string; drawn at (colx, coly)
     pha
     lda colx
@@ -215,31 +180,9 @@ on_timer
     sta tbuf+7
     stz tbuf+8
 
-    lda #<160                   ; a paper patch, then the time -- past
-    sta X16_P0                  ; the "clock -- now:" label, clear of the
-    lda #>160                   ; fields below
-    sta X16_P1
-    lda #150
-    sta X16_P2
-    stz X16_P3
-    lda #80
-    sta X16_P4
-    stz X16_P5
-    lda #12
-    sta X16_P6
-    stz X16_P7
-    lda #0
-    jsr cx_gfx_rect
-    lda #<160
-    sta X16_P0
-    lda #>160
-    sta X16_P1
-    lda #150
-    sta X16_P2
-    stz X16_P3
-    lda #<tbuf
-    ldx #>tbuf
-    jmp cx_font_draw
+    cxm_gfx_rect 160, 150, 80, 12, 0    ; a paper patch past the "clock -- now:"
+    cxm_say tbuf, 160, 150          ; label, then the time, clear of the fields
+    rts
 
 ; ---------------------------------------------------------------------
 on_widget
@@ -253,16 +196,12 @@ on_widget
     beq @exit
     rts
 @exit
-    jmp cx_exit
+    cxm_exit
 @day
-    lda #<theme_day
-    ldx #>theme_day
-    jsr cx_theme_set
+    cxm_theme_set theme_day
     jmp cx_wg_draw
 @night
-    lda #<theme_night
-    ldx #>theme_night
-    jsr cx_theme_set
+    cxm_theme_set theme_night
     jmp cx_wg_draw
 @set
     jsr parsefields             ; carry set = out of range, refused
@@ -282,16 +221,11 @@ on_widget
     lda #1
     sta $09                     ; a weekday, so the RTC is happy
     jsr CLOCK_SET_DATE_TIME
-    lda #<s_did
-    ldx #>s_did
-    ldy #226
-    jsr text_at
+    cxm_say s_did, 40, 226
     jmp on_timer
 @bad
-    lda #<s_nope
-    ldx #>s_nope
-    ldy #226
-    jmp text_at
+    cxm_say s_nope, 40, 226
+    rts
 
 ; parsefields -- read all five clock fields into newy/newo/newd/newh/
 ; newm, validating each. Carry set on any bad value. newy comes back as
@@ -484,69 +418,34 @@ handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JO
     .addr 0                     ; JOY: EV_COUNT (10) vectors, always
 
 ; ---------------------------------------------------------------------
+; the record labels stay: on_widget patches WG_VAL (the caret length) at
+; wg_yy+9 .. wg_mm+9 as the fields are seeded.
 widgets
-    .byte 9
-wg_day                          ; record 0: radio, group 1, selected
-    .byte 2, 0
-    .word 40, 90, 140
-    .byte 12, 1, 1
-    .addr s_day
-    .byte 0, 0, 0
-wg_night                        ; record 1: radio, group 1
-    .byte 2, 0
-    .word 40, 110, 140
-    .byte 12, 0, 1
-    .addr s_night
-    .byte 0, 0, 0
-wg_yy                           ; record 2: year field, 4 chars
-    .byte 4, 0
-    .word 40, 188, 52
-    .byte 16, 0, 5
-    .addr ybuf
-    .byte 0, 0, 0
-wg_mo                           ; record 3: month field
-    .byte 4, 0
-    .word 100, 188, 36
-    .byte 16, 0, 3
-    .addr obuf
-    .byte 0, 0, 0
-wg_dd                           ; record 4: day field
-    .byte 4, 0
-    .word 144, 188, 36
-    .byte 16, 0, 3
-    .addr dbuf
-    .byte 0, 0, 0
-wg_hh                           ; record 5: hours field
-    .byte 4, 0
-    .word 188, 188, 36
-    .byte 16, 0, 3
-    .addr hbuf
-    .byte 0, 0, 0
-wg_mm                           ; record 6: minutes field
-    .byte 4, 0
-    .word 232, 188, 36
-    .byte 16, 0, 3
-    .addr mbuf
-    .byte 0, 0, 0
-wg_set                          ; record 7: the button
-    .byte 0, 0
-    .word 284, 188, 90
-    .byte 16, 0, 0
-    .addr s_set
-    .byte 0, 0, 0
-wg_exit                         ; record 8: exit, bottom-right
-    .byte 0, 0
-    .word 520, 448, 100
-    .byte 24, 0, 0
-    .addr s_exit
-    .byte 0, 0, 0
+    cxm_wcount widgets, widgets_end
+wg_day                          ; radio, group 1, selected
+    cxm_wg_radio  40,  90, 140, 12, 1, 1, s_day
+wg_night                        ; radio, group 1
+    cxm_wg_radio  40, 110, 140, 12, 0, 1, s_night
+wg_yy                           ; year field, 4 chars (capacity 5)
+    cxm_wg_field  40, 188,  52, 16, 5, ybuf
+wg_mo                           ; month field
+    cxm_wg_field 100, 188,  36, 16, 3, obuf
+wg_dd                           ; day field
+    cxm_wg_field 144, 188,  36, 16, 3, dbuf
+wg_hh                           ; hours field
+    cxm_wg_field 188, 188,  36, 16, 3, hbuf
+wg_mm                           ; minutes field
+    cxm_wg_field 232, 188,  36, 16, 3, mbuf
+wg_set                          ; the button
+    cxm_wg_button 284, 188,  90, 16, s_set
+wg_exit                         ; exit, bottom-right
+    cxm_wg_button 520, 448, 100, 24, s_exit
+widgets_end:
 
 theme_day
-    .byte $FF, $0F,  $AA, $0A,  $55, $05,  $00, $00
-    .byte 0, 1, 3, 0
+    cxm_theme_rec $0FFF, $0AAA, $0555, $0000, 0, 1, 3
 theme_night
-    .byte $01, $00,  $48, $02,  $56, $03,  $BC, $0A
-    .byte 0, 1, 3, 0
+    cxm_theme_rec $0001, $0248, $0356, $0ABC, 0, 1, 3
 
 s_marker .byte "CPANEL UP", $0D, 0
 s_title  .byte "control panel -- TAB or click a field; exit is bottom-right", 0

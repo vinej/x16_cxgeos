@@ -15,17 +15,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
-
-EV_KEY        = 5
-EV_WIDGET     = 8
-EV_MOUSE_DOWN = 2
-WG_HIT        = 7
-WH_RECT       = 0
-WH_CIRCLE     = 1
-WH_ELLIPSE    = 2
-WH_CLICK      = %001
-WH_HOVER      = %100
+.include "asmsdk/ca65/cxgeos.inc"
 
 STATUS_Y = 54
 
@@ -35,31 +25,19 @@ STATUS_Y = 54
     basic_stub
 
 main
-    jsr cx_gfx_init
-    lda #0                      ; white paper (default theme index 0)
-    jsr cx_gfx_clear
+    cxm_gfx_init
+    cxm_gfx_clear 0                 ; white paper (default theme index 0)
 
-    lda #<s_title
-    ldx #>s_title
-    ldy #20
-    jsr say
-    lda #<s_help
-    ldx #>s_help
-    ldy #36
-    jsr say
+    cxm_say s_title, 24, 20
+    cxm_say s_help,  24, 36
     jsr status_idle
 
     jsr draw_shapes             ; the app owns the pixels
 
-    jsr cx_ev_init
-    lda #1
-    jsr cx_mouse_show
-    lda #<hits                  ; the invisible regions over the shapes
-    ldx #>hits
-    jsr cx_wg_set
-    lda #<handlers
-    ldx #>handlers
-    jsr cx_ev_handlers
+    cxm_ev_init
+    cxm_mouse_show 1
+    cxm_wg_set hits             ; the invisible regions over the shapes
+    cxm_ev_handlers handlers
 
 .ifdef HITTEST_SELFTEST
     sei                         ; mask the sampler so only our clicks queue
@@ -72,93 +50,27 @@ main
     ldy #12                     ; a handler stamps a disc (clobbers X), so the
 @sd                             ; drain counter lives in Y across the dispatch
     phy
-    jsr cx_ev_dispatch
+    cxm_ev_dispatch
     ply
     dey
     bne @sd
     cli
 .endif
 
-    jmp cx_ev_mainloop
+    cxm_ev_mainloop
 
 ; ---------------------------------------------------------------------
 ; drawing -- the three outlines and their captions
 ; ---------------------------------------------------------------------
 draw_shapes
-    lda #<50                    ; rectangle: frame at (50,130) 150x130
-    sta X16_P0
-    stz X16_P1
-    lda #130
-    sta X16_P2
-    stz X16_P3
-    lda #<150
-    sta X16_P4
-    stz X16_P5
-    lda #130
-    sta X16_P6
-    stz X16_P7
-    lda #3
-    jsr cx_gfx_frame
+    cxm_gfx_frame   50, 130, 150, 130, 3    ; rectangle at (50,130) 150x130
+    cxm_gfx_circle  330, 195, 75, 3         ; circle:  centre (330,195) r 75
+    cxm_gfx_ellipse 540, 195, 90, 65, 3     ; ellipse: centre (540,195) rx 90 ry 65
 
-    lda #<330                   ; circle: centre (330,195) r 75
-    sta X16_P0
-    lda #>330
-    sta X16_P1
-    lda #195
-    sta X16_P2
-    stz X16_P3
-    lda #75
-    sta X16_P4
-    lda #3
-    jsr cx_gfx_circle
-
-    lda #<540                   ; ellipse: centre (540,195) rx 90 ry 65
-    sta X16_P0
-    lda #>540
-    sta X16_P1
-    lda #195
-    sta X16_P2
-    stz X16_P3
-    lda #90
-    sta X16_P4
-    lda #65
-    sta X16_P5
-    lda #3
-    jsr cx_gfx_ellipse
-
-    lda #<70                    ; captions (row 280 > 255, so word coords)
-    ldx #>70
-    ldy #<s_rect
-    sty X16_T0
-    ldy #>s_rect
-    sty X16_T0+1
-    jsr caption
-    lda #<305
-    ldx #>305
-    ldy #<s_circ
-    sty X16_T0
-    ldy #>s_circ
-    sty X16_T0+1
-    jsr caption
-    lda #<505
-    ldx #>505
-    ldy #<s_elli
-    sty X16_T0
-    ldy #>s_elli
-    sty X16_T0+1
-    jmp caption
-
-; caption -- A/X = x (word), X16_T0 = string; drawn on row 280
-caption
-    sta X16_P0
-    stx X16_P1
-    lda #<280
-    sta X16_P2
-    lda #>280
-    sta X16_P3
-    lda X16_T0
-    ldx X16_T0+1
-    jmp cx_font_draw
+    cxm_say s_rect, 70,  280    ; captions under each shape, on row 280
+    cxm_say s_circ, 305, 280
+    cxm_say s_elli, 505, 280
+    rts
 
 ; ---------------------------------------------------------------------
 ; events
@@ -216,12 +128,11 @@ stamp
 ; ---------------------------------------------------------------------
 status_idle
     jsr status_erase
-    lda #<s_idle
-    ldx #>s_idle
-    ldy #STATUS_Y
-    jmp say
+    cxm_say s_idle, 24, STATUS_Y
+    rts
 
-; status_name -- A = shape index: the shape's name on the status line
+; status_name -- A = shape index: the shape's name on the status line. The
+; name comes from a table (A/X), so this one keeps the register-based say.
 status_name
     sta wtmp                    ; the index, safe across the erase
     jsr status_erase
@@ -234,21 +145,8 @@ status_name
     jmp say
 
 status_erase                    ; the status strip back to paper
-    lda #24
-    sta X16_P0
-    stz X16_P1
-    lda #STATUS_Y
-    sta X16_P2
-    stz X16_P3
-    lda #<600
-    sta X16_P4
-    lda #>600
-    sta X16_P5
-    lda #12
-    sta X16_P6
-    stz X16_P7
-    lda #0
-    jmp cx_gfx_rect
+    cxm_gfx_rect 24, STATUS_Y, 600, 12, 0
+    rts
 
 ; say -- A/X = string, Y = row; column 24
 say
@@ -282,7 +180,7 @@ synth_click
     lda cys,x
     sta X16_P4
     stz X16_P5
-    lda #EV_MOUSE_DOWN
+    lda #CX_ET_DOWN
     sta X16_P0
     stz X16_P1
     jmp cx_ev_post
@@ -303,33 +201,12 @@ s_rect  .byte "rectangle", 0
 s_circ  .byte "circle", 0
 s_elli  .byte "ellipse", 0
 
-; the invisible hit regions, one per shape (click + hover)
+; the invisible hit regions, one per shape (click + hover). Each cxm_wg_hit
+; lays down exactly one 16-byte record -- the pad can't be miscounted.
 hits
-    .byte 3
-    ; rectangle: box (50,130) 150x130
-    .byte WG_HIT, 0
-    .word 50, 130
-    .word 150
-    .byte 130
-    .byte WH_RECT
-    .byte WH_CLICK | WH_HOVER
-    .word 0
-    .byte 0, 0, 0              ; pad to WG_SIZE (16 bytes)
-    ; circle: box (255,120) 150x150 -> centre (330,195) r 75
-    .byte WG_HIT, 0
-    .word 255, 120
-    .word 150
-    .byte 150
-    .byte WH_CIRCLE
-    .byte WH_CLICK | WH_HOVER
-    .word 0
-    .byte 0, 0, 0              ; pad to WG_SIZE (16 bytes)
-    ; ellipse: box (450,130) 180x130 -> centre (540,195) rx 90 ry 65
-    .byte WG_HIT, 0
-    .word 450, 130
-    .word 180
-    .byte 130
-    .byte WH_ELLIPSE
-    .byte WH_CLICK | WH_HOVER
-    .word 0
-    .byte 0, 0, 0              ; pad to WG_SIZE (16 bytes)
+    cxm_wcount hits, hits_end
+    ;            x    y    w    h   shape          triggers
+    cxm_wg_hit  50, 130, 150, 130, CX_WH_RECT,    CX_WH_CLICK | CX_WH_HOVER
+    cxm_wg_hit 255, 120, 150, 150, CX_WH_CIRCLE,  CX_WH_CLICK | CX_WH_HOVER
+    cxm_wg_hit 450, 130, 180, 130, CX_WH_ELLIPSE, CX_WH_CLICK | CX_WH_HOVER
+hits_end:

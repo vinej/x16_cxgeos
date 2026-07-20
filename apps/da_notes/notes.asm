@@ -22,9 +22,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
-
-EV_KEY = 5
+.include "asmsdk/ca65/cxgeos.inc"
 
 .segment "LOADADDR"
     .word $A000
@@ -48,14 +46,15 @@ on_open
 
 on_event
     lda X16_P0
-    cmp #EV_KEY
+    cmp #CX_ET_KEY
     bne @out                    ; a click in the window: nothing yet
     lda X16_P1
-    cmp #$1B                    ; ESC: give the screen back
+    cmp #CX_K_ESC               ; ESC: give the screen back
     bne @nesc
-    jmp cx_da_close
+    cxm_da_close
+    rts
 @nesc
-    cmp #$14                    ; DEL trims
+    cmp #CX_K_DEL               ; DEL trims
     beq @bs
     cmp #$08
     beq @bs
@@ -84,22 +83,7 @@ on_event
     rts
 
 redraw                          ; the writing line, repainted
-    lda #<152
-    sta X16_P0
-    lda #>152
-    sta X16_P1
-    lda #<216
-    sta X16_P2
-    stz X16_P3
-    lda #<336
-    sta X16_P4
-    lda #>336
-    sta X16_P5
-    lda #16
-    sta X16_P6
-    stz X16_P7
-    lda #0
-    jsr cx_gfx_rect
+    cxm_gfx_rect 152, 216, 336, 16, 0
 
     lda #<note
     ldx #>note

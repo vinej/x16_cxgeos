@@ -22,11 +22,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
-
-KEY_ESC   = $1B
-KEY_SPACE = $20
-WG_CHECK  = 1
+.include "asmsdk/ca65/cxgeos.inc"
 
 gtick     = $60                 ; the frame game_irq is on (also the colour)
 
@@ -45,36 +41,26 @@ main
     bra @pr
 @prd
 
-    lda #1                      ; CX_MODE_BMP8: the game's 256-colour field
-    jsr cx_gfx_mode
-    lda #6                      ; fill with palette entry 6 -- the entry
-    jsr cx_gfx_clear            ; game_irq cycles, so the whole field pulses
-    lda #1                      ; white ink for the labels (mode 1 honours it)
-    jsr cx_ink
+    cxm_gfx_mode CX_MODE_BMP8       ; the game's 256-colour field
+    cxm_gfx_clear 6                 ; fill with palette entry 6 -- the entry
+                                ; game_irq cycles, so the whole field pulses
+    cxm_ink 1                   ; white ink for the labels (mode 1 honours it)
 
-    lda #<s_t1                  ; a couple of lines of on-screen help
-    ldx #>s_t1
-    ldy #10
-    jsr drawtext
-    lda #<s_t2
-    ldx #>s_t2
-    ldy #30
-    jsr drawtext
+    cxm_say s_t1, 8, 10         ; a couple of lines of on-screen help (x=8,
+    cxm_say s_t2, 8, 30         ; mode-1 pixels)
 
     ; --- take the raster line. This handler is the game's, and runs every
     ; frame whether CXGEOS's events do or not. cx_ev_raster installs it at
     ; scanline 0 through the kernel's own IRQ, and chains the KERNAL IRQ so
     ; GETIN keeps working -- so cx_ev_init below can save and restore it.
     stz gtick
-    lda #<game_irq
-    ldx #>game_irq
-    jsr cx_ev_raster
+    cxm_ev_raster game_irq
 
 gloop
     jsr GETIN                   ; KERNAL: A = a key, or 0. The keyboard is
-    cmp #KEY_SPACE              ; filled by the chained KERNAL IRQ; no CXGEOS
+    cmp #CX_K_SPACE            ; filled by the chained KERNAL IRQ; no CXGEOS
     beq open_config            ; events are running during play
-    cmp #KEY_ESC
+    cmp #CX_K_ESC
     beq do_exit
     bra gloop
 
@@ -82,34 +68,16 @@ gloop
 ; This is the whole feature: the game paused (its IRQ off), a dialog the
 ; kernel's IRQ serves, the game resumed exactly where it froze.
 open_config
-    jsr cx_ev_init              ; CXGEOS takes the line + samples input;
+    cxm_ev_init                 ; CXGEOS takes the line + samples input;
                                 ; game_irq is saved and the cycle freezes
-    lda #1
-    jsr cx_mouse_show           ; the pointer, so the buttons can be clicked
-    lda #<panel
-    ldx #>panel
-    jsr cx_panel                ; modal: draws, runs its own loop, returns A
-    jsr cx_mouse_hide
-    jsr cx_ev_stop              ; the raster line returns to game_irq -- the
+    cxm_mouse_show 1            ; the pointer, so the buttons can be clicked
+    cxm_panel panel             ; modal: draws, runs its own loop, returns A
+    cxm_mouse_hide
+    cxm_ev_stop                 ; the raster line returns to game_irq -- the
     jmp gloop                   ; colour cycles again from where it stopped
 
 do_exit
-    jmp cx_exit                 ; the loader takes the raster line down for us
-
-; drawtext -- A/X = string, Y = y; x is fixed at 8 (mode-1 pixels). The
-; string is held on the stack while x/y overwrite P0-P3.
-drawtext
-    pha                         ; string low
-    phx                         ; string high
-    lda #8
-    sta X16_P0
-    stz X16_P1
-    sty X16_P2
-    stz X16_P3
-    plx                         ; string high -> X
-    pla                         ; string low  -> A
-    jsr cx_font_draw
-    rts
+    cxm_exit                    ; the loader takes the raster line down for us
 
 ; --- game_irq: the game's per-frame handler, on scanline 0. One VERA
 ; write, cheap and frame-locked -- cycle palette entry 6 (the field's
@@ -135,24 +103,14 @@ game_irq
 
 ; --- the options panel: a title, two checkboxes, OK / Cancel (320x240) --
 panel
-    .word 40, 44, 240          ; box x, y, w (pixels)
-    .byte 120                  ; box h (within the mode-1 save-under strip)
-    .addr s_ptitle
-    .addr panel_w
-    .byte 2
-    .addr s_ok, s_cancel
+    cxm_panel_hdr 40, 44, 240, 120, s_ptitle, panel_w, 2   ; box + title + 2 buttons
+    cxm_item s_ok
+    cxm_item s_cancel
 panel_w
-    .byte 2
-    .byte WG_CHECK, 0
-    .word 58, 74, 180
-    .byte 14, 1, 0
-    .addr s_snd
-    .byte 0, 0, 0
-    .byte WG_CHECK, 0
-    .word 58, 98, 180
-    .byte 14, 0, 0
-    .addr s_mus
-    .byte 0, 0, 0
+    cxm_wcount panel_w, panel_w_end
+    cxm_wg_check 58, 74, 180, 14, 1, s_snd     ; sound effects, on
+    cxm_wg_check 58, 98, 180, 14, 0, s_mus     ; music, off
+panel_w_end:
 
 s_ptitle .byte "Options", 0
 s_snd    .byte "sound effects", 0

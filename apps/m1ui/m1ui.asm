@@ -10,15 +10,8 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "asmsdk/ca65/cxgeos.inc"
 
-WG_BUTTON = 0
-WG_CHECK  = 1
-WG_RADIO  = 2
-WG_SCROLL = 3
-WG_FIELD  = 4
-WG_LIST   = 5
-KEY_ESC   = $1B
 FONTCAP   = 1024                ; the font buffer (pxl8 is 871 bytes)
 nptr      = $60                 ; app zero page: the filename walker
 
@@ -37,36 +30,27 @@ main
     bra @pr
 @prd
 
-    jsr cx_ev_init
-    lda #1                      ; CX_MODE_BMP8
-    jsr cx_gfx_mode
-    lda #6                      ; a blue field (default palette)
-    jsr cx_gfx_clear
-    lda #1                      ; white ink for the widget labels (mode 1's
-    jsr cx_ink                  ; font honours the ink; mode 0's ignores it)
+    cxm_ev_init
+    cxm_gfx_mode CX_MODE_BMP8
+    cxm_gfx_clear 6                 ; a blue field (default palette)
+    cxm_ink 1                   ; white ink for the widget labels (mode 1's
+                                ; font honours the ink; mode 0's ignores it)
 
     lda #<s_pxl6                ; a 6px font -- the desktop's 8px pxl8 doubles
     ldx #>s_pxl6                ; to 16 screen px at mode 1's 2:1 scale. Set
     jsr load_font               ; IN mode 1: font_set skips the mode-0 glyph
                                 ; cache there, so the desktop's font is safe
 
-    lda #<bar
-    ldx #>bar
-    jsr cx_menu_set
-    lda #<widgets
-    ldx #>widgets
-    jsr cx_wg_set
-    lda #1
-    jsr cx_mouse_show
+    cxm_menu_set bar
+    cxm_wg_set widgets
+    cxm_mouse_show 1
 
-    lda #<handlers
-    ldx #>handlers
-    jsr cx_ev_handlers
-    jmp cx_ev_mainloop          ; File > Form... opens the modal panel
+    cxm_ev_handlers handlers
+    cxm_ev_mainloop                ; File > Form... opens the modal panel
 
 on_key
     lda X16_P1
-    cmp #KEY_ESC
+    cmp #CX_K_ESC
     beq do_exit
     lda X16_P1
     jsr cx_menu_key
@@ -88,21 +72,20 @@ on_menu                         ; File (0): 0 = Form, 1 = Dialog, 2 = Quit
     rts
 
 show_form
-    lda #<form
-    ldx #>form
-    jsr cx_panel                ; modal; A = 0 (OK) or 1 (Cancel)
+    cxm_panel form              ; modal; A = 0 (OK) or 1 (Cancel)
     rts
 on_widget                       ; the Close button is index 0
     lda X16_P1
     beq do_exit
     rts
 show_dialog
-    lda #<alert
-    ldx #>alert
-    jsr cx_dlg_alert            ; modal; the 8bpp save-under puts it back
+    cxm_dlg_alert alert             ; modal; the 8bpp save-under puts it back
     rts
 do_exit
-    jmp cx_exit                 ; the loader restores the system font for the
+    cxm_gfx_mode CX_MODE_GUI    ; back to the desktop's mode BEFORE leaving, so
+                                ; the reload never crosses a mode change (which
+                                ; left a stray event landing on the wrong file)
+    cxm_exit                    ; the loader restores the system font for the
                                 ; desktop (kernel/fs/loader.asm)
 
 ; load_font -- A/X = a NUL-terminated .CXF filename; reads it into fontbuf
@@ -131,9 +114,7 @@ load_font
     ply
     jsr cx_file_load
     bcs @done                   ; not there / too big -> keep the current font
-    lda #<fontbuf
-    ldx #>fontbuf
-    jsr cx_font_set
+    cxm_font_set fontbuf
 @done
     rts
 
@@ -147,15 +128,17 @@ handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JO
 
 ; --- the menu bar -----------------------------------------------------
 bar
-    .byte 2
-    .addr s_file, file_items
-    .addr s_view, view_items
+    cxm_menu_bar 2
+    cxm_menu s_file, file_items
+    cxm_menu s_view, view_items
 file_items
-    .byte 3
-    .addr s_form, s_dlg, s_quit
+    cxm_items 3
+    cxm_item s_form
+    cxm_item s_dlg
+    cxm_item s_quit
 view_items
-    .byte 1
-    .addr s_zoom
+    cxm_items 1
+    cxm_item s_zoom
 s_file .byte "File", 0
 s_view .byte "View", 0
 s_form .byte "Form...", 0
@@ -165,29 +148,15 @@ s_zoom .byte "Zoom", 0
 
 ; --- the modal form: a box of widgets with OK / Cancel (320x240) ------
 form
-    .word 30, 28, 260          ; box x, y, w (pixels)
-    .byte 140                  ; box h (fits the mode-1 save-under strip)
-    .addr s_ftitle
-    .addr form_widgets
-    .byte 2
-    .addr s_fok, s_fcancel
+    cxm_panel_hdr 30, 28, 260, 140, s_ftitle, form_widgets, 2  ; box + 2 buttons
+    cxm_item s_fok
+    cxm_item s_fcancel
 form_widgets
-    .byte 3
-    .byte WG_CHECK, 0
-    .word 46, 52, 180
-    .byte 14, 1, 0
-    .addr s_fsound
-    .byte 0, 0, 0
-    .byte WG_RADIO, 0          ; group 2
-    .word 46, 78, 150
-    .byte 14, 1, 2
-    .addr s_feasy
-    .byte 0, 0, 0
-    .byte WG_RADIO, 0
-    .word 46, 100, 150
-    .byte 14, 0, 2
-    .addr s_fhard
-    .byte 0, 0, 0
+    cxm_wcount form_widgets, form_widgets_end
+    cxm_wg_check 46,  52, 180, 14, 1, s_fsound      ; enable sound, on
+    cxm_wg_radio 46,  78, 150, 14, 1, 2, s_feasy    ; group 2, easy (on)
+    cxm_wg_radio 46, 100, 150, 14, 0, 2, s_fhard    ; group 2, hard
+form_widgets_end:
 s_ftitle  .byte "Preferences", 0
 s_fsound  .byte "enable sound", 0
 s_feasy   .byte "easy mode", 0
@@ -197,52 +166,24 @@ s_fcancel .byte "Cancel", 0
 
 ; --- the dialog -------------------------------------------------------
 alert
-    .byte 2
-    .addr s_msg
-    .addr s_no, s_yes
+    cxm_dialog 2, s_msg
+    cxm_item s_no
+    cxm_item s_yes
 s_msg .byte "Apply these settings?", 0
 s_no  .byte "no", 0
 s_yes .byte "yes", 0
 
 ; --- the widgets: one of every type, 16 bytes each --------------------
 widgets
-    .byte 7
-    ; the Close button (index 0), bottom-right
-    .byte WG_BUTTON, 0
-    .word 220, 208, 84
-    .byte 20, 0, 0
-    .addr s_close
-    .byte 0, 0, 0
-    .byte WG_CHECK, 0           ; checkbox
-    .word 20, 36, 160
-    .byte 14, 1, 0
-    .addr s_grid
-    .byte 0, 0, 0
-    .byte WG_RADIO, 0          ; radio group (group 1)
-    .word 20, 66, 150
-    .byte 14, 1, 1
-    .addr s_small
-    .byte 0, 0, 0
-    .byte WG_RADIO, 0
-    .word 20, 84, 150
-    .byte 14, 0, 1
-    .addr s_large
-    .byte 0, 0, 0
-    .byte WG_SCROLL, 0         ; slider (value 0..9, at 3)
-    .word 20, 112, 160
-    .byte 14, 3, 9
-    .addr s_none
-    .byte 0, 0, 0
-    .byte WG_FIELD, 0          ; edit field (buffer, capacity 20)
-    .word 20, 140, 180
-    .byte 14, 0, 20
-    .addr fieldbuf
-    .byte 0, 0, 0
-    .byte WG_LIST, 0          ; list (4 rows, row 0 selected)
-    .word 195, 36, 115
-    .byte 44, 0, 4
-    .addr listitems
-    .byte 0, 0, 0
+    cxm_wcount widgets, widgets_end
+    cxm_wg_button 220, 208,  84, 20, s_close        ; Close (index 0), bottom-right
+    cxm_wg_check   20,  36, 160, 14, 1, s_grid      ; show grid, on
+    cxm_wg_radio   20,  66, 150, 14, 1, 1, s_small  ; group 1, small (on)
+    cxm_wg_radio   20,  84, 150, 14, 0, 1, s_large  ; group 1, large
+    cxm_wg_scroll  20, 112, 160, 14, 3, 9           ; slider 0..9, at 3
+    cxm_wg_field   20, 140, 180, 14, 20, fieldbuf   ; edit field, capacity 20
+    cxm_wg_list   195,  36, 115, 44, 4, listitems   ; list, 4 rows, row 0 selected
+widgets_end:
 
 fieldbuf  .res 21, 0
 listitems .addr s_li0, s_li1, s_li2, s_li3

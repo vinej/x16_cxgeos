@@ -17,13 +17,9 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "asmsdk/ca65/cxgeos.inc"
 
-EV_KEY    = 5
-EV_MENU   = 7
-EV_WIDGET = 8
-WG_LIST   = 5
-WG_ICON   = 6
+WG_ICON   = 6                   ; emit_icon_rec writes this record type at runtime
 
 ; the icon ids cx_icon draws (kernel/ui/icon.asm)
 ICON_UP        = 0
@@ -75,31 +71,24 @@ main
     inx
     bne @mk
 @go
-    jsr cx_gfx_init
+    cxm_gfx_init
 
     ; The disk work goes FIRST, before the screen is cleared. gfx2_init
     ; leaves the framebuffer alone, so the outgoing app's picture stays up
     ; through the directory read; then the clear and the whole desktop are
     ; painted in one burst instead of a bare screen sitting through the I/O
     ; -- the jarring part when an app closes.
-    lda #<s_home                ; home is the root: an app launched from
-    ldx #>s_home                ; a folder leaves us there on reload, so
-    ldy #s_home_len             ; the desktop always resets. depth stays 0
-    jsr cx_dos_cmd
+    cxm_dos_cmd s_home, s_home_len  ; home is the root: an app launched from a
+                                ; folder leaves us there on reload, so the
+                                ; desktop always resets. depth stays 0
     jsr seed_clock              ; start the RTC if at the emulator default
     jsr readdir                 ; fill the list from the directory
 
-    lda #0                      ; now clear and paint the desktop at once
-    jsr cx_gfx_clear
-    lda #<s_title
-    ldx #>s_title
-    ldy #20
-    jsr say
+    cxm_gfx_clear 0                 ; now clear and paint the desktop at once
+    cxm_say s_title, 20, 20
 
-    jsr cx_ev_init
-    lda #<bar
-    ldx #>bar
-    jsr cx_menu_set
+    cxm_ev_init
+    cxm_menu_set bar
     lda CX_SHELL_STATE          ; the view the last desktop left (0 at cold
     and #1                      ; boot); an app launch does not clear it
     sta viewmode
@@ -112,21 +101,16 @@ main
     lda #<widgets
     ldx #>widgets
 @vset
-    jsr cx_wg_set
-    lda #1                      ; the arrow
-    jsr cx_mouse_show
+    jsr cx_wg_set               ; A/X = the chosen list (built above)
+    cxm_mouse_show 1            ; the arrow
 
-    lda #$09                    ; focus the list so UP/DOWN work at once
-    jsr cx_wg_key
+    cxm_wg_key CX_K_TAB         ; focus the list so UP/DOWN work at once
 
-    lda #60                     ; a tick a second, for the clock
-    jsr cx_ev_timer
+    cxm_ev_timer 60                ; a tick a second, for the clock
     jsr on_timer                ; and the clock NOW, not in a second
 
-    lda #<handlers
-    ldx #>handlers
-    jsr cx_ev_handlers
-    jmp cx_ev_mainloop
+    cxm_ev_handlers handlers
+    cxm_ev_mainloop
 
 ; ---------------------------------------------------------------------
 say                             ; A/X = string, Y = row; column 20
@@ -195,10 +179,7 @@ readdir
     lda #>(pool+4)
     sta poolp+1
 @open
-    lda #<pat
-    ldx #>pat
-    ldy #1
-    jsr cx_dir_open
+    cxm_dir_open pat, 1
     bcc @opened                 ; the loop body outgrew a short branch to @none
     jmp @none
 @opened
@@ -276,7 +257,7 @@ readdir
     cmp #MAXFILES
     bcc @loop
 @done
-    jsr cx_dir_close
+    cxm_dir_close
 @none
     lda fcount                  ; the record: count, selection 0, top 0
     sta wl_rec + 10
@@ -755,12 +736,10 @@ on_menu
     beq @view
     lda X16_P1                  ; menu 0: about / quit
     bne @quit
-    lda #<dlg_about             ; a real box with an ok button, not a
-    ldx #>dlg_about             ; line that is easy to miss
-    jsr cx_dlg_alert
-    rts
+    cxm_dlg_alert dlg_about         ; a real box with an ok button, not a
+    rts                         ; line that is easy to miss
 @quit
-    jmp cx_exit
+    cxm_exit
 @view
     lda X16_P1                  ; 0 = list, 1 = icons
     sta viewmode
@@ -770,14 +749,10 @@ on_menu
 @theme
     lda X16_P1
     beq @day
-    lda #<theme_night
-    ldx #>theme_night
-    jsr cx_theme_set
+    cxm_theme_set theme_night
     bra @repaint
 @day
-    lda #<theme_day
-    ldx #>theme_day
-    jsr cx_theme_set
+    cxm_theme_set theme_day
 @repaint
     jmp cx_wg_draw
 @file
@@ -1105,9 +1080,7 @@ do_delete
     lda #0
     sta qbuf,y
 
-    lda #<dlg_del
-    ldx #>dlg_del
-    jsr cx_dlg_alert
+    cxm_dlg_alert dlg_del
     cmp #1                      ; only the second button destroys
     bne @out
     ldy #0                      ; "S:" or "RD:" + name
@@ -1314,9 +1287,9 @@ seed_clock
     rts
 
 on_key
-    lda inmenu
-    bne @menu
-    lda X16_P1                  ; --- browsing ---
+    cxm_menu_active             ; a menu dropped -- by mouse OR keyboard?
+    bne @menu                   ; yes: the cursor keys drive it, not the list
+    lda X16_P1                  ; --- browsing (no menu open) ---
     cmp #$09                    ; TAB: raise the menu bar
     beq @open
     cmp #$1B                    ; ESC: leave the desktop
@@ -1346,25 +1319,13 @@ on_key
 @pgnone
     rts
 @open
-    lda #$11                    ; feed DOWN to drop the first menu
-    jsr cx_menu_key
-    lda #1
-    sta inmenu
+    cxm_menu_key CX_K_DOWN      ; feed DOWN to drop the first menu
     rts
 @quit
-    jmp cx_exit
-@menu
-    lda X16_P1                  ; --- a menu is open ---
-    jsr cx_menu_key
-    lda X16_P1
-    cmp #$0D                    ; RETURN picks, ESC dismisses: either way
-    beq @close                  ; the bar closes, so back to browsing
-    cmp #$1B
-    beq @close
-    rts
-@close
-    stz inmenu
-    rts
+    cxm_exit
+@menu                           ; UP/DOWN move items, LEFT/RIGHT switch menus,
+    lda X16_P1                  ; RETURN picks, ESC dismisses -- cx_menu_key
+    jmp cx_menu_key             ; owns the whole interaction while a menu is up
 
 handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY
     .addr 0, 0, 0, 0, 0
@@ -1380,56 +1341,51 @@ handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JO
 ; the menu tree and the widget list
 ; ---------------------------------------------------------------------
 bar
-    .byte 4
-    .addr s_m0, m0_items
-    .addr s_m1, m1_items
-    .addr s_m2, m2_items
-    .addr s_m3, m3_items
+    cxm_menu_bar 4
+    cxm_menu s_m0, m0_items
+    cxm_menu s_m1, m1_items
+    cxm_menu s_m2, m2_items
+    cxm_menu s_m3, m3_items
 m0_items
-    .byte 2
-    .addr s_about_i
-    .addr s_quit
+    cxm_items 2
+    cxm_item s_about_i
+    cxm_item s_quit
 m1_items
-    .byte 5
-    .addr s_newf
-    .addr s_newfl
-    .addr s_ren
-    .addr s_cpy
-    .addr s_del
+    cxm_items 5
+    cxm_item s_newf
+    cxm_item s_newfl
+    cxm_item s_ren
+    cxm_item s_cpy
+    cxm_item s_del
 m2_items
-    .byte 2
-    .addr s_day
-    .addr s_night
+    cxm_items 2
+    cxm_item s_day
+    cxm_item s_night
 m3_items
-    .byte 2
-    .addr s_list
-    .addr s_icons
+    cxm_items 2
+    cxm_item s_list
+    cxm_item s_icons
 
+; the list-view widget. readdir patches wl_rec+10 (WG_GRP = the row count).
 widgets
-    .byte 1
+    cxm_wcount widgets, widgets_end
 wl_rec
-    .byte WG_LIST, 0
-    .word 20, 44, 400
-    .byte 240, 0, 0            ; h=240, selected 0, count from readdir
-    .addr fptrs
-    .byte 0, 0, 0             ; byte 13 = WG_TOP = 0
+    cxm_wg_list 20, 44, 400, 240, 0, fptrs   ; count 0 now; readdir sets it
+widgets_end:
 
 dlg_del                         ; keep | delete -- keep is the default
-    .byte 2
-    .addr qbuf
-    .addr s_keep, s_dodel
+    cxm_dialog 2, qbuf
+    cxm_item s_keep
+    cxm_item s_dodel
 
 dlg_about                       ; one ok button
-    .byte 1
-    .addr s_about
-    .addr s_ok
+    cxm_dialog 1, s_about
+    cxm_item s_ok
 
 theme_day
-    .byte $FF, $0F,  $AA, $0A,  $55, $05,  $00, $00
-    .byte 0, 1, 3, 0
+    cxm_theme_rec $0FFF, $0AAA, $0555, $0000, 0, 1, 3
 theme_night                     ; 0 near-black paper, 1 medium-blue
-    .byte $01, $00,  $48, $02,  $56, $03,  $BC, $0A   ; highlight
-    .byte 0, 1, 3, 0
+    cxm_theme_rec $0001, $0248, $0356, $0ABC, 0, 1, 3
 
 s_marker  .byte "CXGEOS SHELL", $0D, 0
 s_title   .byte "CXGEOS -- dbl-click opens (or UP/DOWN+RETURN), TAB menu, ESC quits", 0
@@ -1481,7 +1437,6 @@ ftype     .byte 0
 deldir    .byte 0
 depth     .byte 0               ; folders deep from the root; 0 = home
 ddelta    .byte 0               ; a pending CD's step: +1 down, -1 up
-inmenu    .byte 0               ; 0 = browsing, 1 = a menu is open
 viewmode  .byte 0               ; 0 = list, 1 = icons
 iconpage  .byte 0               ; the icon page on screen
 pagebase  .byte 0               ; the first file index of that page

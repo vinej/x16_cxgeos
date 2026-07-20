@@ -13,10 +13,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
-
-EV_KEY  = 5                     ; ABI event numbering
-EV_MENU = 7
+.include "asmsdk/ca65/cxgeos.inc"
 
 .segment "LOADADDR"
     .word $0801
@@ -34,46 +31,19 @@ main
     inx
     bra @mk
 @go
-    jsr cx_gfx_init
-    lda #0
-    jsr cx_gfx_clear
+    cxm_gfx_init
+    cxm_gfx_clear 0
 
-    lda #<s_title
-    ldx #>s_title
-    ldy #<32
-    jsr say
-    lda #<s_hint1
-    ldx #>s_hint1
-    ldy #<56
-    jsr say
-    lda #<s_hint2
-    ldx #>s_hint2
-    ldy #<72
-    jsr say
+    cxm_say s_title, 24, 32
+    cxm_say s_hint1, 24, 56
+    cxm_say s_hint2, 24, 72
 
-    jsr cx_ev_init              ; events first: the menu bar lives on
-    lda #<bar                   ; the region stack ev_init resets
-    ldx #>bar
-    jsr cx_menu_set
-    lda #1                      ; the arrow (sprite 1); the loader hid it
-    jsr cx_mouse_show
+    cxm_ev_init                 ; events first: the menu bar lives on
+    cxm_menu_set bar            ; the region stack ev_init resets
+    cxm_mouse_show 1            ; the arrow (sprite 1); the loader hid it
 
-    lda #<handlers
-    ldx #>handlers
-    jsr cx_ev_handlers
-    jmp cx_ev_mainloop
-
-; ---------------------------------------------------------------------
-; say -- A/X = string, Y = the row (all rows here fit a byte). Column
-; 24: a stub shell needs exactly one margin.
-; ---------------------------------------------------------------------
-say
-    sty X16_P2
-    stz X16_P3
-    ldy #24
-    sty X16_P0
-    stz X16_P1
-    jmp cx_font_draw
+    cxm_ev_handlers handlers
+    cxm_ev_mainloop
 
 ; ---------------------------------------------------------------------
 ; the handlers
@@ -95,42 +65,27 @@ on_menu
 @sys
     lda X16_P1                  ; About is its only item
     bne @none
-    lda #<about_dlg             ; a real dialog: the call blocks until
-    ldx #>about_dlg             ; the button, and every pixel it covered
-    jmp cx_dlg_alert            ; comes back on its own
+    cxm_dlg_alert about_dlg         ; a real dialog: blocks until the button,
+    rts                         ; and every pixel it covered comes back
 @theme
     lda X16_P1                  ; 0 = daylight, 1 = midnight
     beq @day
-    lda #<theme_night
-    ldx #>theme_night
-    jmp cx_theme_set
+    cxm_theme_set theme_night
+    rts
 @day
-    lda #<theme_day
-    ldx #>theme_day
-    jmp cx_theme_set
+    cxm_theme_set theme_day
+    rts
 @h1
-    lda #<s_f1
-    ldx #>s_f1
-    ldy #s_f1_len
-    jsr cx_app_load             ; returns only on failure
+    cxm_app_load s_f1, s_f1_len   ; returns only on failure
     bra sorry
 @h2
-    lda #<s_f2
-    ldx #>s_f2
-    ldy #s_f2_len
-    jsr cx_app_load
+    cxm_app_load s_f2, s_f2_len
     bra sorry
 @h3
-    lda #<s_f3
-    ldx #>s_f3
-    ldy #s_f3_len
-    jsr cx_app_load
+    cxm_app_load s_f3, s_f3_len
     bra sorry
 @h4
-    lda #<s_f4
-    ldx #>s_f4
-    ldy #s_f4_len
-    jsr cx_app_load
+    cxm_app_load s_f4, s_f4_len
     bra sorry
 @none
     rts
@@ -152,34 +107,20 @@ on_key
     beq @four
     rts
 @one
-    lda #<s_f1
-    ldx #>s_f1
-    ldy #s_f1_len
-    jsr cx_app_load
+    cxm_app_load s_f1, s_f1_len
     bra sorry
 @two
-    lda #<s_f2
-    ldx #>s_f2
-    ldy #s_f2_len
-    jsr cx_app_load
+    cxm_app_load s_f2, s_f2_len
     bra sorry
 @three
-    lda #<s_f3
-    ldx #>s_f3
-    ldy #s_f3_len
-    jsr cx_app_load
+    cxm_app_load s_f3, s_f3_len
     bra sorry
 @four
-    lda #<s_f4
-    ldx #>s_f4
-    ldy #s_f4_len
-    jsr cx_app_load
+    cxm_app_load s_f4, s_f4_len
 
-sorry                           ; a load that came back is a load that
-    lda #<s_missing             ; failed
-    ldx #>s_missing
-    ldy #<120
-    jmp say
+sorry                           ; a load that came back is a load that failed
+    cxm_say s_missing, 24, 120
+    rts
 
 handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY
     .addr 0, 0, 0, 0, 0
@@ -193,36 +134,33 @@ handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JO
 ; the menu tree (docs/formats.md)
 ; ---------------------------------------------------------------------
 bar
-    .byte 3
-    .addr s_m0, m0_items
-    .addr s_m1, m1_items
-    .addr s_m2, m2_items
+    cxm_menu_bar 3
+    cxm_menu s_m0, m0_items
+    cxm_menu s_m1, m1_items
+    cxm_menu s_m2, m2_items
 m0_items
-    .byte 1
-    .addr s_i_about
+    cxm_items 1
+    cxm_item s_i_about
 m1_items
-    .byte 4
-    .addr s_i_h1
-    .addr s_i_h2
-    .addr s_i_h3
-    .addr s_i_h4
+    cxm_items 4
+    cxm_item s_i_h1
+    cxm_item s_i_h2
+    cxm_item s_i_h3
+    cxm_item s_i_h4
 m2_items
-    .byte 2
-    .addr s_i_day
-    .addr s_i_night
+    cxm_items 2
+    cxm_item s_i_day
+    cxm_item s_i_night
 
 about_dlg
-    .byte 1
-    .addr s_about
-    .addr s_i_ok
+    cxm_dialog 1, s_about
+    cxm_item s_i_ok
 
-; a theme is the four palette RGBs (GB, R nibbles) and the role indices
+; a theme is four palette colours ($0RGB) and the paper/hi/frame roles
 theme_day                       ; the default: black ink on white paper
-    .byte $FF, $0F,  $AA, $0A,  $55, $05,  $00, $00
-    .byte 0, 1, 3, 0
+    cxm_theme_rec $0FFF, $0AAA, $0555, $0000, 0, 1, 3
 theme_night                     ; pale ink on a deep blue-black
-    .byte $01, $00,  $23, $01,  $56, $03,  $BC, $0A
-    .byte 0, 1, 3, 0
+    cxm_theme_rec $0001, $0123, $0356, $0ABC, 0, 1, 3
 
 s_m0      .byte "CXGEOS", 0
 s_m1      .byte "Demos", 0
