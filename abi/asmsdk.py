@@ -403,6 +403,11 @@ CALLS = [
      [("pw", "P0", "xc"), ("pw", "P2", "yc"), ("pb", "P4", "rx"), ("pb", "P5", "ry"), ("a", None, "col")], "jsr"),
     ("gfx_flood", ["x0", "y0", "col"], "-> carry set if the seed stack overflowed",
      [("pw", "P0", "x0"), ("pw", "P2", "y0"), ("a", None, "col")], "jsr"),
+    ("gfx_shape", ["kind", "xc", "yc", "rad", "p5", "p6", "col"],
+     "one dispatched slot; kind 0 polygon, 1 fpolygon, 2 arc, 3 pie. "
+     "polygon: p5 = sides, p6 = rotation; arc/pie: p5 = start, p6 = end",
+     [("x", None, "kind"), ("pw", "P0", "xc"), ("pw", "P2", "yc"),
+      ("pb", "P4", "rad"), ("pb", "P5", "p5"), ("pb", "P6", "p6"), ("a", None, "col")], "jsr"),
     ("icon", ["id", "x0", "y0"], "a built-in 24x24 icon (modes 0/1)",
      [("pw", "P0", "x0"), ("pw", "P2", "y0"), ("a", None, "id")], "jsr"),
     # --- palette ---

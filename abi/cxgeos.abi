@@ -37,7 +37,7 @@
 #
 # =====================================================================
 
-version = 1
+version = 2
 
 #= system
 0   cx_version      1   -> A/X = ABI version
@@ -308,3 +308,14 @@ version = 1
 # clicking is invisible to the app otherwise, so the arrows would drive
 # the wrong widget.
 99  cx_menu_active  1   -> A = 1 if a menu is open (mouse or keyboard), 0 if none; Z set when none
+
+#= extra shapes (v0.8.0) -- one dispatched slot, X selects the shape
+# The polygon/arc/pie family from x16lib 0.8.0, reached through a single
+# slot to keep the resident jump table lean: X picks the shape, A is the
+# colour, the P block carries the geometry. All four take P0/P1 = cx,
+# P2/P3 = cy, P4 = radius; polygon/fpolygon then take P5 = sides (3+,
+# clamped) and P6 = rotation (a byte angle); arc/pie take P5 = start and
+# P6 = end (byte angles: 0 = east, 64 = south, 128 = west, 192 = north).
+# Outlines clip where pset clips; the fills (fpolygon/pie) do not -- keep
+# them on screen.
+100 cx_gfx_shape    2   X = kind (0 polygon, 1 fpolygon, 2 arc, 3 pie), A = colour, P0/P1 = cx, P2/P3 = cy, P4 = radius; polygon: P5 = sides, P6 = rotation; arc/pie: P5 = start angle, P6 = end angle

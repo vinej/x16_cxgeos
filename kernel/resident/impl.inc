@@ -125,3 +125,4 @@ cx_icon         = cx_do_icon
 cx_pal_set      = cx_do_pal_set
 cx_pal_load     = cx_do_pal_load
 cx_menu_active  = cx_do_menu_active
+cx_gfx_shape    = cx_do_gfx_shape

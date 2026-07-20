@@ -492,6 +492,16 @@ the port itself, so these are correct in mode 0 and mode 1 alike.
 | 80 | `CX_GFX_FLOOD` | `$8100` | P0/P1=x, P2/P3=y, A=colour -> carry if the seed stack overflowed | scanline fill, fenced by pixels and the canvas |
 | 85 | `CX_GFX_ELLIPSE` | `$810F` | P0/P1=cx, P2/P3=cy, P4=rx, P5=ry, A=colour | an axis-aligned outline (clips with pset) |
 | 86 | `CX_GFX_FELLIPSE` | `$8112` | same | filled with spans; no clipping |
+| 100 | `CX_GFX_SHAPE` | `$813C` | X=kind, A=colour, P0/P1=cx, P2/P3=cy, P4=r, P5/P6 per kind | the v0.8.0 extra shapes -- ONE dispatched slot |
+
+The x16lib 0.8.0 shapes (polygon, arc, pie) arrive through a **single**
+slot so the resident jump table stays lean: `X` selects the shape (0
+polygon, 1 fpolygon, 2 arc, 3 pie), `A` is the colour, the P block holds
+the geometry -- `P5`/`P6` are the sides+rotation for a polygon, or the
+start+end angle for an arc/pie (byte angles: 0 = east, 64 = south, 128 =
+west, 192 = north). They ride bank 19 behind that one stub, +6 resident
+bytes for the family. The friendly layers unpack it into named calls
+(`cx_polygon`, `cx_arc`, ...).
 
 ### Tiles -- mode 2 only
 

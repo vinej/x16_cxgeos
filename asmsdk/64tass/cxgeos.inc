@@ -307,6 +307,19 @@ cxm_gfx_flood .macro x0, y0, col                ; -> carry set if the seed stack
     lda #(\col)
     jsr cx_gfx_flood
 .endm
+cxm_gfx_shape .macro kind, xc, yc, rad, p5, p6, col                ; one dispatched slot; kind 0 polygon, 1 fpolygon, 2 arc, 3 pie. polygon: p5 = sides, p6 = rotation; arc/pie: p5 = start, p6 = end
+    ldx #(\kind)
+    #cxpw16 X16_P0, \xc
+    #cxpw16 X16_P2, \yc
+    lda #(\rad)
+    sta X16_P4
+    lda #(\p5)
+    sta X16_P5
+    lda #(\p6)
+    sta X16_P6
+    lda #(\col)
+    jsr cx_gfx_shape
+.endm
 cxm_icon .macro id, x0, y0                ; a built-in 24x24 icon (modes 0/1)
     #cxpw16 X16_P0, \x0
     #cxpw16 X16_P2, \y0

@@ -307,6 +307,39 @@ static char cx_flood(unsigned x, unsigned y, unsigned char color) {
     return cx_c;
 }
 
+/* --- v0.8.0 extra shapes (polygon / arc / pie) -----------------------
+ * One dispatched slot keeps the resident table lean: X picks the shape,
+ * A is the colour, the P block carries the geometry. cx_shape is the raw
+ * call; the four named wrappers below are what you reach for. Angles are
+ * bytes (0 = east, 64 = south, 128 = west, 192 = north). Outlines clip
+ * where pset clips; the fills (fpolygon, pie) do not -- keep them on
+ * screen. */
+static void cx_shape(unsigned char kind, unsigned cxx, unsigned cy,
+                     unsigned char r, unsigned char p5, unsigned char p6,
+                     unsigned char color) {
+    CX__W(0, cxx); CX__W(2, cy); cx_p[4] = r; cx_p[5] = p5; cx_p[6] = p6;
+    cx_x = kind;
+    cx_call_a(CX_GFX_SHAPE, color);
+}
+/* a regular convex N-gon (sides 3+), outline / filled; rot = byte angle */
+static void cx_polygon(unsigned cxx, unsigned cy, unsigned char r,
+                       unsigned char sides, unsigned char rot, unsigned char color) {
+    cx_shape(0, cxx, cy, r, sides, rot, color);
+}
+static void cx_fpolygon(unsigned cxx, unsigned cy, unsigned char r,
+                        unsigned char sides, unsigned char rot, unsigned char color) {
+    cx_shape(1, cxx, cy, r, sides, rot, color);
+}
+/* an arc (outline) / a filled pie wedge, from start to end (byte angles) */
+static void cx_arc(unsigned cxx, unsigned cy, unsigned char r,
+                   unsigned char start, unsigned char end, unsigned char color) {
+    cx_shape(2, cxx, cy, r, start, end, color);
+}
+static void cx_pie(unsigned cxx, unsigned cy, unsigned char r,
+                   unsigned char start, unsigned char end, unsigned char color) {
+    cx_shape(3, cxx, cy, r, start, end, color);
+}
+
 /* draw a built-in 24x24 icon (id 0-7: up folder app font accessory data
  * image disk) at (x, y). Modes 0 and 1 only. */
 static void cx_icon(unsigned char id, unsigned x, unsigned y) {

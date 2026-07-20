@@ -304,6 +304,19 @@ CX_EVS_SPRCOL = 4
     lda #(\3)
     jsr cx_gfx_flood
     endm
+    macro cxm_gfx_shape                ; one dispatched slot; kind 0 polygon, 1 fpolygon, 2 arc, 3 pie. polygon: p5 = sides, p6 = rotation; arc/pie: p5 = start, p6 = end
+    ldx #(\1)
+    cxpw16 X16_P0, \2
+    cxpw16 X16_P2, \3
+    lda #(\4)
+    sta X16_P4
+    lda #(\5)
+    sta X16_P5
+    lda #(\6)
+    sta X16_P6
+    lda #(\7)
+    jsr cx_gfx_shape
+    endm
     macro cxm_icon                ; a built-in 24x24 icon (modes 0/1)
     cxpw16 X16_P0, \2
     cxpw16 X16_P2, \3

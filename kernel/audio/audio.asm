@@ -21,7 +21,7 @@
 ; jump.
 ; =====================================================================
 
-CX_AUDIO_BANK = CX_AUD_BANK     ; bank 19 (banks.inc)
+CX_AUDIO_BANK = CX_AUD_BANK     ; bank 18 (banks.inc)
 
 ; --- the resident far-call stubs (CODE) ------------------------------
 cx_do_psg_init
@@ -67,7 +67,7 @@ cx_do_ym_patch
     .addr ym_patch_rom
 
 ; --- the banked code (B19CODE) ---------------------------------------
-.segment "B19CODE"
+.segment "B18CODE"
 
 ; the carry flag ym_note_bas / ym_patch read cannot pass through cxb_call,
 ; so set it here, on the bank side, right before the x16lib routine

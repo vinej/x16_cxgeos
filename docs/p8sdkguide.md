@@ -172,6 +172,12 @@ Shapes (every bitmap mode): `cx.gfx_circle(xc, yc, rad, col)`,
 `cx.gfx_fellipse(...)` (filled), `cx.gfx_flood(x, y, col) -> bool` (scanline
 fill of the region holding the seed; **true = it overflowed** the budget).
 
+The v0.8.0 extra shapes ride one dispatched slot:
+`cx.gfx_shape(kind, xc, yc, rad, p5, p6, col)` — `kind` 0 polygon, 1
+fpolygon, 2 arc, 3 pie. For a polygon `p5` = sides (3+) and `p6` =
+rotation; for an arc/pie `p5` = start and `p6` = end (byte angles: 0 =
+east, 64 = south, 128 = west, 192 = north).
+
 ## Text
 
 | call | purpose |

@@ -15,7 +15,7 @@
 ; fields (image, size, position, flags) directly.
 ; =====================================================================
 
-CX_SPRITE_BANK = CX_AUD_BANK    ; bank 19 (banks.inc)
+CX_SPRITE_BANK = CX_AUD_BANK    ; bank 18 (banks.inc)
 
 ; --- the resident far-call stubs (CODE) ------------------------------
 cx_do_sprite_image
@@ -63,6 +63,6 @@ sprites_reset
     rts
 
 ; --- the banked code (B19CODE) ---------------------------------------
-.segment "B19CODE"
+.segment "B18CODE"
 .include "sprite/sprite.asm"
 .segment "CODE"

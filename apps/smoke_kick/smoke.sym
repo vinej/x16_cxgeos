@@ -493,7 +493,7 @@
 .label FB_SET_PALETTE=$fefc
 .label cx_wg_set=$8085
 .label VERA_LAYER_MAPH_128=$80
-.label CX_ABI_VERSION=$1
+.label CX_ABI_VERSION=$2
 .label TKSA=$ff96
 .label GRAPH_INIT=$ff20
 .label rom_ym_setnote=$c07b
@@ -612,6 +612,7 @@
 .label cx_gfx_pattern=$8031
 .label fp_movfm=$fe60
 .label cx_clip_type=$80a9
+.label cx_gfx_shape=$813c
 .label GRAPH_DRAW_LINE=$ff2c
 .label MCIOUT=$feb1
 .label JOYSTICK_SCAN=$ff53

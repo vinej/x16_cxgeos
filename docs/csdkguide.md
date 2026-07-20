@@ -755,12 +755,22 @@ mode switch resets it to white). `cx_pal_*` is handiest in `CX_MODE_BMP8`.
 | `cx_ellipse(cx, cy, rx, ry, color)` *(0.3.1)* | an axis-aligned ellipse outline |
 | `cx_fellipse(cx, cy, rx, ry, color)` | the same, filled |
 | `cx_flood(x, y, color)` → 1 if overflowed | scanline fill of the region holding the seed |
+| `cx_polygon(cx, cy, r, sides, rot, color)` *(0.8.0)* | a regular convex N-gon outline (sides 3+), `rot` a byte angle |
+| `cx_fpolygon(cx, cy, r, sides, rot, color)` *(0.8.0)* | the same, filled |
+| `cx_arc(cx, cy, r, start, end, color)` *(0.8.0)* | a circle arc from `start` to `end` (byte angles) |
+| `cx_pie(cx, cy, r, start, end, color)` *(0.8.0)* | a filled wedge over that arc |
 
 ```c
 cx_disc(250, 222, 7, 220);
 cx_circle(250, 222, 13, 15);
 cx_flood(250, 212, 110);       /* fills the moat between them */
+cx_polygon(120, 300, 60, 6, 0, 3);      /* a hexagon */
+cx_pie(300, 300, 70, 0, 96, 1);         /* a 3/8 wedge (0 = east) */
 ```
+
+Byte angles: 0 = east, 64 = south, 128 = west, 192 = north. The four
+0.8.0 shapes share one lean ABI slot (`CX_GFX_SHAPE`, X = kind); these
+wrappers pick the kind for you. `cx_shape(kind, ...)` is the raw call.
 
 ## Tiles *(0.3.0)* — CX_MODE_TILE only
 

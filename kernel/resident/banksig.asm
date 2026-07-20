@@ -53,7 +53,7 @@ b18_anchor
     rts
 
 .segment "B19SIG"
-    .byte "CXB", CX_AUD_BANK
+    .byte "CXB", CX_SHPX_BANK
     .word CX_KBUILD
     .word __B19CODE_SIZE__
 .segment "B19CODE"

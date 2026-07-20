@@ -17,9 +17,9 @@
 cx_hdr_magic
     .byte "CXOS"                  ; the loader looks for this
 cx_hdr_version
-    .word 1                    ; ABI version
+    .word 2                    ; ABI version
 cx_hdr_slots
-    .word 100                    ; slots
+    .word 101                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
 cx_hdr_shell
@@ -202,6 +202,9 @@ cx_jumptab
 
 ; --- menu state --------------------------------------------------
     jmp cx_do_menu_active ; 99  -> A = 1 if a menu is open (mouse or keyboard), 0 if none; Z set when none
+
+; --- extra shapes (v0.8.0) -- one dispatched slot, X selects the shape 
+    jmp cx_do_gfx_shape  ; 100  X = kind (0 polygon, 1 fpolygon, 2 arc, 3 pie), A = colour, P0/P1 = cx, P2/P3 = cy, P4 = radius; polygon: P5 = sides, P6 = rotation; arc/pie: P5 = start angle, P6 = end angle
 
 .popseg
 
