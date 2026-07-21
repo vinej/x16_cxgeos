@@ -37,7 +37,7 @@
 #
 # =====================================================================
 
-version = 2
+version = 3
 
 #= system
 0   cx_version      1   -> A/X = ABI version
@@ -95,8 +95,14 @@ version = 2
 34  cx_menu_off     1   forget the menu; only with no menu open
 
 #= the pointer
-35  cx_mouse_show   1   A = the pointer number (1 = the arrow), or $FF to show without setting one; the loader hides it between apps, so an app that wants it asks
-36  cx_mouse_hide   1   -
+# A = 1 shows the default arrow; A = $FF shows WITHOUT touching sprite 0, so
+# an app can set its own cursor image on sprite 0 first (cx_sprite_image 0 /
+# cx_sprite_size 0) and $FF keeps it -- a custom pointer. cx_mouse_hide
+# removes the pointer sprite but keeps the mouse configured, so an app that
+# draws its own cursor still gets EVS_MOUSE events. The loader hides the
+# pointer between apps, so an app that wants it asks.
+35  cx_mouse_show   1   A = the pointer (1 = the default arrow, $FF = show but keep the app's own sprite-0 cursor)
+36  cx_mouse_hide   1   hide the pointer sprite but keep the mouse scanned (events still arrive with EVS_MOUSE)
 
 #= themes and dialogs
 37  cx_theme_set    1   A/X = a 12-byte theme record (docs/formats.md): four palette RGBs plus the role indices; the palette changes instantly
@@ -319,3 +325,13 @@ version = 2
 # Outlines clip where pset clips; the fills (fpolygon/pie) do not -- keep
 # them on screen.
 100 cx_gfx_shape    2   X = kind (0 polygon, 1 fpolygon, 2 arc, 3 pie), A = colour, P0/P1 = cx, P2/P3 = cy, P4 = radius; polygon: P5 = sides, P6 = rotation; arc/pie: P5 = start angle, P6 = end angle
+
+#= mode-2 tile text (v0.9.0) -- a pause/dialog overlay on a tile layer
+# In mode 2 (tile), flip a layer between its 4bpp game map and a 1bpp
+# TEXT layer, using a charset the tile engine stages at entry. The game
+# map is left untouched in VRAM, so the switch back is instant and the
+# game world stays visible on the other layer the whole time. While the
+# text layer is up, cx_tile_cell/cx_tile_fill address a separate text map
+# (screen code in the low byte, fg | bg<<4 in the high). Off-mode calls
+# and non-tile modes refuse (carry).
+101 cx_tile_text    3   A = layer (0/1), X = on (0 = graphics, 1 = text)

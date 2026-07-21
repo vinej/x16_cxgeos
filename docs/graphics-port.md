@@ -16,13 +16,16 @@ a new mode never moves a slot, changes a signature, or touches an app.
 | the manager | `kernel/video/engine0.asm` (resident) | `cx_ov_load` copies image *n* from `cx_mbank[n]` / `cx_msrc[n]` (interrupts masked); `cx_gfx_mode` = copy + the new engine's init; `cx_gfx_init` **forces mode 0**, so `cx_exit` → shell always restores the desktop |
 | the canvas facts | `cx_gfx_info` (slot 77), `cx_cur_w/h` | mode, width, height, bpp, stride — how client code adapts without naming engines |
 
-The gfx ABI slots (2–14) target the vector's constants forever. The
-toolkit (fonts, widgets, menus, dialogs) calls the mode-0 engine's labels
-directly. Its ABI entries pass through `gui_gate` (`engine0.asm`): in
-mode 0 the call proceeds; in any other mode it **refuses with carry**
-rather than blit a 2bpp glyph into another mode's picture. Internal
-kernel callers use the routines directly and pay nothing — there is no
-dispatch tax on the hot path.
+The gfx ABI slots (2–14) target the vector's constants forever. Two gates
+in `engine0.asm` guard the callers that assume a particular canvas. The
+**CXF fonts and desk accessories** pass through `gui_gate`: in mode 0 the
+call proceeds; in any other mode it **refuses with carry** rather than blit
+a 2bpp glyph into another mode's picture. The **toolkit** (menus, widgets,
+dialogs, `cx_panel`) draws through the port instead, so it passes through
+`menu_gate` — which allows modes 0, 1 and 3, and mode 2 (tiles) while the
+tile-text overlay (`cx_txtport`) owns the port, refusing plain tiles.
+Internal kernel callers use the routines directly and pay nothing — there
+is no dispatch tax on the hot path.
 
 ## The modes today
 

@@ -170,7 +170,7 @@ The canvas `cx_mode(m)` switches to (and the `mode` field
 
 | constant | value | canvas |
 |---|---|---|
-| `CX_MODE_GUI` | 0 | 640×480, 4 colours — the desktop; the only mode the toolkit, fonts and dialogs run in |
+| `CX_MODE_GUI` | 0 | 640×480, 4 colours — the desktop; the only mode for the CXF fonts and desk accessories (the toolkit runs more widely — see below) |
 | `CX_MODE_BMP8` | 1 | 320×240, 256 colours — for richer bitmaps and `cx_pal_*` custom palettes |
 | `CX_MODE_TILE` | 2 | two hardware tile layers + sprites — for games |
 | `CX_MODE_TEXT` | 3 | 80×60 text cells, 16 colours — coordinates become cells, "colour" an attribute |
@@ -382,10 +382,19 @@ its scanline after `cx_ev_stop`.
 
 ## Pointer
 
+The pointer is VERA sprite 0, and mouse events are gated by `cx_ev_mask`
+(the `CX_EVS_MOUSE` bit), independently of whether the pointer is shown.
+
 | function | purpose |
 |---|---|
-| `cx_mouse_show(sprite)` | show the pointer (1 = the arrow); the loader hides it between apps |
-| `cx_mouse_hide()` | hide the pointer |
+| `cx_mouse_show(sprite)` | show the pointer (1 = the default arrow, `0xFF` = show but keep the app's own sprite-0 cursor) |
+| `cx_mouse_hide()` | remove the pointer sprite but keep the mouse scanned — events keep arriving with `CX_EVS_MOUSE` |
+| `cx_mouse_pointer(img, w, h, pal)` | a CUSTOM cursor: point sprite 0 at your uploaded 4bpp image (`CX_SPR_*` size codes) and show it |
+
+A game that draws its own cursor calls `cx_mouse_hide()` and reads
+`EV_MOVE`/`EV_DOWN`/`EV_UP`. A custom arrow: `cx_vram_write` a 4bpp sprite,
+then `cx_mouse_pointer(addr, CX_SPR_16, CX_SPR_16, 0)`. `cx_mouse_show(1)`
+restores the default arrow. See `apps/tiledlg` (a crosshair over the game).
 
 ## Menus & widgets
 
@@ -740,11 +749,16 @@ if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
 The same drawing calls work across the bitmap modes; in `CX_MODE_TEXT`
 coordinates are cells and "colour" is an attribute (`cx_clear`/`cx_rect` fill
 cells, `cx_frame` draws a PETSCII box, `cx_say` prints ASCII, pixel-only calls
-refuse). The **toolkit and fonts** (`cx_say`, `cx_wg_*`, `cx_menu_*`, dialogs,
-DAs) are GUI-only — outside mode 0 they refuse with carry and do nothing, a
-safe no-op. Sprites, audio, joysticks, events, files and the shapes work in
-every mode; `cx_exit` always restores the desktop. `cx_ink` is mode-local (a
-mode switch resets it to white). `cx_pal_*` is handiest in `CX_MODE_BMP8`.
+refuse). The **CXF font engine** (`cx_font_*`) and **desk accessories** are
+GUI-only — outside mode 0 they refuse with carry, a safe no-op. The
+**toolkit** — `cx_menu_*`, `cx_wg_*`, `cx_dlg_alert` / `cx_dlg_prompt` /
+`cx_panel` — draws through the port, so it runs in modes 0, 1 and 3, and in
+mode 2 (tiles) while a `cx_tile_text` overlay is up (widgets paint
+ASCII-classic there, exactly as in text mode). `cx_say` is mode-aware too:
+the CXF font in mode 0, cell text in the others. Sprites, audio, joysticks,
+events, files and the shapes work in every mode; `cx_exit` always restores
+the desktop. `cx_ink` is mode-local (a mode switch resets it to white).
+`cx_pal_*` is handiest in `CX_MODE_BMP8`.
 
 ## Shapes  — every bitmap mode
 
@@ -784,6 +798,8 @@ Two 64×32 maps of 8×8 4bpp tiles. Upload tile pixels with
 | `cx_tile_fill(layer, cell)` | carpet the map |
 | `cx_tile_cell(layer, col, row, cell)` | one cell |
 | `cx_tile_scroll(layer, h, v)` | hardware scroll (a register write, nothing redrawn) |
+| `cx_tile_text(layer, on)` | flip a layer to a 1bpp text overlay (`on=1`) and back (`on=0`) |
+| `cx_tile_puts(layer, col, row, s, attr)` | write an ASCII string as text cells (`attr = fg\|bg<<4`) |
 
 ```c
 cx_mode(CX_MODE_TILE);
@@ -792,6 +808,21 @@ cx_tile_setup(0);
 cx_tile_fill(0, CX_CELL(0, 0));
 cx_tile_scroll(0, h & 0x0FFF, 0);
 ```
+
+**A pause overlay + dialogs.** `cx_tile_text(1, 1)` turns layer 1 into a
+1bpp text layer over the still-visible world, then `cx_tile_text(1, 0)`
+puts the game map back instantly (the map is never touched). While it is
+up you can write cells directly (`cx_tile_puts`, `bg 0` = transparent), and
+the whole toolkit draws here — `cx_rect`/`cx_frame`/`cx_say` in **cells**,
+and the kernel's modal `cx_alert` / `cx_panel`, exactly as a desktop app:
+
+```c
+cx_ev_init();
+cx_tile_text(1, 1);                 /* overlay up; the port is the text engine */
+if (cx_alert(&paused) == 0) { /* Resume */ }
+cx_tile_text(1, 0);                 /* the game map, untouched */
+```
+See `apps/tiledlg` for the full game + dialog.
 
 ## Sprites 
 
@@ -972,7 +1003,11 @@ Each palette colour is two little-endian bytes: byte0 = `GGGGBBBB`, byte1 =
 - `apps/gfx8/gfx8.c`  -- 256-colour mode: the same drawing calls
   in `CX_MODE_BMP8`, plus the shapes.
 - `apps/tiles/tiles.c`  -- the tile mode: upload, fill, cells,
-  and hardware scrolling by keys, joystick, or drift.
+  and hardware scrolling by keys, joystick, or drift; SPACE pauses with a
+  modal dialog (`cx_tile_text` + `cx_alert`) over the still-visible world.
+- `apps/tiledlg/tiledlg.c`  -- the whole toolkit on tiles: a modal
+  `cx_panel` of widgets (checkbox, radios, slider, field, buttons) drawn
+  over a scrolling tile game while it is paused.
 - `apps/beep/beep.c`  — audio: a PSG scale, a YM note, and a PCM blip.
 - `apps/sprite/sprite.c`  — a hardware sprite that follows the mouse.
 

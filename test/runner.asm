@@ -1613,21 +1613,22 @@ test_abi_header
     cmp #'S'
     bne @report
 
-    lda cx_hdr_version          ; version 2, and the kernel agrees
-    cmp #2
+    lda cx_hdr_version          ; version 3, and the kernel agrees
+    cmp #3
     bne @report
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #101                    ; 31 shipped with the table; loader, events,
+    cmp #102                    ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the
                                 ; graphics port, tiles, ellipses, asset loaders,
                                 ; the modal panel, the game raster + its
                                 ; borrow/return pair, sprite collision, the icon,
-                                ; the palette pair, cx_menu_active, and v0.8.0's
-                                ; cx_gfx_shape (polygon/arc/pie) -- grew it
+                                ; the palette pair, cx_menu_active, v0.8.0's
+                                ; cx_gfx_shape (polygon/arc/pie), and v0.9.0's
+                                ; cx_tile_text (the mode-2 text overlay) -- grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
@@ -1709,7 +1710,7 @@ test_abi_table
 test_abi_call
     ldy #1
     jsr cx_jumptab              ; slot 0 = cx_version
-    cmp #2                      ; A/X = the header's version
+    cmp #3                      ; A/X = the header's version
     bne @report
     cpx #0
     bne @report

@@ -218,8 +218,22 @@ across the borrow and returns it on scanline 0. See
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
-| 35 | `CX_MOUSE_SHOW` | `$8079` | A=pointer number (1=arrow), or `$FF` to show without setting | show the mouse pointer |
-| 36 | `CX_MOUSE_HIDE` | `$807C` | — | hide it |
+| 35 | `CX_MOUSE_SHOW` | `$8079` | A = the pointer (1 = the default arrow, `$FF` = show but keep the app's own sprite-0 cursor) | show the mouse pointer |
+| 36 | `CX_MOUSE_HIDE` | `$807C` | — | remove the pointer sprite but keep the mouse scanned |
+
+The pointer **is** VERA sprite 0. Two things follow:
+
+- **A custom cursor.** Set sprite 0's image and size yourself
+  (`CX_SPRITE_IMAGE` / `CX_SPRITE_SIZE` with sprite 0, after uploading a
+  4bpp image to VRAM), then `CX_MOUSE_SHOW` with **`$FF`** — which shows the
+  mouse without overwriting your sprite. `A = 1` puts the default arrow
+  back. The csdk packages this as `cx_mouse_pointer(img, w, h, pal)`.
+- **Hidden pointer, live events.** `CX_MOUSE_HIDE` removes the pointer
+  sprite but leaves the mouse *configured and scanned*, so a game that
+  draws its own cursor (a crosshair) hides the arrow and still receives
+  `EV_MOVE` / `EV_DOWN` / `EV_UP` at the reported position while
+  `CX_EVS_MOUSE` is masked in. Events are gated by `CX_EV_MASK`, not by the
+  pointer's visibility.
 
 ### Themes and dialogs
 
@@ -228,7 +242,13 @@ across the borrow and returns it on scanline 0. See
 | 37 | `CX_THEME_SET` | `$807F` | A/X=a 12-byte theme record | swap the palette + role colours instantly |
 | 38 | `CX_DLG_ALERT` | `$8082` | A/X=dialog descriptor → A=chosen button | **synchronous** modal alert; RETURN picks button 0 |
 | 48 | `CX_DLG_PROMPT` | `$80A0` | A/X=message, P0/P1=buffer, P2=capacity → A=length, carry if cancelled | **synchronous** one-line editor; RETURN=ok, ESC=cancel |
-| 92 | `CX_PANEL` | `$8124` | A/X=a panel descriptor → A=chosen button | **synchronous** modal panel: a box, a widget list, up to 3 buttons; widgets update in place. Modes 0/1/3 |
+| 92 | `CX_PANEL` | `$8124` | A/X=a panel descriptor → A=chosen button | **synchronous** modal panel: a box, a widget list, up to 3 buttons; widgets update in place |
+
+Dialogs, prompts and panels draw through the graphics port, so they run in
+**every mode that has one**: mode 0 (GUI), mode 1 (8bpp), mode 3 (text), and
+— since v0.9.0 — mode 2 (tiles) while a `cx_tile_text` overlay is up. Their
+descriptor coordinates are in the mode's own units (pixels in 0/1, cells in
+2/3).
 
 ### Widgets
 
@@ -514,6 +534,33 @@ the csdk's `cx_vram_write`); the maps are 64x32 cells at `$08000` (layer
 | 82 | `CX_TILE_SCROLL` | `$8106` | A=layer, P0/P1=h, P2/P3=v | hardware scroll |
 | 83 | `CX_TILE_CELL` | `$8109` | A=layer, X=col, Y=row, P0/P1=cell | one map cell |
 | 84 | `CX_TILE_FILL` | `$810C` | A=layer, P0/P1=cell | the whole map |
+| 101 | `CX_TILE_TEXT` | `$813F` | A=layer (0/1), X=on (1 text / 0 graphics) | flip a layer to a 1bpp text overlay and back |
+
+**`CX_TILE_TEXT` — a pause/dialog overlay (v0.9.0).** A game in tile mode
+can flip one layer to a 1bpp **text** layer, over the still-visible world
+on the other layer, then flip it back **instantly** — the game's map is
+left untouched in VRAM. `cx_tile_text(1, 1)` reconfigures the layer, points
+it at a text map (a charset the engine stages at mode entry), and hands the
+graphics **port** to a tile-text engine; `cx_tile_text(1, 0)` restores the
+game map and scroll. While the overlay is up:
+
+- **Text cells** — `cx_tile_cell` / `cx_tile_fill` now address the text map
+  (low byte = screen code, high byte = `fg | bg<<4`; `bg 0` is transparent,
+  so the world shows through). The csdk's `cx_tile_puts` writes an ASCII
+  string as cells.
+- **The whole toolkit draws here.** Because the port is the tile-text
+  engine, the mode-agnostic `cx_rect` / `cx_frame` / `cx_say` (in **cell**
+  units, a 40×30 grid) — and the kernel's own **menus, widgets and modal
+  dialogs** (`cx_menu_set`, `cx_wg_set`, `cx_dlg_alert`, `cx_panel`) — render
+  onto the overlay, exactly as a desktop app draws them. Widgets paint in
+  the same **ASCII-classic** form as mode 3 (`[X]` checks, `(*)` radios,
+  `[ok]` buttons), so lay each record **one cell tall** (`h = 1`, as the
+  mode-3 TUI does — the csdk `CX_CHECK`/… macros hard-code *pixel* heights).
+  Every text-drawable widget works; the two that don't are `WG_ICON` (a
+  bitmap icon — `cx_icon` is a no-op on a text surface) and `WG_HIT` (the
+  app draws its own pixels). A tile game thus gets the same dialogs a mode-0
+  app does; the modal loop is the usual `cx_ev_init` / `cx_ev_stop`
+  game-borrow. `apps/tiledlg` is a full `cx_panel` of widgets over a game.
 
 ### Asset loaders
 

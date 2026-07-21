@@ -432,6 +432,8 @@ CALLS = [
      [("pw", "P0", "cell"), ("x", None, "column"), ("y", None, "row"), ("a", None, "layer")], "jsr"),
     ("tile_fill", ["layer", "cell"], "",
      [("pw", "P0", "cell"), ("a", None, "layer")], "jsr"),
+    ("tile_text", ["layer", "on"], "flip a tile layer to a 1bpp text overlay and back",
+     [("x", None, "on"), ("a", None, "layer")], "jsr"),
     # --- events (a handler table is ALWAYS CX_ET_COUNT vectors) ---
     ("ev_init", [], "clear the queue, hook the raster", [], "jsr"),
     ("ev_handlers", ["tbl"], "A/X = CX_ET_COUNT vectors",

@@ -103,19 +103,37 @@ cx_do_version
 ; the frozen mouse.) 80x60 eight-pixel cells = our fixed 640x480.
 ; ---------------------------------------------------------------------
 cx_do_mouse_show
-    pha                         ; the sprite number, held for MOUSE_CONFIG
-    lda #VERA_VIDEO_SPRITES_EN
-    tsb VERA_DC_VIDEO
-    ; the mouse field is the mode's PIXEL size, so the pointer covers the
-    ; whole screen and its coords ARE the mode's. Mode 1 is a 2:1-scaled
-    ; 320x240 -- sprites scale with the layer, so a 640-wide field would
-    ; leave the pointer stuck in the left half; a 40x30 (320x240) field
-    ; tracks it. Modes 0 and 3 are 640x480 (80x60 cells).
+    pha                         ; the pointer arg: 1 = the default arrow, or
+    lda #VERA_VIDEO_SPRITES_EN  ; $FF to show WITHOUT touching sprite 0 -- so
+    tsb VERA_DC_VIDEO           ; an app can set its own cursor image on
+    pla                         ; sprite 0 first and $FF keeps it. Sprites on.
+    jmp mouse_cfg
+
+; cx_do_mouse_hide -- A = 0 removes the pointer SPRITE, but mouse_cfg still
+; configures the field, so the mouse keeps being scanned: an app drawing
+; its OWN cursor (a game crosshair) hides the arrow here and still receives
+; EVS_MOUSE move/click events at the reported position.
+cx_do_mouse_hide
+    lda #0
+    ; falls into mouse_cfg
+
+; mouse_cfg -- A = the pointer (0 hide / 1 default arrow / $FF keep the
+; app's sprite 0). It ALSO sets the FIELD: the mode's PIXEL size, so the
+; pointer covers the whole screen and its coords ARE the mode's. Modes 1
+; AND 2 are 2:1-scaled 320x240 (a 640-wide field would strand the pointer
+; in the left half); modes 0 and 3 are 640x480 (80x60 cells). It is set
+; every time -- X=0 would keep the current field, but a fresh app's is
+; zero (the frozen mouse).
+mouse_cfg
+    pha
     ldx #80
     ldy #60
     lda cx_vmode
-    cmp #1
+    cmp #1                       ; mode 1 (8bpp) ...
+    beq @half
+    cmp #2                      ; ...and mode 2 (tiles): both 320x240 2:1
     bne @cfg
+@half
     ldx #40
     ldy #30
 @cfg

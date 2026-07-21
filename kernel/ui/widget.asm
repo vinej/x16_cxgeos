@@ -399,13 +399,31 @@ wg_x1y1
     dec wg_t2
     rts
 
+; wg_is_text -- Z set if the canvas is a text/CELL grid: mode 3, OR mode 2
+; while the tile-text overlay (cx_txtport) owns the port. On a cell canvas
+; the toolkit draws ASCII-classic widgets ([X] (o) [ok]), not scaled pixel
+; boxes -- WG_BOX and the pixel offsets are meaningless on a cell grid.
+wg_is_text
+    lda cx_vmode
+    cmp #CX_MODE_TEXT
+    beq @yes
+    cmp #2                     ; CX_MODE_TILE with the tile-text overlay up
+    bne @no
+    lda cx_txtport
+    beq @no
+@yes
+    lda #0                     ; Z set = a cell canvas
+    rts
+@no
+    lda #1                     ; Z clear = a pixel canvas
+    rts
+
 ; =====================================================================
 ; painting -- one widget, from its record at CX_M_PTR
 ; =====================================================================
 wg_paint
-    lda cx_vmode               ; a cell canvas gets ASCII-classic widgets
-    cmp #CX_MODE_TEXT          ; ([X] (o) [ok] ...), not scaled pixel boxes
-    bne @gfx
+    jsr wg_is_text             ; a cell canvas gets ASCII-classic widgets,
+    bne @gfx                   ; not scaled pixel boxes
     jmp wg_paint_t             ; the text painter shares bank 16 now --
                                ; a plain tail-call, no trampoline
 @gfx
@@ -1300,7 +1318,9 @@ wg_paint_t
     cmp #WG_FIELD
     beq wg_t_field
     cmp #WG_LIST
-    beq wg_t_list
+    bne @nlist                 ; (wg_t_list outgrew a short branch)
+    jmp wg_t_list
+@nlist
     cmp #WG_SCROLL
     bne @button
     jmp wg_t_scroll             ; a slider: [###----] bar
@@ -1342,6 +1362,26 @@ wg_t_toggle                     ; check/radio: the marker, then the label
     jmp wg_t_label
 
 wg_t_field                      ; [ text ]
+    ; clear the field's w cells to paper first, so a shorter buffer (after
+    ; a backspace) leaves no ghost of the old bracket/char. The padding is
+    ; the panel's paper, so the field still reads as "[ text ]".
+    lda wg_xv
+    sta X16_P0
+    lda wg_xv+1
+    sta X16_P1
+    lda wg_yv
+    sta X16_P2
+    lda wg_yv+1
+    sta X16_P3
+    lda wg_wv
+    sta X16_P4
+    stz X16_P5
+    lda #1
+    sta X16_P6
+    stz X16_P7
+    lda th_paper
+    jsr cxov_rect
+    jsr wg_t_pos                ; P0/P1 = x, P2/P3 = y -- the pen back
     lda #<wg_s_lbrk
     ldx #>wg_s_lbrk
     jsr cxov_text
@@ -2000,10 +2040,11 @@ wg_act
     lda X16_P4
     sec
     sbc (CX_M_PTR),y            ; d = click_y - box_y
-    ldy cx_vmode
-    cpy #3
+    pha                         ; keep d across the canvas check
+    jsr wg_is_text
+    pla
     bne @gridrows
-    jmp @haverow                ; mode 3: d is the row (1 cell, no frame)
+    jmp @haverow                ; a cell canvas: d is the row (1 cell, no frame)
 @gridrows
     beq @haverow                ; on the frame line: row 0
     sec

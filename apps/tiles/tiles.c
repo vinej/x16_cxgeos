@@ -7,7 +7,10 @@
  * window in the middle of the map, and scrolls the layer with the
  * arrow keys, a joystick -- or by itself, drifting. The scroll is a
  * register write: nothing is redrawn, which is the whole point of
- * tiles. Any other key exits; the desktop restores the GUI on its own.
+ * tiles. SPACE pauses the game with a modal dialog drawn over the still-
+ * visible world (cx_tile_text flips layer 1 to a text overlay); dismiss
+ * it and the scroll picks up where it left off. Any other key exits; the
+ * desktop restores the GUI on its own.
  * ===================================================================== */
 
 #include <cbm.h>
@@ -15,6 +18,9 @@
 #include "csdk/cxsdk.h"
 
 static unsigned char tiles[64];        /* two 4bpp 8x8 tiles, 32 B each */
+
+/* the pause dialog -- one button, dismissed with RETURN or ESC */
+CX_DIALOG(paused, "Paused. Resume the game?", "OK");
 
 int main(void) {
     unsigned char x, y;
@@ -54,6 +60,22 @@ int main(void) {
                 else if (ev.detail == CX_K_RIGHT) h += 8;
                 else if (ev.detail == CX_K_UP)    v -= 8;
                 else if (ev.detail == CX_K_DOWN)  v += 8;
+                else if (ev.detail == CX_K_SPACE) {
+                    /* pause: a text overlay on layer 1, a modal dialog on
+                     * it over the frozen-but-visible world, then back --
+                     * layer 0's scroll is untouched, so play resumes here.
+                     * The mouse is switched on just for the dialog (the game
+                     * itself is keyboard/joystick), so the button is
+                     * clickable as well as RETURN/ESC. */
+                    cx_tile_text(1, 1);
+                    cx_tile_fill(1, 0x20);   /* clear transparent: world shows around it */
+                    cx_mouse_show(1);
+                    cx_ev_mask(CX_EVS_KEYS | CX_EVS_MOUSE);
+                    cx_alert(&paused);
+                    cx_ev_mask(CX_EVS_KEYS);
+                    cx_mouse_hide();
+                    cx_tile_text(1, 0);
+                }
                 else break;            /* any other key exits */
             } else if (ev.type == CX_ET_JOY) {
                 if (ev.x & CX_J_LEFT)  h -= 8;

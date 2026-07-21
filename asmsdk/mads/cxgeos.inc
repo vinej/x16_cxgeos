@@ -382,6 +382,11 @@ CX_EVS_SPRCOL = 4
     lda #(:layer)
     jsr cx_tile_fill
 .endm
+.macro cxm_tile_text layer on                ; flip a tile layer to a 1bpp text overlay and back
+    ldx #(:on)
+    lda #(:layer)
+    jsr cx_tile_text
+.endm
 .macro cxm_ev_init                ; clear the queue, hook the raster
     jsr cx_ev_init
 .endm

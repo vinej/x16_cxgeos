@@ -44,7 +44,7 @@ REGIONS = [
     ("BANK2",    BANK_SIZE,     ["B2CODE"]),
     ("BANK3",    BANK_SIZE,     ["OV0CODE"]),
     ("BANK4",    BANK_SIZE,     ["OV1CODE"]),
-    ("BANK5",    BANK_SIZE,     ["B5CODE", "OV2CODE", "OV3CODE"]),
+    ("BANK5",    BANK_SIZE,     ["B5CODE", "OV2CODE", "OV3CODE", "OV3TCODE"]),
     ("BANK16",   BANK_SIZE,     ["B16SIG", "B16CODE"]),
     ("BANK17",   BANK_SIZE,     ["B17SIG", "B17CODE"]),
     ("BANK18",   BANK_SIZE,     ["B18SIG", "B18CODE"]),
@@ -52,7 +52,7 @@ REGIONS = [
 ]
 
 # every engine image must fit the window it runs in
-OVL_IMAGES = ["OV0CODE", "OV1CODE", "OV2CODE", "OV3CODE"]
+OVL_IMAGES = ["OV0CODE", "OV1CODE", "OV2CODE", "OV3CODE", "OV3TCODE"]
 
 WARN_PCT = 85               # a region this full is worth a look
 WARN_FREE = 256             # ...as is one with less than this to give

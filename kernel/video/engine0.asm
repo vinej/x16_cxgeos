@@ -35,6 +35,7 @@ CX_MODES    = 4                 ; how many engines ride the banks today
 
 .import __OV2CODE_LOAD__        ; modes 2 and 3 share a bank with the
 .import __OV3CODE_LOAD__        ; shapes / text machinery; ld65 says
+.import __OV3TCODE_LOAD__       ; ...and OV3T, the tile-text dialog port
                                 ; where each image landed in it
 
 cx_ov_boot                      ; boot: engine 0 in, mode noted
@@ -126,9 +127,12 @@ cx_do_gfx_mode
 ; The KERNAL's boot LOAD wraps exactly four banks (32KB) before it
 ; stops, so every engine image rides banks 2-5; modes 2 and 3 share
 ; bank 5 with the shapes/tile code (ld65 says where each landed).
-cx_mbank   .byte 3, 4, 5, 5     ; which bank holds each mode's image
-cx_msrc_lo .byte <$A000, <$A000, <__OV2CODE_LOAD__, <__OV3CODE_LOAD__
-cx_msrc_hi .byte >$A000, >$A000, >__OV2CODE_LOAD__, >__OV3CODE_LOAD__
+; index 0-3 are the modes; index 4 (CX_OV_TILETEXT) is OV3T, the tile-
+; text dialog port -- not a mode (cx_vmode stays 2), swapped into the port
+; by cx_tile_text with cx_ov_load, never by cx_do_gfx_mode.
+cx_mbank   .byte 3, 4, 5, 5, 5
+cx_msrc_lo .byte <$A000, <$A000, <__OV2CODE_LOAD__, <__OV3CODE_LOAD__, <__OV3TCODE_LOAD__
+cx_msrc_hi .byte >$A000, >$A000, >__OV2CODE_LOAD__, >__OV3CODE_LOAD__, >__OV3TCODE_LOAD__
 
 ; --- the engine image (OV0CODE: run = OVL, load = bank 3) ------------
 .segment "OV0CODE"
@@ -266,9 +270,12 @@ cx_ov_bounds
 menu_gate
     pha                         ; the entry's A is an argument -- saved
     lda cx_vmode                ; across the check
-    cmp #2                      ; only tiles (mode 2) have no framebuffer
-    beq gg_refuse               ; for the toolkit; 0, 1 and 3 all draw
-    pla                         ; through the port
+    cmp #2                      ; tiles (mode 2) normally have no framebuffer
+    bne @pass                   ; for the toolkit -- BUT cx_tile_text can put
+    lda cx_txtport              ; the tile-text port (OV3T) up, and then the
+    beq gg_refuse               ; menu, widgets and dialogs draw through it
+@pass                           ; just like mode 3; 0, 1 and 3 always pass
+    pla
     rts
 gui_gate
     pha                         ; still mode-0-only: fonts, DAs
@@ -321,6 +328,9 @@ cx_g_da_close    jsr gui_gate
                  jmp cx_do_da_close
 
 cx_vmode .byte 0                ; the engine in the port right now
+cx_txtport .byte 0              ; 1 while cx_tile_text has OV3T (the tile-text
+                                ; port) up over mode 2, so menu_gate lets the
+                                ; toolkit draw; 0 = plain tiles, toolkit refused
 cx_cshift .byte 0, 0, 0, 3      ; mouse coord >> this per mode. Mode 1's
                                 ; mouse is already its 320-wide field (see
                                 ; cx_do_mouse_show), so only text (mode 3,

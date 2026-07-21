@@ -230,8 +230,10 @@ afterward. `A/X` points at the descriptor:
 The panel draws the box, the widgets and the buttons itself; the app
 only places the widgets inside the box's rectangle. It returns `A` = the
 chosen button — 0 is the confirm button (also what RETURN picks), and
-the last button is what ESC picks. It works in modes 0, 1 and 3; tiles
-(mode 2) refuse. The box height is bounded by the mode's save-under —
-about 100 rows in mode 0 (banks 14–15), the VRAM strip in mode 1, ~50
-cells in mode 3 (bank 6) — the same budget the dialog draws from, so a
+the last button is what ESC picks. It works in modes 0, 1 and 3 — and in
+mode 2 (tiles) while a `cx_tile_text` overlay is up. The box height is
+bounded by the mode's save-under — about 100 rows in mode 0 (banks 14–15),
+the VRAM strip in mode 1, ~50 cells in mode 3 (bank 6); on the tile overlay
+there is no save-under (the layer reverts to the game on exit), so keep the
+box within the 40×30 cell grid. The same budget the dialog draws from, so a
 form the size of a dialog always fits.

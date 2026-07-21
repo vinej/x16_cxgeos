@@ -17,9 +17,9 @@
 cx_hdr_magic
     .byte "CXOS"                  ; the loader looks for this
 cx_hdr_version
-    .word 2                    ; ABI version
+    .word 3                    ; ABI version
 cx_hdr_slots
-    .word 101                    ; slots
+    .word 102                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
 cx_hdr_shell
@@ -81,8 +81,8 @@ cx_jumptab
     jmp cx_g_menu_off    ; 34  forget the menu; only with no menu open
 
 ; --- the pointer -------------------------------------------------
-    jmp cx_do_mouse_show ; 35  A = the pointer number (1 = the arrow), or $FF to show without setting one; the loader hides it between apps, so an app that wants it asks
-    jmp mouse_hide       ; 36  -
+    jmp cx_do_mouse_show ; 35  A = the pointer (1 = the default arrow, $FF = show but keep the app's own sprite-0 cursor)
+    jmp cx_do_mouse_hide ; 36  hide the pointer sprite but keep the mouse scanned (events still arrive with EVS_MOUSE)
 
 ; --- themes and dialogs ------------------------------------------
     jmp cx_g_theme_set   ; 37  A/X = a 12-byte theme record (docs/formats.md): four palette RGBs plus the role indices; the palette changes instantly
@@ -205,6 +205,9 @@ cx_jumptab
 
 ; --- extra shapes (v0.8.0) -- one dispatched slot, X selects the shape 
     jmp cx_do_gfx_shape  ; 100  X = kind (0 polygon, 1 fpolygon, 2 arc, 3 pie), A = colour, P0/P1 = cx, P2/P3 = cy, P4 = radius; polygon: P5 = sides, P6 = rotation; arc/pie: P5 = start angle, P6 = end angle
+
+; --- mode-2 tile text (v0.9.0) -- a pause/dialog overlay on a tile layer 
+    jmp cx_do_tile_text  ; 101  A = layer (0/1), X = on (0 = graphics, 1 = text)
 
 .popseg
 

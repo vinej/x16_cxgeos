@@ -13,6 +13,12 @@
  * button is held continues it (the pencil joins points with cx_line so a
  * fast drag has no gaps; the eraser stamps a square); UP ends it.
  *
+ * Click feedback: a DOWN on a toolbar button redraws it "pressed" (the
+ * highlight fill of cx_button_down) and the matching UP redraws it normal
+ * -- so a click flashes, the way the toolkit's own WG_BUTTON does. An
+ * immediate-mode app owns WHEN to flash; the SDK just gives it the two
+ * painters (cx_button / cx_button_down) so the look matches the toolkit.
+ *
  * Persistence: the canvas is streamed a row at a time to a SEQ file as
  * native framebuffer bytes, copied through VERA's data port rather than a
  * cx_pget/cx_pset per pixel -- those are ABI crossings, and one per pixel
@@ -49,6 +55,21 @@ static unsigned char have_last = 0;   /* lastx/lasty hold a real point    */
 static unsigned lastx, lasty;
 static const char *msg = "draw with the mouse.";
 
+/* the toolbar + exit buttons: geometry and label. The index IS the action
+ * (see the CX_ET_DOWN switch). Kept in a table so one can be redrawn
+ * pressed without repeating its rectangle. */
+typedef struct { unsigned x, y, w, h; const char *label; } paint_btn;
+static const paint_btn BTN[] = {
+    {  10,   8,  90, 24, "pencil" },  /* 0 */
+    { 110,   8,  90, 24, "eraser" },  /* 1 */
+    { 220,   8,  90, 24, "save"   },  /* 2 */
+    { 320,   8,  90, 24, "load"   },  /* 3 */
+    { 430,   8,  90, 24, "clear"  },  /* 4 */
+    { 520, 448, 100, 24, "exit"   },  /* 5 */
+};
+#define NBTN 6
+static signed char held = -1;         /* the button drawn pressed, or -1  */
+
 /* a white sheet, black ink -- the same palette the desktop uses, set
  * explicitly so the canvas looks the same whatever theme we inherit */
 static const cx_theme_rec paint_theme = {
@@ -64,27 +85,29 @@ static void status(void) {
     cx_say(msg, 110, 46);
 }
 
+/* draw button i normal, or pressed (the highlight-fill click feedback) */
+static void draw_button(unsigned char i, unsigned char pressed) {
+    const paint_btn *b = &BTN[i];
+    if (pressed) cx_button_down(b->x, b->y, b->w, b->h, b->label);
+    else         cx_button(b->x, b->y, b->w, b->h, b->label);
+}
+
 static void redraw(void) {
+    unsigned char i;
     cx_clear(PAPER);
-    cx_button(10,  8, 90, 24, "pencil");
-    cx_button(110, 8, 90, 24, "eraser");
-    cx_button(220, 8, 90, 24, "save");
-    cx_button(320, 8, 90, 24, "load");
-    cx_button(430, 8, 90, 24, "clear");
-    cx_button(520, 448, 100, 24, "exit");
+    for (i = 0; i < NBTN; i++) draw_button(i, i == held);
     cx_frame(CV_X - 2, CV_Y - 2, CV_W + 4, CV_H + 4, INK);   /* the sheet */
     status();
 }
 
-/* which button is at (x, y)? -1 = none. y=8..32 is the toolbar row. */
+/* which button INDEX is at (x, y)? -1 = none. */
 static signed char hit_button(unsigned x, unsigned y) {
-    if (y >= 448 && y < 472 && x >= 520 && x < 620) return 4;   /* exit */
-    if (y < 8 || y >= 32) return -1;
-    if (x >= 10  && x < 100) return 0;                          /* pencil */
-    if (x >= 110 && x < 200) return 1;                          /* eraser */
-    if (x >= 220 && x < 310) return 2;                          /* save   */
-    if (x >= 320 && x < 410) return 3;                          /* load   */
-    if (x >= 430 && x < 520) return 5;                          /* clear  */
+    unsigned char i;
+    for (i = 0; i < NBTN; i++) {
+        const paint_btn *b = &BTN[i];
+        if (x >= b->x && x < b->x + b->w && y >= b->y && y < b->y + b->h)
+            return (signed char)i;
+    }
     return -1;
 }
 
@@ -161,14 +184,18 @@ int main(void) {
             break;
         case CX_ET_DOWN: {
             signed char b = hit_button(ev.x, ev.y);
-            if (b == 4) goto done;               /* exit */
-            else if (b == 0) { tool = T_PENCIL; msg = "pencil."; status(); }
-            else if (b == 1) { tool = T_ERASE;  msg = "eraser."; status(); }
-            else if (b == 2) do_save();
-            else if (b == 3) do_load();
-            else if (b == 5) {                   /* clear the sheet */
-                cx_rect(CV_X, CV_Y, CV_W, CV_H, PAPER);
-                have_last = 0; msg = "cleared."; status();
+            if (b >= 0) {
+                draw_button(b, 1);               /* press feedback (held) */
+                held = b;
+                if (b == 0)      { tool = T_PENCIL; msg = "pencil."; status(); }
+                else if (b == 1) { tool = T_ERASE;  msg = "eraser."; status(); }
+                else if (b == 2) do_save();
+                else if (b == 3) do_load();
+                else if (b == 4) {               /* clear the sheet */
+                    cx_rect(CV_X, CV_Y, CV_W, CV_H, PAPER);
+                    have_last = 0; msg = "cleared."; status();
+                }
+                else if (b == 5) goto done;      /* exit */
             }
             else if (in_canvas(ev.x, ev.y)) {
                 pendown = 1; have_last = 0;
@@ -183,6 +210,7 @@ int main(void) {
             }
             break;
         case CX_ET_UP:
+            if (held >= 0) { draw_button(held, 0); held = -1; }  /* release */
             pendown = 0; have_last = 0;
             break;
         }

@@ -90,6 +90,7 @@ X16_USE_SCREEN_CORE = 1         ; mode 3 (text) draws through the KERNAL
 .include "kernel/video/tiles.asm"
 .include "kernel/video/pal.asm"
 .include "kernel/video/text.asm"
+.include "kernel/video/ov3t.asm"
 ; the fs/system modules ride bank 18 now (dir/fileload/assets/dosglue);
 ; dirty.asm rides bank 17. Only menu.asm + theme.asm + da.asm are left
 ; in B2CODE, and menu.asm is first among them (it owns the local table)

@@ -13,16 +13,18 @@ in [memory-map.md](memory-map.md).
 
 - **Resident** (`$81A9`–`$95FF`, ~5 KB): only what must be fast or always
   mapped — the IRQ + event loop, region routing, the far-call trampoline
-  `cxb_call`, the loader, the clipboard, the save-under streamer, and the
-  font *draw* path. Keeps ~130 free bytes; `mapreport` fails under 128.
-- **Jump table** (`$8010`–`$81A4`): 101 slots defined, 135 reserved (34 free).
+  `cxb_call`, the loader, the clipboard *byte-mover* (the part that walks the
+  data banks; its put/get/type orchestration rides bank 18), the save-under
+  streamer, and the font *draw* path. `mapreport` fails under 128 free.
+- **Jump table** (`$8010`–`$81A4`): 102 slots defined, 135 reserved (33 free).
   Slot *n* lives at `$8010 + n·3` **forever** — that and `$8000`/`$9F00` are
   the only external promises. The build word `CX_KBUILD` is the 4 bytes at
   `$81A5`, the reserve's tail.
 - **OVL window** (`$9600`–`$9EFF`, 2,304 B): the current graphics engine
-  image, copied in from its storage bank by `cx_gfx_mode`.
+  image, copied in from its storage bank by `cx_gfx_mode` — or, over a tile
+  game, the tile-text dialog port (`OV3T`), swapped in by `cx_tile_text`.
 - **Code banks 2–5** (`CXBANKS.BIN`, one boot LOAD): 2 UI core, 3/4 mode-0/1
-  images, 5 dialogs + mode-2/3 images.
+  images, 5 dialogs + the mode-2/3 and tile-text (`OV3T`) port images.
 - **Code banks 16–19** (`CXBANKS2.BIN`, a second boot LOAD): 16 widgets, 17
   graphics extras (base shapes/tiles/dirty), 18 fs/system + audio/sprites,
   19 extra shapes (the 0.8.0 polygon/arc/pie family). Each opens with an

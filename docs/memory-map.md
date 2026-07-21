@@ -24,8 +24,8 @@ file in the same commit as the code that claims or releases a region.
 | $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector, `cx_hdr_shell` ($800A) desktop-state byte (survives app loads) |
 | $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 101 slots used ($8010–$813E), reserve caps at 135 (34 free) |
 | $81A5–$81A8 | build word | `CX_KBUILD` (`banks.inc`), the reserve's tail; stage-0 checks it against the banked files |
-| $81A9–$95FF | resident kernel | ~5.2 KB budget, ~130 B free: event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard, port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
-| $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` ([graphics-port.md](graphics-port.md)) |
+| $81A9–$95FF | resident kernel | ~5.2 KB budget, ~280 B free: event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard byte-mover (its orchestration is bank 18), port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
+| $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` — or the tile-text dialog port (`OV3T`) swapped in by `cx_tile_text` ([graphics-port.md](graphics-port.md)) |
 
 ## Banked RAM ($A000–$BFFF window, bank register at $00) — the budget ledger
 
@@ -42,14 +42,14 @@ here are the v0.6.0 snapshot; run it for today's.
 | 2 | **UI core** | `B2CODE`: menus + theme + DA manager + the `b2_table` local jump table | ~1.8 KB | ~6.4 KB | a menu/theme/DA feature |
 | 3 | mode-0 image | `OV0CODE` (2bpp GUI engine), copied to the OVL window to run | ~2.2 KB | ~5.9 KB | a bigger mode-0 engine |
 | 4 | mode-1 image | `OV1CODE` (8bpp engine) | ~1.8 KB | ~6.4 KB | a bigger mode-1 engine |
-| 5 | **dialogs** | `B5CODE`: dialog/alert/prompt/panel + the mode-2/3 images (`OV2/OV3CODE`) | ~2.7 KB | ~5.5 KB | a dialog feature; a new small overlay image |
+| 5 | **dialogs** | `B5CODE`: dialog/alert/prompt/panel + the mode-2/3 and tile-text port images (`OV2/OV3/OV3TCODE`) | ~3.4 KB | ~4.8 KB | a dialog feature; a new small overlay image |
 | 6–8 | glyph cache | pre-shifted 2bpp cache (95 glyphs × 192 B, 42/bank) + CXF sources | — | — | a second/larger font (LRU) |
 | 9 | desk accessory | the open `.CXD` (`cx_da_open` loads it at $A000) | — | — | data, not kernel code |
 | 10–13 | clipboard | typed text / bitmap-rect, up to 32 KB | — | — | data |
 | 14–15 | save-under | dialog save-unders / DA saved state | — | — | data |
 | 16 | **widgets** | `B16CODE`: the whole toolkit (code + `wg_*` state) + `wg_paint_t`; includes the icon and `WG_HIT` widgets | ~4.1 KB | ~4.1 KB | **a new widget** — and nowhere else |
 | 17 | **graphics extras** | `B17CODE`: base shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects + the icon sheet + the palette API | ~4.4 KB | ~3.8 KB | **a new base shape** |
-| 18 | **fs / system / audio / sprites** | `B18CODE`: dir walk + `cx_file_load` + `cx_vload`/`cx_bload` + DOS channel + the font cold half (magic/header/cache builder) + `f_magic`; and (0.8.0) PSG + YM audio (with the carry shims) + hardware sprites | ~2.1 KB | ~6.1 KB | an fs/DOS feature; cold system code; audio/sprites |
+| 18 | **fs / system / audio / sprites** | `B18CODE`: dir walk + `cx_file_load` + `cx_vload`/`cx_bload` + DOS channel + the font cold half (magic/header/cache builder) + `f_magic`; PSG + YM audio (with the carry shims) + hardware sprites (0.8.0); and (0.9.0) the clipboard put/get/type orchestration (its byte-mover stays resident) | ~2.2 KB | ~6.0 KB | an fs/DOS feature; cold system code; audio/sprites |
 | 19 | **extra shapes** | `B19CODE` (0.8.0): the dispatched `cx_gfx_shape` family — polygon / fpolygon / arc / pie + the sin/cos table they need | ~4.1 KB | ~4.1 KB | **a new extra shape** |
 | 20+ | **the app's** | `cx_bload` targets (refuses < `CX_APP_BANK_FLOOR` = 20), window backing store, allocations, file buffers | — | — | — |
 
@@ -96,7 +96,11 @@ tile *machinery* moved to bank 17 in the restructure, but the tile
 *engine image* (OV2) stays in bank 5 storage — `cx_ov_load` reads it from
 the linker's `__OV2CODE_LOAD__`. In `CX_MODE_TILE`, VRAM `$00000` holds
 tile images and `$08000`/`$09000` the two 64x32 maps (the bitmap
-framebuffer region is free -- there is no bitmap).
+framebuffer region is free -- there is no bitmap). `cx_tile_text` adds a
+1bpp **text** overlay: a fifth port image `OV3T` (bank 5 storage, run in
+the OVL) draws menus/widgets/dialogs onto a text map at `$0A000` using the
+KERNAL charset the tile engine stages at `$1F000` — the game's own maps at
+`$08000`/`$09000` are never touched, so lowering the overlay is instant.
 
 ## VRAM (128KB) — the contended resource
 

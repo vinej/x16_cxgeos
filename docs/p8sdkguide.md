@@ -67,51 +67,110 @@ All live in the `cx` block (`cx.ET_DOWN`, `cx.PAPER`, …).
 
 ### Widget types — a descriptor's type (`cx.WG_*`)
 
-`cx.WG_BUTTON`=0, `cx.WG_CHECK`=1, `cx.WG_RADIO`=2, `cx.WG_SCROLL`=3,
-`cx.WG_FIELD`=4, `cx.WG_LIST`=5, `cx.WG_ICON`=6, `cx.WG_HIT`=7. One record is
-`cx.WG_SIZE`=16 bytes.
+| name | value | widget |
+|---|---|---|
+| `cx.WG_BUTTON` | 0 | a push button |
+| `cx.WG_CHECK` | 1 | a checkbox |
+| `cx.WG_RADIO` | 2 | a radio button |
+| `cx.WG_SCROLL` | 3 | a scrollbar / slider |
+| `cx.WG_FIELD` | 4 | an editable text field |
+| `cx.WG_LIST` | 5 | a scrolling list |
+| `cx.WG_ICON` | 6 | a 24×24 icon + label |
+| `cx.WG_HIT` | 7 | an invisible hit region you draw yourself |
+
+One record is `cx.WG_SIZE` = 16 bytes.
 
 ### Hit-region shapes & triggers (`cx.WH_*`)
 
-Shape (a `WG_HIT` record's val): `cx.WH_RECT`=0, `cx.WH_CIRCLE`=1 (inscribed),
-`cx.WH_ELLIPSE`=2. Trigger mask (its grp, combine with `|`): `cx.WH_CLICK`=1,
-`cx.WH_RELEASE`=2, `cx.WH_HOVER`=4.
+Shape — a `WG_HIT` record's `val`:
+
+| name | value | shape |
+|---|---|---|
+| `cx.WH_RECT` | 0 | the whole rectangle |
+| `cx.WH_CIRCLE` | 1 | the inscribed circle |
+| `cx.WH_ELLIPSE` | 2 | the inscribed ellipse |
+
+Trigger mask — its `grp`, combine with `|`:
+
+| name | value | fires on |
+|---|---|---|
+| `cx.WH_CLICK` | 1 | a mouse press |
+| `cx.WH_RELEASE` | 2 | a mouse release |
+| `cx.WH_HOVER` | 4 | the pointer entering / leaving |
 
 ### Icon ids (`cx.ICON_*`)
 
-`cx.ICON_UP`=0, `cx.ICON_FOLDER`=1, `cx.ICON_APP`=2, `cx.ICON_FONT`=3,
-`cx.ICON_ACCESSORY`=4, `cx.ICON_DATA`=5, `cx.ICON_IMAGE`=6, `cx.ICON_DISK`=7.
+| name | value | icon |
+|---|---|---|
+| `cx.ICON_UP` | 0 | up one directory level |
+| `cx.ICON_FOLDER` | 1 | a directory |
+| `cx.ICON_APP` | 2 | an application |
+| `cx.ICON_FONT` | 3 | a font |
+| `cx.ICON_ACCESSORY` | 4 | a desk accessory |
+| `cx.ICON_DATA` | 5 | a data file |
+| `cx.ICON_IMAGE` | 6 | an image |
+| `cx.ICON_DISK` | 7 | a disk |
 
 ### Font styles, theme colours
 
-Styles: `cx.BOLD`=1, `cx.UNDER`=2 (combine with `|`). Theme role colours (palette
-indices): `cx.PAPER`=0 (background), `cx.HI`=1 (highlight), `cx.FRAME`=3
-(borders). A `cx.theme_set` swap changes the RGB behind an index, never the
-index, so drawing with these recolours automatically.
+Styles (combine with `|`):
+
+| name | value | style |
+|---|---|---|
+| `cx.BOLD` | 1 | bold |
+| `cx.UNDER` | 2 | underline |
+
+Theme role colours (palette indices) — a `cx.theme_set` swap changes the RGB
+behind an index, never the index, so drawing with these recolours automatically:
+
+| name | value | role |
+|---|---|---|
+| `cx.PAPER` | 0 | background |
+| `cx.HI` | 1 | highlight |
+| `cx.FRAME` | 3 | borders |
 
 ### Keys (PETSCII, as `ET_KEY` delivers them)
 
-`cx.K_ENTER`=$0D, `cx.K_ESC`=$1B, `cx.K_TAB`=$09, `cx.K_BTAB`=$18 (shift-TAB),
-`cx.K_DEL`=$14, `cx.K_UP`=$91, `cx.K_DOWN`=$11, `cx.K_LEFT`=$9D,
-`cx.K_RIGHT`=$1D, `cx.K_SPACE`=$20. Printable keys arrive as their ASCII byte.
+Printable keys arrive as their ASCII byte; these are the named non-printable ones:
+
+| name | value | key |
+|---|---|---|
+| `cx.K_ENTER` | `$0D` | RETURN |
+| `cx.K_ESC` | `$1B` | ESC |
+| `cx.K_TAB` | `$09` | TAB |
+| `cx.K_BTAB` | `$18` | shift-TAB |
+| `cx.K_DEL` | `$14` | DEL / backspace |
+| `cx.K_UP` | `$91` | cursor up |
+| `cx.K_DOWN` | `$11` | cursor down |
+| `cx.K_LEFT` | `$9D` | cursor left |
+| `cx.K_RIGHT` | `$1D` | cursor right |
+| `cx.K_SPACE` | `$20` | space bar |
 
 ### Graphics modes
 
-`cx.MODE_GUI`=0 (640×480, 4 colours — the desktop), `cx.MODE_BMP8`=1 (320×240,
-256 colours), `cx.MODE_TILE`=2 (two tile layers + sprites), `cx.MODE_TEXT`=3
-(80×60 text).
+| name | value | canvas |
+|---|---|---|
+| `cx.MODE_GUI` | 0 | 640×480, 4 colours — the desktop |
+| `cx.MODE_BMP8` | 1 | 320×240, 256 colours |
+| `cx.MODE_TILE` | 2 | two tile layers + sprites |
+| `cx.MODE_TEXT` | 3 | 80×60 text |
 
 ### Audio, joystick, sprites, tiles, event sources
 
-- PSG waves: `cx.WAVE_PULSE`/`SAW`/`TRI`/`NOISE`; pan `cx.PAN_LEFT`/`RIGHT`/`BOTH`.
-- PCM: `cx.PCM_16BIT`, `cx.PCM_STEREO` (low nibble = volume 0–15).
-- Joystick (active high): `cx.J_RIGHT`/`LEFT`/`DOWN`/`UP`/`START`/`SELECT`/`Y`/`B`
-  (byte), `cx.J_R`/`L`/`X`/`A` (word).
-- Sprites: depth `cx.SPR_4BPP`/`SPR_8BPP`; size `cx.SPR_8`/`16`/`32`/`64`;
-  Z `cx.SPR_HIDE`/`BEHIND`/`MIDDLE`/`FRONT`; flip `cx.SPR_HFLIP`/`SPR_VFLIP`.
-- Tiles: `cx.CELL_HF`, `cx.CELL_VF` (cell attribute bits).
-- Painter metrics: `cx.FONT_H`=8, `cx.BOX`=12, `cx.THUMB`=16, `cx.SLIDER_H`=16.
-- Event sources (`cx.ev_mask`): `cx.EVS_MOUSE`=1, `cx.EVS_KEYS`=2, `cx.EVS_SPRCOL`=4.
+| group | constants |
+|---|---|
+| PSG waveform (`cx.psg_wave`) | `cx.WAVE_PULSE` / `SAW` / `TRI` / `NOISE` |
+| PSG pan (`cx.psg_vol`) | `cx.PAN_LEFT` / `RIGHT` / `BOTH` |
+| PCM format (`cx.pcm_ctrl`) | `cx.PCM_16BIT`, `cx.PCM_STEREO` (low nibble = volume 0–15) |
+| Joystick, byte mask (active high) | `cx.J_RIGHT` / `LEFT` / `DOWN` / `UP` / `START` / `SELECT` / `Y` / `B` |
+| Joystick, word mask | `cx.J_R` / `L` / `X` / `A` |
+| Sprite depth | `cx.SPR_4BPP` / `SPR_8BPP` |
+| Sprite size (per axis) | `cx.SPR_8` / `16` / `32` / `64` |
+| Sprite Z-depth | `cx.SPR_HIDE` / `BEHIND` / `MIDDLE` / `FRONT` |
+| Sprite flip | `cx.SPR_HFLIP` / `SPR_VFLIP` |
+| Tile cell flip | `cx.CELL_HF`, `cx.CELL_VF` |
+| Painter metrics | `cx.FONT_H`=8, `cx.BOX`=12, `cx.THUMB`=16, `cx.SLIDER_H`=16 |
+| Event sources (`cx.ev_mask`) | `cx.EVS_MOUSE`=1, `cx.EVS_KEYS`=2, `cx.EVS_SPRCOL`=4 |
 
 ---
 
@@ -167,16 +226,20 @@ A colour is 0–3; coordinates and sizes are pixels. The same calls in every mod
 | `cx.gfx_blit(x, y, wbytes, h, src, op)` | blit a packed 2bpp bitmap |
 | `cx.gfx_blitm(x, y, h, cols, src)` | masked blit (transparent pixels skipped) |
 
-Shapes (every bitmap mode): `cx.gfx_circle(xc, yc, rad, col)`,
-`cx.gfx_disc(...)` (filled), `cx.gfx_ellipse(xc, yc, rx, ry, col)`,
-`cx.gfx_fellipse(...)` (filled), `cx.gfx_flood(x, y, col) -> bool` (scanline
-fill of the region holding the seed; **true = it overflowed** the budget).
+Shapes — every bitmap mode:
 
-The v0.8.0 extra shapes ride one dispatched slot:
-`cx.gfx_shape(kind, xc, yc, rad, p5, p6, col)` — `kind` 0 polygon, 1
-fpolygon, 2 arc, 3 pie. For a polygon `p5` = sides (3+) and `p6` =
-rotation; for an arc/pie `p5` = start and `p6` = end (byte angles: 0 =
-east, 64 = south, 128 = west, 192 = north).
+| call | purpose |
+|---|---|
+| `cx.gfx_circle(xc, yc, rad, col)` | an outline (clips with pset) |
+| `cx.gfx_disc(xc, yc, rad, col)` | the same, filled (no clipping) |
+| `cx.gfx_ellipse(xc, yc, rx, ry, col)` | an axis-aligned ellipse outline |
+| `cx.gfx_fellipse(xc, yc, rx, ry, col)` | the same, filled |
+| `cx.gfx_flood(x, y, col) -> bool` | scanline fill of the seed's region (**true = overflowed** the budget) |
+| `cx.gfx_shape(kind, xc, yc, rad, p5, p6, col)` | the v0.8.0 extra shapes on one dispatched slot |
+
+`cx.gfx_shape`'s `kind` is 0 polygon, 1 fpolygon, 2 arc, 3 pie. For a
+polygon `p5` = sides (3+) and `p6` = rotation; for an arc/pie `p5` = start
+and `p6` = end (byte angles: 0 = east, 64 = south, 128 = west, 192 = north).
 
 ## Text
 
@@ -235,8 +298,8 @@ repeat {
 
 | call | purpose |
 |---|---|
-| `cx.mouse_show(ptr)` | show the pointer (`ptr` = sprite id, usually 1) |
-| `cx.mouse_hide()` | hide it |
+| `cx.mouse_show(ptr)` | show the pointer (1 = the default arrow, `$FF` = show but keep your own sprite-0 cursor) |
+| `cx.mouse_hide()` | remove the pointer sprite but keep the mouse scanned (events still arrive with `EVS_MOUSE`) |
 | `cx.menu_set(bar) -> bool` | install + draw a menu bar (carry = region stack full) |
 | `cx.menu_off()` | remove the menu bar |
 | `cx.menu_key(key) -> bool` | drive the menu with a key (true = it was a menu key) |
@@ -314,10 +377,24 @@ PSG (the VERA sound chip):
 | `cx.psg_wave(voice, wave, pw)` | waveform (`cx.WAVE_*`) + pulse width |
 | `cx.psg_off(voice)` | silence a voice |
 
-YM2151 (FM): `cx.ym_init()`, `cx.ym_note(chan, code)`, `cx.ym_off(chan)`,
-`cx.ym_vol(chan, atten)`, `cx.ym_patch(chan, idx)`. PCM:
-`cx.pcm_ctrl(ctrl)` (format bits), `cx.pcm_play(src, nlen, rate)`,
-`cx.pcm_stop()`, `cx.pcm_active() -> ubyte`.
+YM2151 (FM):
+
+| call | purpose |
+|---|---|
+| `cx.ym_init()` | reset the chip + load the default patches |
+| `cx.ym_note(chan, code)` | play `code` on chan 0–7 (0 releases) |
+| `cx.ym_off(chan)` | release the note |
+| `cx.ym_vol(chan, atten)` | attenuation |
+| `cx.ym_patch(chan, idx)` | load ROM instrument 0–162 |
+
+PCM (streamed samples):
+
+| call | purpose |
+|---|---|
+| `cx.pcm_ctrl(ctrl)` | format / volume bits |
+| `cx.pcm_play(src, nlen, rate)` | stream signed samples from low RAM (rate 1–128) |
+| `cx.pcm_stop()` | stop |
+| `cx.pcm_active() -> ubyte` | 1 while a sample still plays |
 
 ## Joysticks
 
@@ -328,20 +405,45 @@ YM2151 (FM): `cx.ym_init()`, `cx.ym_note(chan, code)`, `cx.ym_off(chan)`,
 
 ## Graphics modes, tiles, sprites, dirty rects
 
-Modes: `cx.gfx_mode(m) -> bool` (switch; carry = unknown), `cx.gfx_info() -> ubyte`
-(A = mode; w/h/bpp/stride follow in the block).
+Modes:
 
-Tiles (`cx.MODE_TILE`): `cx.tile_setup(layer) -> bool`,
-`cx.tile_scroll(layer, hscroll, vscroll)`, `cx.tile_cell(layer, col, row, cell)`,
-`cx.tile_fill(layer, cell)`.
+| call | purpose |
+|---|---|
+| `cx.gfx_mode(m) -> bool` | switch mode (carry = unknown) |
+| `cx.gfx_info() -> ubyte` | A = current mode; w/h/bpp/stride follow in the block |
 
-Sprites: `cx.sprite_image(spr, addr, bank, mode)` (a 17-bit VRAM address is a
-`uword addr` + a `bank` bit), `cx.sprite_pos(spr, x, y)`,
-`cx.sprite_size(spr, wcode, hcode, pal)`, `cx.sprite_flags(spr, flags)`,
-`cx.sprite_z(spr, z)`, `cx.spr_collide() -> ubyte`.
+Tiles (`cx.MODE_TILE`):
 
-Dirty rectangles: `cx.dirty_reset()`, `cx.dirty_add(x, y, w, h)`,
-`cx.dirty_count() -> ubyte`, `cx.dirty_get(idx)` (fills the block).
+| call | purpose |
+|---|---|
+| `cx.tile_setup(layer) -> bool` | configure + enable a layer |
+| `cx.tile_scroll(layer, hscroll, vscroll)` | hardware scroll |
+| `cx.tile_cell(layer, col, row, cell)` | one map cell |
+| `cx.tile_fill(layer, cell)` | carpet the map |
+| `cx.tile_text(layer, on)` | flip a layer to a 1bpp text overlay and back |
+
+While a `cx.tile_text` overlay is up the toolkit — menus, widgets,
+`cx.dlg_alert`, `cx.panel` — draws on it, over the still-visible game.
+
+Sprites:
+
+| call | purpose |
+|---|---|
+| `cx.sprite_image(spr, addr, bank, mode)` | VRAM image (17-bit addr = `uword addr` + a `bank` bit) |
+| `cx.sprite_pos(spr, x, y)` | move it |
+| `cx.sprite_size(spr, wcode, hcode, pal)` | size codes + palette offset |
+| `cx.sprite_flags(spr, flags)` | a full write (do once before `cx.sprite_z`) |
+| `cx.sprite_z(spr, z)` | change only Z-depth |
+| `cx.spr_collide() -> ubyte` | collision groups seen since the last call |
+
+Dirty rectangles:
+
+| call | purpose |
+|---|---|
+| `cx.dirty_reset()` | clear the dirty list |
+| `cx.dirty_add(x, y, w, h)` | mark a region changed |
+| `cx.dirty_count() -> ubyte` | how many merged rectangles |
+| `cx.dirty_get(idx)` | read a merged rectangle (fills the block) |
 
 ---
 

@@ -385,6 +385,11 @@ cxm_tile_fill .macro layer, cell
     lda #(\layer)
     jsr cx_tile_fill
 .endm
+cxm_tile_text .macro layer, on                ; flip a tile layer to a 1bpp text overlay and back
+    ldx #(\on)
+    lda #(\layer)
+    jsr cx_tile_text
+.endm
 cxm_ev_init .macro                ; clear the queue, hook the raster
     jsr cx_ev_init
 .endm

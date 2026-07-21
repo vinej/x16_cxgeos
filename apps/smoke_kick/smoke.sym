@@ -247,6 +247,7 @@
 .label VERA_INC_16=$5
 .label SPRITE_SIZE_8=$0
 .label BANK_BANNEX=$c
+.label cx_tile_text=$813f
 .label RDTIM=$ffde
 .label rom_psg_setpan=$c05a
 .label VERA_LAYER_MAPW_128=$20
@@ -493,7 +494,7 @@
 .label FB_SET_PALETTE=$fefc
 .label cx_wg_set=$8085
 .label VERA_LAYER_MAPH_128=$80
-.label CX_ABI_VERSION=$2
+.label CX_ABI_VERSION=$3
 .label TKSA=$ff96
 .label GRAPH_INIT=$ff20
 .label rom_ym_setnote=$c07b

@@ -30,6 +30,11 @@ CX_OVL_INC = 1
 CX_OVL      = $9600             ; MUST match OVL's start in kernel.cfg
 CX_OVL_SIZE = $0900             ; ...and its size
 
+; cx_ov_load image indices: 0-3 are the modes (their images), 4 is OV3T,
+; the tile-text dialog port swapped in over mode 2 without a mode change.
+CX_OV_TILE     = 2              ; mode 2's own image (the tile refuse-port)
+CX_OV_TILETEXT = 4             ; OV3T, the tile-text dialog port
+
 cxov_init    = CX_OVL + 0*3     ; the vector, in gfx slot order
 cxov_clear   = CX_OVL + 1*3
 cxov_pset    = CX_OVL + 2*3

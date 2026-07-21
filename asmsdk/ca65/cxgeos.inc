@@ -440,6 +440,11 @@ CX_EVS_SPRCOL = 4
     lda #(layer)
     jsr cx_tile_fill
 .endmacro
+.macro cxm_tile_text layer, on                ; flip a tile layer to a 1bpp text overlay and back
+    ldx #(on)
+    lda #(layer)
+    jsr cx_tile_text
+.endmacro
 
 ; =====================================================================
 ; events -- a handler table is ALWAYS CX_ET_COUNT vectors

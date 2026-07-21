@@ -204,8 +204,10 @@ static unsigned cx_version(void)       { return cx_ret16(CX_VERSION); }
  * =====================================================================
  * The same 13 drawing calls work in EVERY graphics mode -- the kernel's
  * port routes them to the current engine. What changes per mode is the
- * canvas (cx_screen_info) and the colour range. The toolkit, fonts and
- * dialogs are CX_MODE_GUI-only; cx_exit always restores the desktop. */
+ * canvas (cx_screen_info) and the colour range. The CXF fonts and desk
+ * accessories are CX_MODE_GUI-only, but the toolkit (menus, widgets,
+ * dialogs, cx_panel) also runs in modes 1 and 3 -- and mode 2 (tiles)
+ * while a cx_tile_text overlay is up. cx_exit always restores the desktop. */
 #define CX_MODE_GUI   0          /* 640x480, 4 colours -- the desktop  */
 #define CX_MODE_BMP8  1          /* 320x240, 256 colours               */
 #define CX_MODE_TILE  2          /* two tile layers + sprites (games)  */
@@ -392,6 +394,30 @@ static void cx_tile_fill(unsigned char layer, unsigned cell) {
     CX__W(0, cell);
     cx_call_a(CX_TILE_FILL, layer);
 }
+/* Flip a tile layer between its 4bpp game map and a 1bpp TEXT overlay
+ * (on = 1 text, 0 graphics). The game map is left untouched, so the
+ * switch back is instant and the world stays visible on the other layer.
+ * While text is up, cx_tile_cell/cx_tile_fill address a text map (screen
+ * code low byte, fg|bg<<4 high) -- see cx_tile_puts for a string helper. */
+static void cx_tile_text(unsigned char layer, unsigned char on) {
+    cx_x = on;
+    cx_call_a(CX_TILE_TEXT, layer);
+}
+/* Write an ASCII string as text cells at (col, row) on a tile-text layer
+ * (call cx_tile_text(layer, 1) first). attr is the cell attribute
+ * fg | bg<<4; bg 0 is transparent, so the game world shows through. Upper
+ * case, digits and punctuation are their own screen codes; lower-case
+ * a-z fold to theirs. For richer text (a framed box), cx_tile_text also
+ * hands the graphics port to a text engine, so cx_rect/cx_frame/cx_say
+ * (in CELL units) work too. */
+static void cx_tile_puts(unsigned char layer, unsigned char col,
+                         unsigned char row, const char *s, unsigned char attr) {
+    while (*s) {
+        unsigned char c = (unsigned char)*s++;
+        if (c >= 'a' && c <= 'z') c -= 0x60;
+        cx_tile_cell(layer, col++, row, (unsigned)c | ((unsigned)attr << 8));
+    }
+}
 /* set the fill pattern. One wrapper serves every mode: Y carries the
  * packed 2-bit pair mode 0 reads, and P4/P5 carry the full bytes mode 1
  * reads -- each engine takes the one it understands. */
@@ -463,6 +489,19 @@ static void cx_button(unsigned x, unsigned y, unsigned w, unsigned h,
                       const char *label) {
     unsigned tw = cx_measure(label);
     cx_rect(x, y, w, h, CX_PAPER);
+    cx_frame(x, y, w, h, CX_FRAME);
+    cx_say(label, x + (w - tw) / 2, y + (h - CX_FONT_H) / 2);
+}
+/* the same button in its PRESSED state -- the highlight colour fills it,
+ * exactly the way the toolkit's own buttons flash on a click. An
+ * immediate-mode app owns the hit-testing, so it owns the feedback too:
+ * draw cx_button_down on the mouse-down over the button, then cx_button
+ * again on the mouse-up (see apps/paint). Toolkit buttons (cx_wg_set) do
+ * this for you and need no such call. */
+static void cx_button_down(unsigned x, unsigned y, unsigned w, unsigned h,
+                           const char *label) {
+    unsigned tw = cx_measure(label);
+    cx_rect(x, y, w, h, CX_HI);            /* highlight fill = pressed */
     cx_frame(x, y, w, h, CX_FRAME);
     cx_say(label, x + (w - tw) / 2, y + (h - CX_FONT_H) / 2);
 }
@@ -637,8 +676,9 @@ static int cx_prompt(const char *msg, char *buf, unsigned char cap) {
 /* modal options panel (0.5): a box, a widget list, up to three buttons.
  * Runs its own dispatch loop and returns the chosen button (0 = confirm /
  * RETURN, last = cancel / ESC). The widget records update in place, so
- * read your values straight back from the descriptor afterward. Modes 0,
- * 1 and 3. Descriptor: docs/formats.md. */
+ * read your values straight back from the descriptor afterward. Draws
+ * through the port, so it runs in modes 0, 1, 3 -- and mode 2 (tiles)
+ * while a cx_tile_text overlay is up. Descriptor: docs/formats.md. */
 static unsigned char cx_panel(const void *desc) {
     cx_call_p(CX_PANEL, desc);
     return cx_a;
@@ -760,6 +800,19 @@ static void cx_sprite_z(unsigned char s, unsigned char z) {
 /* poll sprite collisions: returns the groups seen since the last call (one
  * bit per group, top nibble), 0 if none. Arm with cx_ev_mask bit 2 first. */
 static unsigned char cx_spr_collide(void) { return cx_ret(CX_SPR_COLLIDE); }
+
+/* Give the mouse a CUSTOM cursor. The pointer IS sprite 0, so this points
+ * it at your own image and shows the mouse with $FF -- which keeps your
+ * image instead of loading the default arrow. Upload the image to VRAM
+ * with cx_vram_write first (a 4bpp sprite at a 32-byte-aligned address,
+ * e.g. 16x16 = 128 bytes); w/h are the CX_SPR_* size codes, pal a palette
+ * offset. cx_mouse_show(1) puts the default arrow back. */
+static void cx_mouse_pointer(unsigned long img, unsigned char w,
+                             unsigned char h, unsigned char pal) {
+    cx_sprite_image(0, img, CX_SPR_4BPP);   /* sprite 0 IS the pointer */
+    cx_sprite_size(0, w, h, pal);
+    cx_mouse_show(0xFF);                     /* show, keeping our sprite-0 image */
+}
 
 /* =====================================================================
  * loader and desk accessories

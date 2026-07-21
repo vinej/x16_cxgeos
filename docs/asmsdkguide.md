@@ -129,8 +129,8 @@ slot. A blank "args" cell means the macro takes none.
 ### Pointer, menus, widgets
 | macro | args |
 |---|---|
-| `cxm_mouse_show` | `ptr` (1 = the arrow) |
-| `cxm_mouse_hide` | — |
+| `cxm_mouse_show` | `ptr` (1 = the default arrow; `$FF` = show but keep your own sprite-0 cursor) |
+| `cxm_mouse_hide` | — (removes the pointer sprite but keeps the mouse scanned: events still arrive with `EVS_MOUSE`) |
 | `cxm_menu_set` | `bar` |
 | `cxm_menu_off` | — |
 | `cxm_menu_key` | `key` (→ carry if it was a menu key) |
@@ -189,6 +189,7 @@ it (see `apps/filer`).
 | `cxm_tile_scroll` | `layer, h, v` (0–4095 each axis) |
 | `cxm_tile_cell` | `layer, column, row, cell` (`cell` = `CX_CELL(idx, pal)`) |
 | `cxm_tile_fill` | `layer, cell` (into every cell of the layer) |
+| `cxm_tile_text` | `layer, on` (flip to a 1bpp text overlay and back; the toolkit — menus, widgets, `cxm_dlg_alert`, `cxm_panel` — then draws on it) |
 
 ### Loader, DA, asset loaders
 | macro | args |
