@@ -61,8 +61,10 @@ A from-scratch, GEOS-inspired graphical desktop OS for the Commander X16.
   is planned, not in yet. Guides in
   [docs/sdkguide.md](docs/sdkguide.md), [docs/csdkguide.md](docs/csdkguide.md),
   [docs/asmsdkguide.md](docs/asmsdkguide.md), [docs/p8sdkguide.md](docs/p8sdkguide.md)
-  and [docs/graphics-port.md](docs/graphics-port.md); the kernel's bank
-  layout and how to extend it in [docs/banks.md](docs/banks.md).
+  and [docs/graphics-port.md](docs/graphics-port.md); a game-oriented
+  walkthrough of tile depths and VRAM/bank usage in
+  [docs/gameguide.md](docs/gameguide.md); the kernel's bank layout and how
+  to extend it in [docs/banks.md](docs/banks.md).
 - Foundationed on [x16lib](https://github.com/vinej/x16_library): the kernel
   vendors the ca65 edition (`x16lib/`, byte-identical to the ACME reference,
   same on-target test suite).
@@ -80,7 +82,7 @@ apps/             system applications and desk accessories
 spikes/           Phase 0 throwaway risk prototypes (perf numbers in docs/perf.md)
 tools/            font converter, SD-image builder, CXAP wrapper
 test/             on-target regression suites (x16lib runner pattern)
-docs/             the guides: graphics-port, sdk, csdk, asmsdk, formats, memory-map, perf, ui
+docs/             the guides: graphics-port, sdk, csdk, asmsdk, gameguide, formats, memory-map, perf, ui
 ```
 
 ## Building

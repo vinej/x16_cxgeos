@@ -11,11 +11,14 @@
 ; because cx_msrc reads it from __OV2CODE_LOAD__ there; only the
 ; machinery the stubs far-call moved.)
 ;
-; The mode's VRAM ledger (the framebuffer region is free -- no bitmap):
-;   $00000  tile images: 4bpp 8x8, 32 bytes each, up to 1024 tiles
-;           (upload with cx_vram_write)
-;   $08000  layer 0's map: 64x32 cells, 2 bytes each (4 KB)
-;   $09000  layer 1's map: same shape
+; The mode's VRAM ledger (the framebuffer region is free -- no bitmap).
+; The maps sit ABOVE the tileset so an 8bpp set (64 KB, 1024 tiles) has
+; room; the mapbase is the same constant at every depth (docs/remap.md):
+;   $00000  tile images: 8x8, 16/32/64 bytes each at 2/4/8bpp, up to 1024
+;           tiles (upload with cx_vram_write / cx_vram_stream)
+;   $10000  layer 0's map: 64x32 cells, 2 bytes each (4 KB)
+;   $11000  layer 1's map: same shape
+;   $12000  the tile-text overlay map (cx_tile_text)
 ;
 ; A cell word is VERA's: tile index low byte; high byte = index bits
 ; 9:8, then h-flip(2), v-flip(3), palette offset(7:4).
@@ -45,6 +48,14 @@ cx_do_tile_text
     jsr cxb_call
     .byte CX_T2_BANK
     .addr tile2_text
+cx_do_tile_dbuf
+    jsr cxb_call
+    .byte CX_T2_BANK
+    .addr tile2_dbuf
+cx_do_tile_flip
+    jsr cxb_call
+    .byte CX_T2_BANK
+    .addr tile2_flip
 
 ; --- the engine image: a vector of refusals around a real init --------
 .segment "OV2CODE"
@@ -115,7 +126,11 @@ tile2_guard
     cmp #2
     rts
 
-; cx_tile_setup -- A = layer (0/1): the ledger config, layer on
+; cx_tile_setup -- A = layer (0/1), X = bpp (2/4/8): the ledger config,
+; layer on. bpp picks the config's depth ($11/$12/$13); anything else
+; (an old caller, a stray value) defaults to 4bpp, so nothing that passed
+; only the layer changes. The depth is remembered per layer so
+; cx_tile_text restores it, not a hardcoded 4bpp.
 tile2_setup
     pha
     jsr tile2_guard
@@ -124,15 +139,26 @@ tile2_setup
     sec
     rts
 @ok
+    lda #$12                    ; 64x32 map, 8x8 tiles, default 4bpp
+    cpx #2
+    bne @cfg2
+    lda #$11                    ; 2bpp
+@cfg2
+    cpx #8
+    bne @cfg8
+    lda #$13                    ; 8bpp
+@cfg8
+    sta t2_cfgtmp
     pla
     and #1
     pha
     tax
-    lda #$12                    ; 64x32 map, 8x8 tiles, 4bpp
-    jsr layer_set_config
+    lda t2_cfgtmp               ; remember the depth for cx_tile_text
+    sta t2_lcfg,x
+    jsr layer_set_config        ; A = config, X = layer
     plx
     phx
-    lda t2_mapb,x               ; mapbase $08000 / $09000 (addr >> 9)
+    lda t2_mapb,x               ; mapbase $10000 / $11000 (addr >> 9)
     jsr layer_set_mapbase
     plx
     phx
@@ -213,21 +239,22 @@ tile2_fill
     rts
 
 ; cx_tile_text -- A = layer (0/1), X = on (0 = graphics, 1 = text).
-; Flip a tile layer between its 4bpp game map and a 1bpp TEXT map at
-; VRAM $0A000, using the charset ov2_init staged at $1F000. The game's
-; map ($08000/$09000) is never touched, so switching back is instant --
-; the game world stays visible on the other layer the whole time.
-;   ON : save the layer's scroll and enable bit; config $12->$10 (1bpp),
+; Flip a tile layer between its game map and a 1bpp TEXT map at VRAM
+; $12000, using the charset ov2_init staged at $1F000. The game's map
+; ($10000/$11000) is never touched, so switching back is instant -- the
+; game world stays visible on the other layer the whole time.
+;   ON : save the layer's scroll and enable bit; config ->$10 (1bpp),
 ;        mapbase to the text map, tilebase to the charset, scroll 0, layer
 ;        on. t2_point's base is redirected so cx_tile_cell/fill now address
 ;        the text map.
-;   OFF: restore config $12, the game mapbase, tilebase 0, t2_point's base,
-;        the saved scroll AND the saved enable -- so a layer that was off
-;        (the common case: a game that uses only layer 0) goes dark again,
-;        and a layer that was a live HUD comes back on. Either way the game
-;        map reappears untouched.
-T2_TXTMAP = $50                 ; text map $0A000 (addr >> 9)
-T2_TXTHI  = $A0                 ; ...its high byte for t2_point
+;   OFF: restore the layer's REAL depth (t2_lcfg, set by cx_tile_setup --
+;        not a hardcoded 4bpp), the game mapbase, tilebase 0, t2_point's
+;        base, the saved scroll AND the saved enable -- so a layer that was
+;        off (the common case: a game that uses only layer 0) goes dark
+;        again, and a layer that was a live HUD comes back on. Either way
+;        the game map reappears untouched.
+T2_TXTMAP = $90                 ; text map $12000 (addr >> 9)
+T2_TXTHI  = $20                 ; ...its high byte for t2_point (bit 16 set)
 T2_CHARSET = $F8                ; charset $1F000 ((>>11)<<2), 8x8 tiles
 tile2_text
     pha
@@ -300,10 +327,10 @@ tile2_text
     clc
     rts
 
-    ; --- OFF: the 4bpp game map back, scroll restored ---
+    ; --- OFF: the game map back at its real depth, scroll restored ---
 @off
     ldx t2_txlyr
-    lda #$12                    ; 64x32, 8x8, 4bpp
+    lda t2_lcfg,x               ; the layer's depth cx_tile_setup recorded
     jsr layer_set_config
     ldx t2_txlyr
     lda t2_mapb,x               ; the game mapbase ($40/$48)
@@ -353,6 +380,92 @@ t2_enmask
 @m
     rts
 
+; cx_tile_dbuf -- A = layer (0/1), X = on (0/1). Enable/disable double
+; buffering for a layer. ON: cx_tile_cell/cx_tile_fill draw to the HIDDEN
+; shadow map ($14000 / $15000); the primary map stays shown until
+; cx_tile_flip presents it. OFF: back to single-buffered on the primary.
+; The app should draw a full frame after enabling, before the first flip.
+tile2_dbuf
+    pha
+    jsr tile2_guard
+    beq @ok
+    pla
+    sec
+    rts
+@ok
+    pla                         ; A = layer, X = on
+    and #1
+    sta t2_dbtmp
+    cpx #0
+    beq @off
+    ldx t2_dbtmp                ; --- ON: show primary, draw the shadow ---
+    lda #1
+    sta t2_dbuf,x
+    sta t2_drawsh,x             ; 1 = draw shadow / show primary
+    lda t2_mapb,x
+    jsr layer_set_mapbase       ; shown = primary
+    ldx t2_dbtmp
+    lda t2_shbase,x             ; cx_tile_cell/fill -> the shadow
+    sta t2_base,x
+    clc
+    rts
+@off
+    ldx t2_dbtmp
+    stz t2_dbuf,x
+    lda t2_mapb,x
+    jsr layer_set_mapbase       ; shown = primary
+    ldx t2_dbtmp
+    lda t2_base_def,x           ; draw = primary
+    sta t2_base,x
+    clc
+    rts
+
+; cx_tile_flip -- A = layer (0/1). Present the hidden buffer: wait for the
+; next vsync (irq_frame_count ticks in vblank), swap the layer's MAPBASE
+; shown<->draw, and redirect cx_tile_cell/fill to the now-hidden map. One
+; call per frame is a tear-free present that also paces to 60 Hz. A no-op
+; on a layer that is not double-buffered.
+tile2_flip
+    pha
+    jsr tile2_guard
+    beq @ok
+    pla
+    sec
+    rts
+@ok
+    pla
+    and #1
+    sta t2_dbtmp
+    tax
+    lda t2_dbuf,x
+    bne @go
+    clc                         ; not double-buffered: nothing to flip
+    rts
+@go
+    lda irq_frame_count         ; wait for the next vsync = the vblank window
+@wait
+    cmp irq_frame_count
+    beq @wait
+    lda t2_drawsh,x             ; toggle which buffer is shown vs drawn
+    eor #1
+    sta t2_drawsh,x
+    beq @showshadow
+    lda t2_mapb,x               ; drawsh 1: show primary, draw shadow
+    jsr layer_set_mapbase
+    ldx t2_dbtmp
+    lda t2_shbase,x
+    sta t2_base,x
+    clc
+    rts
+@showshadow
+    lda t2_shmapb,x             ; drawsh 0: show shadow, draw primary
+    jsr layer_set_mapbase
+    ldx t2_dbtmp
+    lda t2_base_def,x
+    sta t2_base,x
+    clc
+    rts
+
 ; t2_point -- A = layer, X = col, Y = row: data port 0 at the cell,
 ; auto-increment 1. addr = mapbase + row*128 + col*2 (17-bit, bit 16 0).
 t2_point
@@ -379,18 +492,26 @@ t2_point
     sta VERA_ADDR_L
     lda t2_hi
     sta VERA_ADDR_M
-    lda #(VERA_INC_1 << 4)      ; bit 16 = 0: the maps sit low
+    lda #((VERA_INC_1 << 4) | 1) ; bit 16 = 1: the maps sit at $10000+
     sta VERA_ADDR_H
     rts
 
-t2_mapb .byte $40, $48          ; mapbase register values (addr >> 9)
-t2_base .byte $80, $90          ; map address high bytes ($08000/$09000);
-                                ; cx_tile_text swaps one to $A0 (the text
-                                ; map) while an overlay is up
-t2_base_def .byte $80, $90      ; the defaults cx_tile_text restores
+t2_mapb .byte $80, $88          ; mapbase register values (addr >> 9)
+t2_base .byte $00, $10          ; map address bits 8-15 ($10000/$11000, bit
+                                ; 16 set in t2_point); cx_tile_text swaps one
+                                ; to $20 (the $12000 text map) while up
+t2_base_def .byte $00, $10      ; the defaults cx_tile_text restores
+t2_lcfg .byte $12, $12          ; each layer's depth config ($11/$12/$13),
+                                ; set by cx_tile_setup; cx_tile_text restores it
+t2_dbuf .byte 0, 0              ; per layer: is double-buffering on?
+t2_drawsh .byte 1, 1            ; on: 1 = draw the shadow / show primary, else swapped
+t2_shmapb .byte $A0, $A8        ; shadow mapbase ($14000 / $15000, addr >> 9)
+t2_shbase .byte $40, $50        ; shadow map bits 8-15 (bit 16 set in t2_point)
+t2_dbtmp .byte 0                ; scratch: the layer, across layer_set_mapbase
 t2_txlyr .byte 0                ; the layer cx_tile_text is overlaying
 t2_txsave .res 4                ; its saved 12-bit h/v scroll
 t2_txwason .byte 0              ; ...and whether it was enabled (to restore)
+t2_cfgtmp .byte 0               ; scratch: the config byte being built
 t2_t    .byte 0
 t2_lo   .byte 0
 t2_hi   .byte 0
@@ -415,6 +536,10 @@ cx_do_tile_fill
 tile2_fill
 cx_do_tile_text
 tile2_text
+cx_do_tile_dbuf
+tile2_dbuf
+cx_do_tile_flip
+tile2_flip
     sec
     rts
 .endif

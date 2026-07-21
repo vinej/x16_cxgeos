@@ -90,6 +90,8 @@
 #define CX_WH_RECT    0
 #define CX_WH_CIRCLE  1         /* inscribed in the box; box <= 510 wide/tall  */
 #define CX_WH_ELLIPSE 2
+#define CX_WH_POLYGON 3         /* a regular n-gon (square box); CX_HIT_POLY    */
+#define CX_WH_PIE     4         /* an arc/pie wedge (square box); CX_HIT_PIE    */
 #define CX_WH_CLICK   0x01
 #define CX_WH_RELEASE 0x02
 #define CX_WH_HOVER   0x04
@@ -373,8 +375,10 @@ static void cx_pal_load(const void *src, unsigned char first,
 #define CX_CELL_VF    0x0800
 #define CX_CELL(idx, pal)  (((unsigned)(idx) & 0x3FF) | ((unsigned)(pal) << 12))
 
-/* configure a layer (0/1) for the mode's ledger and switch it on */
-static char cx_tile_setup(unsigned char layer) {
+/* configure a layer (0/1) for the mode's ledger at `bpp` (2/4/8 -- 8bpp
+ * needs the map remap; anything else is treated as 4bpp) and switch it on */
+static char cx_tile_setup(unsigned char layer, unsigned char bpp) {
+    cx_x = bpp;
     cx_call_a(CX_TILE_SETUP, layer);
     return cx_c;
 }
@@ -417,6 +421,49 @@ static void cx_tile_puts(unsigned char layer, unsigned char col,
         if (c >= 'a' && c <= 'z') c -= 0x60;
         cx_tile_cell(layer, col++, row, (unsigned)c | ((unsigned)attr << 8));
     }
+}
+/* Stream `count` bytes (<= 65535) from banked RAM (bank : 0xA000 onward,
+ * rolling across the 8 KB window) into VRAM at `vram_dst` (a full 17-bit
+ * address). The reciprocal of cx_vload -- the source is a bank, not a file.
+ * cx_bload the asset pack into banks once, then this per level to stage the
+ * active tileset/map onto VRAM (docs/remap.md). */
+static void cx_vram_stream(unsigned long vram_dst, unsigned char bank,
+                           unsigned count) {
+    CX__W(0, (unsigned)vram_dst);
+    cx_p[2] = (unsigned char)((vram_dst >> 16) & 1);   /* VRAM addr bit 16 */
+    cx_p[3] = bank;
+    CX__W(4, count);
+    cx_call(CX_VRAM_STREAM);
+}
+/* Stream `count` tiles from banks starting at `first_bank` into the VRAM
+ * tileset at `vram_dst`. A tile is 8*bpp bytes (8bpp=64, 4bpp=32, 2bpp=16),
+ * so a full 1024-tile 8bpp set is 64 KB -- streamed here in 32 KB chunks so
+ * each cx_vram_stream call stays inside the 16-bit count. */
+static void cx_tile_load(unsigned long vram_dst, unsigned char first_bank,
+                         unsigned count, unsigned char bpp) {
+    unsigned long bytes = (unsigned long)count * bpp * 8;
+    while (bytes) {
+        unsigned chunk = (bytes > 0x8000UL) ? 0x8000 : (unsigned)bytes;
+        cx_vram_stream(vram_dst, first_bank, chunk);
+        vram_dst   += chunk;
+        first_bank += (unsigned char)(chunk >> 13);    /* banks consumed */
+        bytes      -= chunk;
+    }
+}
+/* Double-buffer a tile layer (on = 1) so cx_tile_cell/cx_tile_fill draw to
+ * a hidden shadow map; cx_tile_flip then presents it. Draw a full frame
+ * after enabling, before the first flip. off = single-buffered. */
+static char cx_tile_dbuf(unsigned char layer, unsigned char on) {
+    cx_x = on;
+    cx_call_a(CX_TILE_DBUF, layer);
+    return cx_c;
+}
+/* Present the drawn buffer: waits for vblank, swaps which map the layer
+ * shows, and points drawing at the now-hidden one. Tear-free, and paces to
+ * 60 Hz. A no-op on a layer that is not double-buffered. */
+static char cx_tile_flip(unsigned char layer) {
+    cx_call_a(CX_TILE_FLIP, layer);
+    return cx_c;
 }
 /* set the fill pattern. One wrapper serves every mode: Y carries the
  * packed 2-bit pair mode 0 reads, and P4/P5 carry the full bytes mode 1
@@ -1123,6 +1170,20 @@ typedef struct CX_PACKED {
     (cx_widget){ CX_WG_FIELD, 0, (x), (y), (w), 16, 0, (cap), (buf), {0,0,0} }
 #define CX_LIST(x, y, w, h, count, ptrs) \
     (cx_widget){ CX_WG_LIST, 0, (x), (y), (w), (h), 0, (count), (ptrs), {0,0,0} }
+
+/* Invisible hit regions (CX_WG_HIT): the app draws the shape, the toolkit
+ * routes the mouse to its true outline (not just the box). CX_HIT takes any
+ * CX_WH_* whose params fit the record as-is (rect/circle/ellipse). POLYGON
+ * and PIE carry two extra params in the pad, so they get their own builders;
+ * both are circle-based -- pass a SQUARE box. Byte angles: 0 = east, 64 =
+ * south, 128 = west, 192 = north. `trig` is a CX_WH_CLICK/RELEASE/HOVER mask
+ * (0 = click). */
+#define CX_HIT(x, y, w, h, shape, trig) \
+    (cx_widget){ CX_WG_HIT, 0, (x), (y), (w), (h), (shape), (trig), 0, {0,0,0} }
+#define CX_HIT_POLY(x, y, w, h, sides, rot, trig) \
+    (cx_widget){ CX_WG_HIT, 0, (x), (y), (w), (h), CX_WH_POLYGON, (trig), 0, {(sides),(rot),0} }
+#define CX_HIT_PIE(x, y, w, h, a0, a1, trig) \
+    (cx_widget){ CX_WG_HIT, 0, (x), (y), (w), (h), CX_WH_PIE, (trig), 0, {(a0),(a1),0} }
 
 /* The count-prefixed list builders below are C99 variadic macros. llvm and
  * cc65 have them; oscar64/kickc do not (their preprocessor rejects `...` at

@@ -92,6 +92,7 @@ shp_vec
     .addr shape_polygon, shape_fpolygon, shape_arc, shape_pie
 
 .include "gfx/shapes.asm"
+.include "kernel/video/shphit.asm"   ; the WG_HIT polygon/pie point tests
 .segment "CODE"
 
 .else
@@ -133,5 +134,6 @@ shp_vec
     .addr shape_polygon, shape_fpolygon, shape_arc, shape_pie
 
 .include "gfx/shapes.asm"
+.include "kernel/video/shphit.asm"   ; the WG_HIT polygon/pie point tests
 
 .endif

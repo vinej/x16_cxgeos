@@ -224,6 +224,7 @@
 .label VERA_AUDIO_CTRL=$9f3b
 .label VERA_DC_VSCALE=$9f2b
 .label VERA_VIDEO_FIELD=$80
+.label cx_tile_flip=$8148
 .label VERA_L1_HSCROLL_L=$9f37
 .label SPRITE_HFLIP=$1
 .label VERA_LAYER_MAPH_32=$0
@@ -378,6 +379,7 @@
 .label VERA_FX_ADDR1_NORMAL=$0
 .label cx_tile_scroll=$8106
 .label rom_notecon_midi2bas=$c039
+.label cx_tile_dbuf=$8145
 .label VERA_L0_HSCROLL_H=$9f31
 .label rom_notecon_fm2bas=$c024
 .label rom_ym_playnote=$c072
@@ -416,6 +418,7 @@
 .label cx_gfx_frame=$802b
 .label fp_int=$fe2d
 .label VERA_FX_Y_POS_L=$9f2b
+.label cx_vram_stream=$8142
 .label r5H=$d
 .label VERA_ISR=$9f27
 .label VERA_FX_Y_POS_H=$9f2c
@@ -494,7 +497,7 @@
 .label FB_SET_PALETTE=$fefc
 .label cx_wg_set=$8085
 .label VERA_LAYER_MAPH_128=$80
-.label CX_ABI_VERSION=$3
+.label CX_ABI_VERSION=$4
 .label TKSA=$ff96
 .label GRAPH_INIT=$ff20
 .label rom_ym_setnote=$c07b

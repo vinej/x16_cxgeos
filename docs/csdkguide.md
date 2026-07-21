@@ -508,11 +508,21 @@ its box and which of three built-in tests to run against it.
 | `CX_WH_RECT` | 0 | the box itself — the default, every other widget's test |
 | `CX_WH_CIRCLE` | 1 | a circle inscribed in the box — make the box square |
 | `CX_WH_ELLIPSE` | 2 | an ellipse inscribed in the box |
+| `CX_WH_POLYGON` | 3 | a regular *n*-gon — matches `cx_polygon` (square box) |
+| `CX_WH_PIE` | 4 | a pie/arc **wedge** — matches `cx_pie`/`cx_arc` (square box) |
 
 Circle and ellipse accept a point when, measured from the box's centre,
 `(dx/rx)² + (dy/ry)² ≤ 1` (the kernel computes this in fixed point, not
 floats, but that is exactly what it tests). Keep the box's width and height
 each ≤ 510 px.
+
+`CX_WH_POLYGON` and `CX_WH_PIE` are circle-based, so pass a **square box**
+(centre + radius, the way `cx_polygon`/`cx_pie` draw). They take two more
+numbers than the box holds — a polygon's *sides* and *rotation*, a wedge's
+*start* and *end* angle (byte angles: 0 = east, 64 = south, 128 = west, 192
+= north) — so they get their own builders, `CX_HIT_POLY` and `CX_HIT_PIE`,
+below. An **arc** has no interior; its clickable area is the same wedge a
+**pie** covers, so one `CX_WH_PIE` serves both.
 
 ### Mouse functionality — the trigger mask (`grp`)
 
@@ -539,41 +549,48 @@ click — hit regions do not distinguish the two the way `CX_WG_ICON` and
 
 ### Building one
 
-`cxsdk.h` has no `CX_HIT(...)` compound-literal constructor either (only the
-six kernel-drawn types get one) — fill the `cx_widget` record directly, or
-define a one-line helper of your own, in the same shape as `CX_BUTTON`:
+`cxsdk.h` provides three constructors: `CX_HIT(x, y, w, h, shape, trig)` for
+the rect/circle/ellipse shapes (whose params all fit the record), and
+`CX_HIT_POLY(x, y, w, h, sides, rot, trig)` / `CX_HIT_PIE(x, y, w, h, a0,
+a1, trig)` for the two round shapes that carry an extra pair of numbers in
+the pad. All three are plain macros, available on every compiler:
 
 ```c
 #define CX_HIT(x, y, w, h, shape, trig) \
     (cx_widget){ CX_WG_HIT, 0, (x), (y), (w), (h), (shape), (trig), 0, {0,0,0} }
+#define CX_HIT_POLY(x, y, w, h, sides, rot, trig) \
+    (cx_widget){ CX_WG_HIT, 0, (x), (y), (w), (h), CX_WH_POLYGON, (trig), 0, {(sides),(rot),0} }
+#define CX_HIT_PIE(x, y, w, h, a0, a1, trig) \
+    (cx_widget){ CX_WG_HIT, 0, (x), (y), (w), (h), CX_WH_PIE, (trig), 0, {(a0),(a1),0} }
 ```
 
-### Worked example — three hand-drawn shapes, invisibly clickable
+### Worked example — hand-drawn shapes, invisibly clickable
 
-This mirrors the shipped ca65 demo, `apps/hittest/hittest.asm`, in C: three
+This mirrors the shipped ca65 demo, `apps/hittest/hittest.asm`, in C:
 outlines the app draws itself, each backed by a `WG_HIT` of the matching
 shape with click *and* hover both on. Hovering names the shape; clicking
 stamps a dot at its centre — and the fill only ever lands where the pointer
 is really inside the shape, not merely inside its bounding box, because the
-toolkit did the circle/ellipse math.
+toolkit did the circle/ellipse/polygon/wedge math.
 
 ```c
-#define CX_HIT(x, y, w, h, shape, trig) \
-    (cx_widget){ CX_WG_HIT, 0, (x), (y), (w), (h), (shape), (trig), 0, {0,0,0} }
-
 CX_WIDGETS(hotspots,
-    CX_HIT( 50, 130, 150, 130, CX_WH_RECT,    CX_WH_CLICK | CX_WH_HOVER),
-    CX_HIT(255, 120, 150, 150, CX_WH_CIRCLE,  CX_WH_CLICK | CX_WH_HOVER),
-    CX_HIT(450, 130, 180, 130, CX_WH_ELLIPSE, CX_WH_CLICK | CX_WH_HOVER));
+    CX_HIT     ( 25, 135,  90, 120, CX_WH_RECT,    CX_WH_CLICK | CX_WH_HOVER),
+    CX_HIT     (150, 150,  90,  90, CX_WH_CIRCLE,  CX_WH_CLICK | CX_WH_HOVER),
+    CX_HIT     (265, 153, 110,  84, CX_WH_ELLIPSE, CX_WH_CLICK | CX_WH_HOVER),
+    CX_HIT_POLY(397, 147,  96,  96, 6, 0,          CX_WH_CLICK | CX_WH_HOVER),
+    CX_HIT_PIE (522, 147,  96,  96, 224, 32,       CX_WH_CLICK | CX_WH_HOVER));
 
-static const char    *names[] = { "rectangle", "circle", "ellipse" };
-static const unsigned centre_x[] = { 125, 330, 540 };   /* each shape's own centre -- */
-static const unsigned centre_y[] = { 195, 195, 195 };   /* the app drew it, so it knows */
+static const char    *names[]    = { "rectangle","circle","ellipse","hexagon","pie" };
+static const unsigned centre_x[] = { 70, 195, 320, 445, 570 };  /* each shape's own centre -- */
+static const unsigned centre_y[] = { 195, 195, 195, 195, 195 }; /* the app drew it, so it knows */
 
 cx_gfx_init();  cx_clear(CX_PAPER);
-cx_frame  ( 50, 130, 150, 130, CX_FRAME);   /* the app draws the shapes; the */
-cx_circle (330, 195,  75,      CX_FRAME);   /* WG_HIT records above are laid */
-cx_ellipse(540, 195,  90,  65, CX_FRAME);   /* over them, invisibly          */
+cx_frame  ( 25, 135,  90, 120,     CX_FRAME);  /* the app draws the shapes; the  */
+cx_circle (195, 195,  45,          CX_FRAME);  /* WG_HIT records above are laid  */
+cx_ellipse(320, 195,  55,  42,     CX_FRAME);  /* over them, invisibly. POLYGON  */
+cx_polygon(445, 195,  48, 6, 0,    CX_FRAME);  /* and PIE take a square box, so  */
+cx_pie    (570, 195,  48, 224, 32, CX_HI);     /* the region matches the drawing */
 
 cx_ev_init();
 cx_mouse_show(1);
@@ -794,17 +811,25 @@ Two 64×32 maps of 8×8 4bpp tiles. Upload tile pixels with
 
 | function | purpose |
 |---|---|
-| `cx_tile_setup(layer)` → carry | configure + enable a layer |
+| `cx_tile_setup(layer, bpp)` → carry | configure + enable a layer at `bpp` (2/4/8) |
 | `cx_tile_fill(layer, cell)` | carpet the map |
 | `cx_tile_cell(layer, col, row, cell)` | one cell |
 | `cx_tile_scroll(layer, h, v)` | hardware scroll (a register write, nothing redrawn) |
 | `cx_tile_text(layer, on)` | flip a layer to a 1bpp text overlay (`on=1`) and back (`on=0`) |
 | `cx_tile_puts(layer, col, row, s, attr)` | write an ASCII string as text cells (`attr = fg\|bg<<4`) |
+| `cx_vram_stream(vram_dst, bank, count)` | copy `count` bytes from banked RAM (rolling 8 KB banks) into VRAM |
+| `cx_tile_load(vram_dst, first_bank, count, bpp)` | stream `count` tiles from banks into the VRAM tileset |
+| `cx_tile_dbuf(layer, on)` → carry | double-buffer a layer (draws go to a hidden map) |
+| `cx_tile_flip(layer)` → carry | present the drawn buffer at vblank, tear-free (needs `cx_ev_init`) |
+
+8bpp needs the full 64 KB tileset, so its data usually lives in banked RAM
+(`cx_bload` once) and streams to VRAM per level with `cx_tile_load`. See
+`apps/tiles8`; the full VRAM/bank story is [remap.md](remap.md).
 
 ```c
 cx_mode(CX_MODE_TILE);
-cx_vram_write(CX_TILE_IMG, tiles, sizeof tiles);
-cx_tile_setup(0);
+cx_vram_write(CX_TILE_IMG, tiles, sizeof tiles);   /* small sets: direct */
+cx_tile_setup(0, 4);                               /* 4bpp (2 / 4 / 8) */
 cx_tile_fill(0, CX_CELL(0, 0));
 cx_tile_scroll(0, h & 0x0FFF, 0);
 ```

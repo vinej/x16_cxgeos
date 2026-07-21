@@ -84,6 +84,8 @@ main
     jsr test_rg_route
     jsr test_ev_region
     jsr test_wg_hit
+    jsr test_shp_hit
+    jsr test_wg_scroll
     jsr test_wg_hit_route
     jsr test_farcall
     jsr test_vrows
@@ -99,6 +101,7 @@ main
     jsr test_as_bload
     jsr test_clip
     jsr test_clip_span
+    jsr test_vram_stream
     jsr test_font_bank
 
     jsr t_summary
@@ -195,6 +198,174 @@ test_wg_hit
     .byte 0                    ; WG_GRP
     .word 0                    ; WG_LBL
     .byte 0, 0, 0              ; pad to WG_SIZE (16)
+
+; SHP_HIT: the polygon and pie point tests (kernel/video/shphit.asm), the
+; bank-19 refine reached for WH_POLYGON/WH_PIE. Both sit in box
+; (100,100,80,80) -> centre (140,140), r 40. The hexagon (rotation 0) puts a
+; vertex due east and a flat side due north; the wedge faces east (224..32).
+; Cases hand-computed against sin8/cos8/atan2 -- the point of the shapes is
+; that a point in the BOX but outside the shape is rejected.
+test_shp_hit
+    stz @f
+    lda #<@hex
+    sta CX_M_PTR
+    lda #>@hex
+    sta CX_M_PTR+1
+    lda #140                    ; centre -> inside
+    ldx #140
+    jsr @pt
+    jsr shp_hit
+    jsr @want_in
+    lda #140                    ; 30px north: inside the apothem
+    ldx #110
+    jsr @pt
+    jsr shp_hit
+    jsr @want_in
+    lda #140                    ; 38px north: past the flat side (in box) -> out
+    ldx #102
+    jsr @pt
+    jsr shp_hit
+    jsr @want_out
+    lda #180                    ; the east vertex (cx+r) -> inside (boundary)
+    ldx #140
+    jsr @pt
+    jsr shp_hit
+    jsr @want_in
+    lda #181                    ; one past the vertex -> outside
+    ldx #140
+    jsr @pt
+    jsr shp_hit
+    jsr @want_out
+    lda #105                    ; a box corner -> outside the hexagon
+    ldx #105
+    jsr @pt
+    jsr shp_hit
+    jsr @want_out
+
+    lda #<@pie                  ; --- the east-facing wedge (224..32) ---
+    sta CX_M_PTR
+    lda #>@pie
+    sta CX_M_PTR+1
+    lda #170                    ; due east, within r -> inside the wedge
+    ldx #140
+    jsr @pt
+    jsr shp_hit
+    jsr @want_in
+    lda #140                    ; due south -> right radius, wrong angle -> out
+    ldx #170
+    jsr @pt
+    jsr shp_hit
+    jsr @want_out
+    lda #140                    ; due north -> wrong angle -> out
+    ldx #110
+    jsr @pt
+    jsr shp_hit
+    jsr @want_out
+    lda #190                    ; due east but past r -> outside
+    ldx #140
+    jsr @pt
+    jsr shp_hit
+    jsr @want_out
+
+    lda @f                      ; A = failure count (0 = every case matched)
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@pt                             ; A = x, X = y -> the event point P2..P5
+    sta X16_P2
+    stz X16_P3
+    stx X16_P4
+    stz X16_P5
+    rts
+@want_in                        ; carry set expected (inside)
+    bcs @wi
+    inc @f
+@wi
+    rts
+@want_out                       ; carry clear expected (outside)
+    bcc @wo
+    inc @f
+@wo
+    rts
+@f      .byte 0
+@name   .byte "SHP_HIT", 0
+@hex
+    .byte WG_HIT, 0
+    .word 100, 100
+    .word 80
+    .byte 80
+    .byte WH_POLYGON
+    .byte 0
+    .word 0
+    .byte 6, 0, 0              ; WH_SIDES = 6, WH_ROT = 0
+@pie
+    .byte WG_HIT, 0
+    .word 100, 100
+    .word 80
+    .byte 80
+    .byte WH_PIE
+    .byte 0
+    .word 0
+    .byte 224, 32, 0          ; WH_A0 = 224 (NE), WH_A1 = 32 (SE)
+
+; WG_SCROLL: wg_scroll_to (the slider value from a click x). A scrollbar at
+; x=100 w=250 max=10 -> span = w-4-THUMB = 230. The value is the CLAMPED rel
+; * max / span, in ANY mode (px/x/w share the mode's units). A drag PAST the
+; right end (rel > 255) must CLAMP to max, not wrap toward 0 through rel's low
+; byte -- that wrap made the number flicker (1 2 3 1 ...) and the thumb snap
+; back to the start on release.
+; WG_SCROLL: wg_scroll_to maps a click x to a scrollbar value. Two cases that
+; both used to fail: a normal drag, and an over-drag past the right end. The
+; latter (rel 298 > span 230) both exercises the wg_dragpx clamp AND divides
+; 2300/230 -- whose partial remainder crosses 256, the wg_div16 9th-bit bug
+; that made mid-range values collapse toward the start.
+test_wg_scroll
+    stz @f
+    lda #<@rec                  ; px 200: rel 98 -> 98*10/230 = 4
+    sta CX_M_PTR
+    lda #>@rec
+    sta CX_M_PTR+1
+    lda #<200
+    sta X16_P2
+    lda #>200
+    sta X16_P3
+    stz X16_P4
+    stz X16_P5
+    jsr wg_scroll_to
+    cmp #4
+    beq @v1
+    inc @f
+@v1
+    lda #<@rec                  ; wg_paint may move the block; re-point it
+    sta CX_M_PTR
+    lda #>@rec
+    sta CX_M_PTR+1
+    lda #<400                   ; px 400: rel 298 > span -> clamp 230; 2300/230
+    sta X16_P2                  ; = 10 (NOT 1 from the lost-carry div, NOT ~1
+    lda #>400                   ; from the low-byte wrap)
+    sta X16_P3
+    stz X16_P4
+    stz X16_P5
+    jsr wg_scroll_to
+    cmp #10
+    beq @v2
+    inc @f
+@v2
+    lda @f
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@f    .byte 0
+@name .byte "WG_SCROLL", 0
+@rec
+    .byte WG_SCROLL, 0
+    .word 100, 100
+    .word 250
+    .byte 16
+    .byte 0                     ; WG_VAL
+    .byte 10                    ; WG_GRP = max
+    .word 0
+    .byte 0, 0, 0
 
 ; WG_HIT_R: the full routing over a TWO-widget list -- a synthetic mouse event
 ; through wg_hit posts EV_WIDGET with the right index for a hit and nothing for
@@ -1613,13 +1784,13 @@ test_abi_header
     cmp #'S'
     bne @report
 
-    lda cx_hdr_version          ; version 3, and the kernel agrees
-    cmp #3
+    lda cx_hdr_version          ; version 4, and the kernel agrees
+    cmp #4
     bne @report
     lda cx_hdr_version+1
     bne @report
     lda cx_hdr_slots
-    cmp #102                    ; 31 shipped with the table; loader, events,
+    cmp #105                    ; 31 shipped with the table; loader, events,
     bne @report                 ; menus, pointer, themes, dialogs, widgets,
                                 ; keyboard nav, dir, DOS, the prompt, cx_ev_next,
                                 ; PSG/YM audio, sprites, PCM, joysticks, the
@@ -1628,7 +1799,8 @@ test_abi_header
                                 ; borrow/return pair, sprite collision, the icon,
                                 ; the palette pair, cx_menu_active, v0.8.0's
                                 ; cx_gfx_shape (polygon/arc/pie), and v0.9.0's
-                                ; cx_tile_text (the mode-2 text overlay) -- grew it
+                                ; cx_tile_text (the mode-2 text overlay) and
+                                ; cx_vram_stream (bank -> VRAM) -- grew it
     lda cx_hdr_slots+1
     bne @report
     ldy #0
@@ -1710,7 +1882,7 @@ test_abi_table
 test_abi_call
     ldy #1
     jsr cx_jumptab              ; slot 0 = cx_version
-    cmp #3                      ; A/X = the header's version
+    cmp #4                      ; A/X = the header's version
     bne @report
     cpx #0
     bne @report
@@ -2749,6 +2921,76 @@ test_clip_span
 @got  .byte 0
 
 ; ---------------------------------------------------------------------
+; VRAM_STREAM: the bank -> VRAM copy (kernel/resident/vstream.asm),
+; INCLUDING the 8 KB window crossing. Sentinels at bank20:$A000 ($DE) and
+; bank21:$A000 ($5A); stream 8193 bytes from bank 20 to VRAM $12000 (bit
+; 16 set), then confirm byte 0 ($DE) and byte 8192 ($5A, which forced the
+; RAM_BANK roll) landed -- and the caller's RAM_BANK came back.
+; ---------------------------------------------------------------------
+test_vram_stream
+    stz @f
+    lda #20                     ; sentinel at the start of bank 20's window
+    sta RAM_BANK
+    lda #$DE
+    sta $A000
+    lda #21                     ; ...and the start of bank 21's
+    sta RAM_BANK
+    lda #$5A
+    sta $A000
+    lda #7                      ; a "caller" bank, to prove it is restored
+    sta RAM_BANK
+
+    stz X16_P0                  ; dst = $12000 (P0/P1 = $2000, P2 bit 16 = 1)
+    lda #$20
+    sta X16_P1
+    lda #1
+    sta X16_P2
+    lda #20                     ; source: bank 20 onward
+    sta X16_P3
+    lda #<8193                  ; 8192 (one bank) + 1 -> crosses into bank 21
+    sta X16_P4
+    lda #>8193
+    sta X16_P5
+    jsr cx_do_vram_stream
+
+    lda RAM_BANK                ; restored to the caller's bank?
+    cmp #7
+    beq @bankok
+    inc @f
+@bankok
+    lda #$20                    ; VRAM $12000 -> byte 0
+    ldx #$00
+    jsr @vread
+    cmp #$DE
+    beq @b0ok
+    inc @f
+@b0ok
+    lda #$40                    ; VRAM $14000 = $12000 + 8192 -> byte 8192
+    ldx #$00
+    jsr @vread
+    cmp #$5A
+    beq @b8ok
+    inc @f
+@b8ok
+    lda @f
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@vread                          ; A = mid byte, X = low byte -> A = VRAM[bit16=1]
+    pha
+    lda #VERA_CTRL_ADDRSEL
+    trb VERA_CTRL
+    stx VERA_ADDR_L
+    pla
+    sta VERA_ADDR_M
+    lda #((VERA_INC_1 << 4) | 1)
+    sta VERA_ADDR_H
+    lda VERA_DATA0
+    rts
+@f    .byte 0
+@name .byte "VRAM_STREAM", 0
+
+; ---------------------------------------------------------------------
 ; font_measure must read a string that lives in a bank correctly -- the
 ; same width as its low-RAM twin. Before the fix, drawing/measuring
 ; left RAM_BANK on the font's bank between characters, so every char
@@ -2834,6 +3076,7 @@ test_font_bank
 .include "kernel/resident/farcall.asm"
 .include "kernel/resident/vrows.asm"
 .include "kernel/resident/clip.asm"
+.include "kernel/resident/vstream.asm"
 .include "kernel/fs/loader.asm"
 .include "kernel/fs/dir.asm"
 .include "kernel/fs/fileload.asm"

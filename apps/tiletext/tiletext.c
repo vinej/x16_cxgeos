@@ -69,13 +69,13 @@ int main(void) {
     cx_vram_write(CX_TILE_IMG, tile, 32);
 
     /* layer 0: the world -- a plain checker carpet */
-    cx_tile_setup(0);
+    cx_tile_setup(0, 4);
     cx_tile_fill(0, CX_CELL(0, 0));
 
     /* layer 1: a game HUD map with a recognizable pattern (a run of
      * palette offsets across the top row) and a non-zero scroll -- the
      * exact state the round-trip must preserve */
-    cx_tile_setup(1);
+    cx_tile_setup(1, 4);
     cx_tile_fill(1, CX_CELL(0, 1));
     for (x = 0; x < 20; x++)
         cx_tile_cell(1, x, 0, CX_CELL(0, x & 0x0F));
@@ -87,7 +87,7 @@ int main(void) {
     hold(45);                              /* [gif] the world + HUD */
 
     /* the HUD cell (col 5,row 0) high byte carries palette 5 */
-    hud_before = vread(0x09000UL + 5 * 2 + 1);
+    hud_before = vread(0x11000UL + 5 * 2 + 1);   /* layer-1 map (remapped) */
 
     /* --- raise the text overlay on layer 1 --- */
     cx_tile_text(1, 1);
@@ -119,13 +119,13 @@ int main(void) {
 
     /* the layer-1 registers must be the game's again */
     if (L1_CONFIG    != 0x12) ok = 0;      /* 64x32, 8x8, 4bpp */
-    if (L1_MAPBASE   != 0x48) ok = 0;      /* $09000 */
+    if (L1_MAPBASE   != 0x88) ok = 0;      /* $11000 (remapped) */
     if (L1_TILEBASE  != 0x00) ok = 0;      /* tiles at $00000 */
     if (L1_HSCROLL_L != 24)   ok = 0;      /* the scroll we set */
     if (L1_VSCROLL_L != 8)    ok = 0;
     /* and the HUD map in VRAM must be byte-for-byte what it was */
     if (hud_before != 0x50)   ok = 0;      /* palette 5 really was there */
-    if (vread(0x09000UL + 5 * 2 + 1) != hud_before) ok = 0;
+    if (vread(0x11000UL + 5 * 2 + 1) != hud_before) ok = 0;
     if (alert_ret != 0)       ok = 0;      /* the modal alert ran and RETURN
                                             * picked button 0 */
 

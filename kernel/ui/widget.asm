@@ -62,9 +62,20 @@ WG_HIT    = 7                   ; an INVISIBLE hit region -- a hotspot the app
 ; WG_HIT shapes (WG_VAL). Circle and ellipse are inscribed in the box; a
 ; circle is just an ellipse with a square box. Semi-axes are bytes, so a
 ; round region spans at most ~510 px -- a bigger one should use WH_RECT.
+; POLYGON and PIE are circle-based (use a square box) and tested in bank 19
+; (kernel/video/shphit.asm), where the trig they need already lives; their
+; two params ride the record's spare pad bytes (WH_SIDES/WH_ROT for a
+; polygon, WH_A0/WH_A1 for a wedge -- byte angles, 0 = east, 64 = south).
 WH_RECT    = 0
 WH_CIRCLE  = 1
 WH_ELLIPSE = 2
+WH_POLYGON = 3                  ; a regular convex n-gon (WH_SIDES, WH_ROT)
+WH_PIE     = 4                  ; an arc/pie wedge (WH_A0, WH_A1)
+
+WH_SIDES   = 13                 ; WH_POLYGON: 3..24 sides       (a pad byte)
+WH_ROT     = 14                 ; WH_POLYGON: rotation, byte angle
+WH_A0      = 13                 ; WH_PIE: start angle, byte angle
+WH_A1      = 14                 ; WH_PIE: end angle
 
 ; WG_HIT trigger mask (WG_GRP)
 WH_CLICK   = %001
@@ -1179,10 +1190,12 @@ wg_div16
 @d
     asl wg_res
     rol wg_res+1
-    rol wg_rem
-    lda wg_rem
-    cmp wg_div
-    bcc @d2
+    rol wg_rem                  ; the new partial remainder can be 9 bits:
+    lda wg_rem                  ; rem<256 always, but (rem<<1)|bit reaches ~459,
+    bcs @sub                    ; so a carry out of rol means rem >= 256 > div --
+    cmp wg_div                  ; subtract unconditionally. Dropping this carry
+    bcc @d2                     ; lost quotient bits whenever rem crossed 256
+@sub                            ; (e.g. 2300/230 came out 1 instead of 10).
     sbc wg_div
     sta wg_rem
     inc wg_res
@@ -1678,10 +1691,27 @@ wg_hit_refine
     ldy #WG_VAL                 ; the shape
     lda (CX_M_PTR),y
     beq @yes                    ; WH_RECT = the box itself
+    cmp #WH_POLYGON
+    bcs @far                    ; polygon / pie: the bank-19 shape math
     jmp wg_hit_ellipse          ; circle (square box) and ellipse share it
+@far
+    jmp wg_hit_far              ; carry comes back as the answer
 @yes
     sec
     rts
+
+; wg_hit_far -- refine a POLYGON/PIE hit region in bank 19 (shphit.asm),
+; where sin8/cos8/atan2 already live. cxb_call restores our bank and the
+; carry, so a tail-jmp here reads exactly as if the test returned inline.
+.ifndef CX_NO_OVERLAY
+wg_hit_far
+    jsr cxb_call
+    .byte CX_SHPX_BANK
+    .addr shp_hit
+.else
+wg_hit_far                      ; the flat runner links shp_hit alongside
+    jmp shp_hit
+.endif
 
 ; wg_hit_fire -- A = a trigger-mask bit, X = the phase to post. If CX_M_PTR is
 ; a WG_HIT whose WG_GRP enables that trigger (WG_GRP 0 means click-only), post
@@ -2041,11 +2071,12 @@ wg_act
     sec
     sbc (CX_M_PTR),y            ; d = click_y - box_y
     pha                         ; keep d across the canvas check
-    jsr wg_is_text
-    pla
-    bne @gridrows
-    jmp @haverow                ; a cell canvas: d is the row (1 cell, no frame)
+    jsr wg_is_text             ; Z set = a cell canvas (the pull below would
+    bne @gridrows              ; clobber Z, so branch on it FIRST)
+    pla                         ; a cell canvas: d IS the row (1 cell, no frame)
+    jmp @haverow
 @gridrows
+    pla                         ; the pixel offset into the box
     beq @haverow                ; on the frame line: row 0
     sec
     sbc #1
@@ -2465,11 +2496,14 @@ wg_scroll_to
     bne @slow                   ; span >= 256: rare; pin to max-ish
     lda wg_div
     beq @max                    ; degenerate span
-    ; rel (wg_t) * max
+    ; value = CLAMPED rel * max. Use wg_dragpx (already clamped to span,
+    ; so < 256 on this path), NOT wg_t: an over-drag past the right end has
+    ; rel > 255, and its low byte alone would wrap the value toward 0 --
+    ; the thumb then snapped to the start on release.
     ldy #WG_GRP
     lda (CX_M_PTR),y
     sta wg_mul
-    lda wg_t                    ; rel is small; keep low byte
+    lda wg_dragpx
     sta wg_res
     stz wg_res+1
     ; res = rel * max

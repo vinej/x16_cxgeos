@@ -236,6 +236,7 @@ function Build-Apps {
             @{ src = "apps\sprite\sprite.c"; prg = "SPRITE"; name = "Sprite" },
             @{ src = "apps\gfx8\gfx8.c";     prg = "GFX8";   name = "256 colours" },
             @{ src = "apps\tiles\tiles.c";   prg = "TILES";  name = "Tiles" },
+            @{ src = "apps\tiles8\tiles8.c"; prg = "TILES8"; name = "8bpp tiles" },
             @{ src = "apps\tiletext\tiletext.c"; prg = "TILETEXT"; name = "Tile text" },
             @{ src = "apps\tiledlg\tiledlg.c";   prg = "TILEDLG";  name = "Tile dialog" },
             @{ src = "apps\text\text.c";     prg = "TEXT";   name = "Text mode" }
@@ -495,6 +496,9 @@ function Stage-SdRoot {
     if (Test-Path (Join-Path $build "TILES.CXA")) {
         Copy-Item (Join-Path $build "TILES.CXA") $sdroot
     }
+    if (Test-Path (Join-Path $build "TILES8.CXA")) {    # the 8bpp tile + stream + flip demo
+        Copy-Item (Join-Path $build "TILES8.CXA") $sdroot
+    }
     if (Test-Path (Join-Path $build "TILEDLG.CXA")) {   # the mode-2 panel-on-tiles demo
         Copy-Item (Join-Path $build "TILEDLG.CXA") $sdroot
     }
@@ -642,7 +646,8 @@ if ($Test) {
         @{ cxa = "SMOKEP8.CXA";   mk = "SMOKE PROG8 OK" },
         @{ cxa = "CALC8.CXA";     mk = "CALC P8 OK" },
         @{ cxa = "UIDEMO.CXA";    mk = "UIDEMO OK" },
-        @{ cxa = "TILETEXT.CXA";  mk = "TILETEXT OK" }
+        @{ cxa = "TILETEXT.CXA";  mk = "TILETEXT OK" },
+        @{ cxa = "TILES8.CXA";    mk = "TILES8 OK" }
     )) {
         if (Test-Path (Join-Path $build $sm.cxa)) {
             $hellos += @{ cxa = $sm.cxa; up = $sm.mk; wait = $sm.mk }

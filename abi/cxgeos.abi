@@ -37,7 +37,7 @@
 #
 # =====================================================================
 
-version = 3
+version = 4
 
 #= system
 0   cx_version      1   -> A/X = ABI version
@@ -204,7 +204,7 @@ version = 3
 #= tiles (mode 2 only: the tile personality's own API)
 # Uploads ride cx_vram_write: tile images at $00000 (4bpp 8x8, 32 bytes
 # each). The maps are 64x32 cells at $08000 (layer 0) / $09000 (layer 1).
-81  cx_tile_setup   1   A = layer (0/1): the ledger config (64x32 map, 8x8 4bpp tiles) and the layer on. Carry set outside mode 2
+81  cx_tile_setup   1   A = layer (0/1), X = bpp (2/4/8; else 4): the ledger config (64x32 map, 8x8 tiles at that depth) and the layer on. Carry set outside mode 2
 82  cx_tile_scroll  1   A = layer, P0/P1 = hscroll, P2/P3 = vscroll (0-4095)
 83  cx_tile_cell    1   A = layer, X = col (0-63), Y = row (0-31), P0/P1 = the cell word (index; hi: pal<<4 | vflip<<3 | hflip<<2 | index 9:8)
 84  cx_tile_fill    1   A = layer, P0/P1 = the cell word, into every cell
@@ -335,3 +335,21 @@ version = 3
 # (screen code in the low byte, fg | bg<<4 in the high). Off-mode calls
 # and non-tile modes refuse (carry).
 101 cx_tile_text    3   A = layer (0/1), X = on (0 = graphics, 1 = text)
+
+#= banked RAM -> VRAM streaming (v0.9.0) -- the warehouse -> stage move
+# Copy bytes from banked RAM into VRAM, rolling RAM_BANK across the 8 KB
+# window. The reciprocal of cx_vload (SD -> VRAM): the source is a bank
+# (data starting at that bank's $A000), not a file. Resident, so it can
+# flip RAM_BANK without unmapping itself; the caller's bank is restored.
+# For an 8bpp tile game: cx_bload the tileset into banks once, then this
+# per level to stage the active set to VRAM $00000 (docs/remap.md).
+102 cx_vram_stream  4   P0/P1 = VRAM dst (low 16 bits), P2 = dst bit 16 (0/1), P3 = first source bank, P4/P5 = byte count. Rolls into P3+1... every 8 KB. Carry clear
+
+#= mode-2 tile double-buffering (v0.9.0) -- tear-free scrolling/animation
+# A tile layer can flip between its primary map and a shadow map (in the
+# free tile-mode VRAM at $14000/$15000). Enable it with cx_tile_dbuf; then
+# cx_tile_cell/cx_tile_fill draw to the HIDDEN map, and cx_tile_flip waits
+# for vblank, swaps which map the layer shows, and points drawing at the
+# now-hidden one -- a present() that also paces to 60 Hz (docs/remap.md).
+103 cx_tile_dbuf    4   A = layer (0/1), X = on (0/1): enable/disable double-buffering. ON draws to the shadow map; OFF is single-buffered on the primary. Carry set outside mode 2
+104 cx_tile_flip    4   A = layer (0/1): wait for vblank, present the drawn buffer, draw into the other. No-op if the layer is not double-buffered. Carry set outside mode 2

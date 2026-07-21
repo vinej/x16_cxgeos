@@ -42,7 +42,7 @@ int main(void) {
         }
     cx_vram_write(CX_TILE_IMG, tiles, sizeof tiles);
 
-    cx_tile_setup(0);
+    cx_tile_setup(0, 4);
     cx_tile_fill(0, CX_CELL(0, 0));    /* the checker carpet */
     for (y = 10; y < 22; y++)          /* a brick window mid-map */
         for (x = 24; x < 40; x++)

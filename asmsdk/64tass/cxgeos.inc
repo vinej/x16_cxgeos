@@ -49,6 +49,8 @@ CX_WG_SIZE = 16        ; one widget record is exactly this many bytes
 CX_WH_RECT = 0
 CX_WH_CIRCLE = 1        ; inscribed in the box
 CX_WH_ELLIPSE = 2
+CX_WH_POLYGON = 3        ; a regular n-gon (square box); cxm_wg_hit_poly
+CX_WH_PIE = 4        ; an arc/pie wedge (square box); cxm_wg_hit_pie
 CX_WH_CLICK = 1
 CX_WH_RELEASE = 2
 CX_WH_HOVER = 4
@@ -363,7 +365,8 @@ cxm_ink .macro col                ; text ink for the CURRENT mode
     lda #(\col)
     jsr cx_ink
 .endm
-cxm_tile_setup .macro layer                ; -> carry set outside mode 2
+cxm_tile_setup .macro layer, bpp                ; bpp 2/4/8; -> carry set outside mode 2
+    ldx #(\bpp)
     lda #(\layer)
     jsr cx_tile_setup
 .endm
@@ -389,6 +392,24 @@ cxm_tile_text .macro layer, on                ; flip a tile layer to a 1bpp text
     ldx #(\on)
     lda #(\layer)
     jsr cx_tile_text
+.endm
+cxm_vram_stream .macro vram, vrambank, srcbank, count                ; banked RAM -> VRAM; vrambank = VRAM dst bit 16 (0/1)
+    #cxpw16 X16_P0, \vram
+    lda #(\vrambank)
+    sta X16_P2
+    lda #(\srcbank)
+    sta X16_P3
+    #cxpw16 X16_P4, \count
+    jsr cx_vram_stream
+.endm
+cxm_tile_dbuf .macro layer, on                ; double-buffer a tile layer on/off
+    ldx #(\on)
+    lda #(\layer)
+    jsr cx_tile_dbuf
+.endm
+cxm_tile_flip .macro layer                ; present the drawn buffer (waits for vblank)
+    lda #(\layer)
+    jsr cx_tile_flip
 .endm
 cxm_ev_init .macro                ; clear the queue, hook the raster
     jsr cx_ev_init
@@ -764,6 +785,20 @@ cxm_wg_hit .macro x0, y0, w0, h0, shape, trig                ; an invisible hit 
     .byte \h0, \shape, \trig
     .word 0
     .byte 0, 0, 0
+.endm
+cxm_wg_hit_poly .macro x0, y0, w0, h0, sides, rot, trig                ; a hit region: a regular n-gon (square box)
+    .byte CX_WG_HIT, 0
+    .word \x0, \y0, \w0
+    .byte \h0, CX_WH_POLYGON, \trig
+    .word 0
+    .byte \sides, \rot, 0
+.endm
+cxm_wg_hit_pie .macro x0, y0, w0, h0, a0, a1, trig                ; a hit region: an arc/pie wedge (square box)
+    .byte CX_WG_HIT, 0
+    .word \x0, \y0, \w0
+    .byte \h0, CX_WH_PIE, \trig
+    .word 0
+    .byte \a0, \a1, 0
 .endm
 cxm_wcount .macro first, last                ; a widget list's leading count, from the record span
     .byte (\last - \first - 1) / CX_WG_SIZE

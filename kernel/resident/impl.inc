@@ -127,3 +127,6 @@ cx_pal_load     = cx_do_pal_load
 cx_menu_active  = cx_do_menu_active
 cx_gfx_shape    = cx_do_gfx_shape
 cx_tile_text    = cx_do_tile_text
+cx_vram_stream  = cx_do_vram_stream
+cx_tile_dbuf    = cx_do_tile_dbuf
+cx_tile_flip    = cx_do_tile_flip

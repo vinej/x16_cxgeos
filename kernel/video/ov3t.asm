@@ -11,7 +11,7 @@
 ; put up on layer 1. cx_tile_text swaps OV2 back when it lowers the layer.
 ;
 ; Where OV3 (mode 3) drives the KERNAL editor's 80x60 screen at VRAM
-; $1B000, OV3T writes cells DIRECTLY into the tile-text map at $0A000 --
+; $1B000, OV3T writes cells DIRECTLY into the tile-text map at $12000 --
 ; the same map cx_tile_cell uses -- because that is what layer 1 shows in
 ; mode 2, at the tile geometry (40x30 cells at 320x240), not the KERNAL's
 ; 80x60. The charset is the one ov2_init staged at $1F000, so a cell is a
@@ -33,7 +33,9 @@ T3_BR = $7D                     ; bottom-right  (PETSCII $BD)
 T3_HB = $40                     ; horizontal bar(PETSCII $C0)
 T3_VB = $5D                     ; vertical bar  (PETSCII $DD)
 
-T3_MAPHI = $A0                  ; the text map $0A000: middle-byte base
+T3_MAPHI = $20                  ; the text map $12000: middle-byte base
+                                ; (bit 16 set in t3t_addr; kept in step with
+                                ; cx_tile_text's T2_TXTMAP / T2_TXTHI)
 
 .segment "OV3TCODE"
 
@@ -84,7 +86,7 @@ ov3t_init
 
 ; --- the cell primitives ---------------------------------------------
 ; t3t_addr -- point data port 0 at cell (t3t_col, t3t_row), INC_1.
-; addr = $0A000 + row*128 + col*2  (col<64 so col*2 < 128: bit 7 is free
+; addr = $12000 + row*128 + col*2  (col<64 so col*2 < 128: bit 7 is free
 ; for row's low bit, no carry into the middle byte).
 t3t_addr
     lda #VERA_CTRL_ADDRSEL
@@ -105,7 +107,7 @@ t3t_addr
     clc
     adc #T3_MAPHI
     sta VERA_ADDR_M
-    lda #(VERA_INC_1 << 4)      ; bit 16 = 0
+    lda #((VERA_INC_1 << 4) | 1) ; bit 16 = 1: the text map is at $12000
     sta VERA_ADDR_H
     rts
 

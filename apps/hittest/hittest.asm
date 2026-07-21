@@ -3,12 +3,13 @@
 ; CXGEOS :: apps/hittest/hittest.asm -- the invisible hit-region demo
 ; =====================================================================
 ; Shows WG_HIT: a hotspot the app draws itself while the toolkit only
-; routes the mouse. Three outlines -- a rectangle, a circle, an ellipse --
-; each backed by an invisible WG_HIT region of the matching shape, with
-; the click AND hover triggers on. Hover a shape and its name shows on the
-; status line; click it and a dot is stamped inside. The point: the fill
-; only lands where the pointer is really inside the shape, not merely in
-; its bounding box -- the toolkit did the circle/ellipse math.
+; routes the mouse. Five shapes -- a rectangle, a circle, an ellipse, a
+; regular hexagon and a pie wedge -- each backed by an invisible WG_HIT
+; region of the matching shape, with the click AND hover triggers on.
+; Hover a shape and its name shows on the status line; click it and a dot
+; is stamped inside. The point: the fill only lands where the pointer is
+; really inside the shape, not merely in its bounding box -- the toolkit
+; did the circle/ellipse/polygon/wedge math (the round ones in bank 19).
 ;
 ; Mouse throughout; ESC quits. Assemble with -DHITTEST_SELFTEST to have it
 ; synthesize a click in each shape at start-up (for a headless capture).
@@ -47,7 +48,11 @@ main
     jsr synth_click
     lda #2
     jsr synth_click
-    ldy #12                     ; a handler stamps a disc (clobbers X), so the
+    lda #3
+    jsr synth_click
+    lda #4
+    jsr synth_click
+    ldy #14                     ; a handler stamps a disc (clobbers X), so the
 @sd                             ; drain counter lives in Y across the dispatch
     phy
     cxm_ev_dispatch
@@ -63,13 +68,17 @@ main
 ; drawing -- the three outlines and their captions
 ; ---------------------------------------------------------------------
 draw_shapes
-    cxm_gfx_frame   50, 130, 150, 130, 3    ; rectangle at (50,130) 150x130
-    cxm_gfx_circle  330, 195, 75, 3         ; circle:  centre (330,195) r 75
-    cxm_gfx_ellipse 540, 195, 90, 65, 3     ; ellipse: centre (540,195) rx 90 ry 65
+    cxm_gfx_frame   25, 135, 90, 120, 3         ; rectangle at (25,135) 90x120
+    cxm_gfx_circle  195, 195, 45, 3             ; circle:  centre (195,195) r 45
+    cxm_gfx_ellipse 320, 195, 55, 42, 3         ; ellipse: centre (320,195) 55x42
+    cxm_gfx_shape   0, 445, 195, 48, 6, 0, 3    ; hexagon OUTLINE (6 sides, r 48)
+    cxm_gfx_shape   3, 570, 195, 48, 224, 32, 1 ; pie wedge, filled (224 -> 32)
 
-    cxm_say s_rect, 70,  280    ; captions under each shape, on row 280
-    cxm_say s_circ, 305, 280
-    cxm_say s_elli, 505, 280
+    cxm_say s_rect, 45,  270    ; captions under each shape, on row 270
+    cxm_say s_circ, 178, 270
+    cxm_say s_elli, 298, 270
+    cxm_say s_poly, 418, 270
+    cxm_say s_pie,  548, 270
     rts
 
 ; ---------------------------------------------------------------------
@@ -186,11 +195,11 @@ synth_click
     jmp cx_ev_post
 .endif
 
-; shape centres (index order: rect, circle, ellipse)
-cxs   .word 125, 330, 540
-cys   .byte 195, 195, 195
+; shape centres (index order: rect, circle, ellipse, hexagon, pie)
+cxs   .word 70, 195, 320, 445, 570
+cys   .byte 195, 195, 195, 195, 195
 
-names .addr s_rect, s_circ, s_elli
+names .addr s_rect, s_circ, s_elli, s_poly, s_pie
 
 wtmp   .byte 0
 
@@ -200,13 +209,19 @@ s_idle  .byte "move the pointer over a shape.", 0
 s_rect  .byte "rectangle", 0
 s_circ  .byte "circle", 0
 s_elli  .byte "ellipse", 0
+s_poly  .byte "hexagon", 0
+s_pie   .byte "pie wedge", 0
 
 ; the invisible hit regions, one per shape (click + hover). Each cxm_wg_hit
 ; lays down exactly one 16-byte record -- the pad can't be miscounted.
 hits
     cxm_wcount hits, hits_end
-    ;            x    y    w    h   shape          triggers
-    cxm_wg_hit  50, 130, 150, 130, CX_WH_RECT,    CX_WH_CLICK | CX_WH_HOVER
-    cxm_wg_hit 255, 120, 150, 150, CX_WH_CIRCLE,  CX_WH_CLICK | CX_WH_HOVER
-    cxm_wg_hit 450, 130, 180, 130, CX_WH_ELLIPSE, CX_WH_CLICK | CX_WH_HOVER
+    ;                x    y    w    h   shape          triggers
+    cxm_wg_hit      25, 135,  90, 120, CX_WH_RECT,    CX_WH_CLICK | CX_WH_HOVER
+    cxm_wg_hit     150, 150,  90,  90, CX_WH_CIRCLE,  CX_WH_CLICK | CX_WH_HOVER
+    cxm_wg_hit     265, 153, 110,  84, CX_WH_ELLIPSE, CX_WH_CLICK | CX_WH_HOVER
+    ;                x    y    w    h  sides rot  triggers
+    cxm_wg_hit_poly 397, 147,  96,  96,  6,   0,  CX_WH_CLICK | CX_WH_HOVER
+    ;                x    y    w    h   a0   a1  triggers
+    cxm_wg_hit_pie  522, 147,  96,  96, 224, 32, CX_WH_CLICK | CX_WH_HOVER
 hits_end:

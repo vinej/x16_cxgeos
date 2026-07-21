@@ -145,14 +145,18 @@ that adds the focus model the click widgets do without.
 
 **`WG_HIT` — invisible hit regions.** A hotspot the *app* draws itself: the
 toolkit paints nothing and only routes the mouse. The record's `WG_VAL` picks
-the shape (`WH_RECT`/`WH_CIRCLE`/`WH_ELLIPSE`, circle and ellipse inscribed in
-the box) and `WG_GRP` a trigger mask (click / release / hover). Since every
+the shape and `WG_GRP` a trigger mask (click / release / hover). Since every
 mouse type 1–4 already reaches `wg_hit` through the region, all three triggers
-cost **zero resident bytes** — the shape math (a normalised `nx²+ny² ≤ 128²`
-test, reusing the bank-16 multiply/divide) and the enter/leave hover tracking
-live entirely in bank 16. It posts `EV_WIDGET(index, phase)`. The desktop's
-icon grid and this share the same `WG_*` record; a hit region is just one that
-draws nothing. (`apps/hittest` demos rect/circle/ellipse hotspots.)
+cost **zero resident bytes**. The box-based shapes — `WH_RECT`, and
+`WH_CIRCLE`/`WH_ELLIPSE` inscribed in the box — test in bank 16 (a normalised
+`nx²+ny² ≤ 128²`, reusing the bank-16 multiply/divide) along with the
+enter/leave hover tracking. Two more match the `cx_gfx_shape` family and are
+circle-based (square box): `WH_POLYGON` (a regular *n*-gon) and `WH_PIE` (a
+pie/arc wedge), carrying two params in the record's pad; because they need
+trig, their point tests ride bank 19 (`shphit.asm`), reached through the
+`wg_hit_far` far-call — still zero resident cost. It posts `EV_WIDGET(index,
+phase)`. The desktop's icon grid and this share the same `WG_*` record; a hit
+region is just one that draws nothing. (`apps/hittest` demos all five shapes.)
 
 ## The bank-2 jump table
 

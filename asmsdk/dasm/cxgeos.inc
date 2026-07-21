@@ -49,6 +49,8 @@ CX_WG_SIZE = 16        ; one widget record is exactly this many bytes
 CX_WH_RECT = 0
 CX_WH_CIRCLE = 1        ; inscribed in the box
 CX_WH_ELLIPSE = 2
+CX_WH_POLYGON = 3        ; a regular n-gon (square box); cxm_wg_hit_poly
+CX_WH_PIE = 4        ; an arc/pie wedge (square box); cxm_wg_hit_pie
 CX_WH_CLICK = 1
 CX_WH_RELEASE = 2
 CX_WH_HOVER = 4
@@ -360,7 +362,8 @@ CX_EVS_SPRCOL = 4
     lda #({1})
     jsr cx_ink
     ENDM
-    MAC cxm_tile_setup                ; -> carry set outside mode 2
+    MAC cxm_tile_setup                ; bpp 2/4/8; -> carry set outside mode 2
+    ldx #({2})
     lda #({1})
     jsr cx_tile_setup
     ENDM
@@ -386,6 +389,24 @@ CX_EVS_SPRCOL = 4
     ldx #({2})
     lda #({1})
     jsr cx_tile_text
+    ENDM
+    MAC cxm_vram_stream                ; banked RAM -> VRAM; vrambank = VRAM dst bit 16 (0/1)
+    cxpw16 X16_P0, {1}
+    lda #({2})
+    sta X16_P2
+    lda #({3})
+    sta X16_P3
+    cxpw16 X16_P4, {4}
+    jsr cx_vram_stream
+    ENDM
+    MAC cxm_tile_dbuf                ; double-buffer a tile layer on/off
+    ldx #({2})
+    lda #({1})
+    jsr cx_tile_dbuf
+    ENDM
+    MAC cxm_tile_flip                ; present the drawn buffer (waits for vblank)
+    lda #({1})
+    jsr cx_tile_flip
     ENDM
     MAC cxm_ev_init                ; clear the queue, hook the raster
     jsr cx_ev_init
@@ -761,6 +782,20 @@ CX_EVS_SPRCOL = 4
     dc.b {4}, {5}, {6}
     dc.w 0
     dc.b 0, 0, 0
+    ENDM
+    MAC cxm_wg_hit_poly                ; a hit region: a regular n-gon (square box)
+    dc.b CX_WG_HIT, 0
+    dc.w {1}, {2}, {3}
+    dc.b {4}, CX_WH_POLYGON, {7}
+    dc.w 0
+    dc.b {5}, {6}, 0
+    ENDM
+    MAC cxm_wg_hit_pie                ; a hit region: an arc/pie wedge (square box)
+    dc.b CX_WG_HIT, 0
+    dc.w {1}, {2}, {3}
+    dc.b {4}, CX_WH_PIE, {7}
+    dc.w 0
+    dc.b {5}, {6}, 0
     ENDM
     MAC cxm_wcount                ; a widget list's leading count, from the record span
     dc.b ({2} - {1} - 1) / CX_WG_SIZE

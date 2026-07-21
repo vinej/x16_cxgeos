@@ -162,7 +162,8 @@ the toolkit stores each widget's state back into its record).
 10  group   .byte    radio: the group id; scrollbar: the max value;
                      hit region: the trigger mask (WH_CLICK/RELEASE/HOVER)
 11  label   .word    a zero-terminated string (unused by a hit region)
-13  --      3 bytes  reserved, zero
+13  --      3 bytes  reserved, zero -- but a WH_POLYGON/WH_PIE hit region
+                     uses 13,14 for its two params (see below); 15 stays 0
 ```
 
 A click updates the widget under it, redraws just that widget, and posts
@@ -206,6 +207,17 @@ are inscribed in the box, so keep it ≤ 510 px), and `WG_GRP` a trigger mask
 `EV_WIDGET(index, phase)` where phase is the mouse event — 2 down, 3 up,
 1 hover-in, 0 hover-out. Hover routing is skipped entirely when no region
 in the list asks for it, so a click-only list costs nothing on a move.
+
+Two more shapes match the `cx_gfx_shape` family: `WH_POLYGON`=3 (a regular
+convex *n*-gon) and `WH_PIE`=4 (a pie/arc **wedge** — an arc has no
+interior, so its clickable area is the pie's). Both are **circle-based**
+(radius = `WG_W`>>1, centred in the box — use a square box), and both carry
+two extra numbers in the reserved pad: byte **13** is the polygon's sides
+(3–24) or the wedge's start angle, byte **14** the rotation or the end angle
+(byte angles: 0 = east, 64 = south, 128 = west, 192 = north). Their point
+tests need trig, so they run in bank 19 (`kernel/video/shphit.asm`), reached
+from the widget bank through the `wg_hit_far` far-call — the only hit shapes
+that leave bank 16, and only on the click/hover of a region that uses them.
 
 ## The panel descriptor
 

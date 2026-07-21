@@ -70,6 +70,7 @@ X16_USE_SCREEN_CORE = 1         ; mode 3 (text) draws through the KERNAL
 .include "kernel/resident/farcall.asm"
 .include "kernel/resident/vrows.asm"
 .include "kernel/resident/clip.asm"
+.include "kernel/resident/vstream.asm"
 .include "kernel/fs/loader.asm"
 .include "kernel/font/font.asm"
 .include "kernel/ui/region.asm"

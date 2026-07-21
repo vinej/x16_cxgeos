@@ -40,11 +40,14 @@ cover_calls:
     cxm_font_measure 1
     cxm_say 1, 1, 1
     cxm_ink 1
-    cxm_tile_setup 1
+    cxm_tile_setup 1, 4
     cxm_tile_scroll 1, 1, 1
     cxm_tile_cell 1, 1, 1, 1
     cxm_tile_fill 1, 1
     cxm_tile_text 1, 1
+    cxm_vram_stream 1, 1, 1, 1
+    cxm_tile_dbuf 1, 1
+    cxm_tile_flip 1
     cxm_ev_init
     cxm_ev_handlers 1
     cxm_ev_mainloop
@@ -123,6 +126,8 @@ cover_data:
     cxm_wg_list 1, 1, 1, 1, 1, 1
     cxm_wg_icon 1, 1, 1, 1, 1, 1
     cxm_wg_hit 1, 1, 1, 1, 1, 1
+    cxm_wg_hit_poly 1, 1, 1, 1, 1, 1, 1
+    cxm_wg_hit_pie 1, 1, 1, 1, 1, 1, 1
 cover_wc_a:
     cxm_wcount cover_wc_a, cover_wc_b
 cover_wc_b:

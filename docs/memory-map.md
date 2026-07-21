@@ -95,12 +95,15 @@ the current engine image lives there, copied from its bank by `cx_gfx_mode`
 tile *machinery* moved to bank 17 in the restructure, but the tile
 *engine image* (OV2) stays in bank 5 storage — `cx_ov_load` reads it from
 the linker's `__OV2CODE_LOAD__`. In `CX_MODE_TILE`, VRAM `$00000` holds
-tile images and `$08000`/`$09000` the two 64x32 maps (the bitmap
-framebuffer region is free -- there is no bitmap). `cx_tile_text` adds a
-1bpp **text** overlay: a fifth port image `OV3T` (bank 5 storage, run in
-the OVL) draws menus/widgets/dialogs onto a text map at `$0A000` using the
-KERNAL charset the tile engine stages at `$1F000` — the game's own maps at
-`$08000`/`$09000` are never touched, so lowering the overlay is instant.
+the tileset (up to 64 KB at 8bpp) and the two 64x32 maps sit ABOVE it at
+`$10000`/`$11000` — the constant mapbase at every depth, so 8bpp's full
+1024-tile set has room (v0.9.0, `docs/remap.md`); the bitmap framebuffer
+region is free (there is no bitmap). `cx_tile_text` adds a 1bpp **text**
+overlay: a fifth port image `OV3T` (bank 5 storage, run in the OVL) draws
+menus/widgets/dialogs onto a text map at `$12000` using the KERNAL charset
+the tile engine stages at `$1F000`. Double-buffering (`cx_tile_dbuf` /
+`cx_tile_flip`) uses shadow maps at `$14000`/`$15000`. The game's own maps
+are never touched by the overlay, so lowering it is instant.
 
 ## VRAM (128KB) — the contended resource
 

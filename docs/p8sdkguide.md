@@ -89,6 +89,14 @@ Shape — a `WG_HIT` record's `val`:
 | `cx.WH_RECT` | 0 | the whole rectangle |
 | `cx.WH_CIRCLE` | 1 | the inscribed circle |
 | `cx.WH_ELLIPSE` | 2 | the inscribed ellipse |
+| `cx.WH_POLYGON` | 3 | a regular *n*-gon (square box) |
+| `cx.WH_PIE` | 4 | a pie/arc wedge (square box) |
+
+`WH_POLYGON` and `WH_PIE` need two extra numbers beyond the box — a
+polygon's sides (byte 13) and rotation (byte 14), or a wedge's start (13)
+and end (14) angle (byte angles: 0 = east, 64 = south). Lay them into the
+record's two spare pad bytes yourself (a hit region has no builder in the
+low-level Prog8 layer).
 
 Trigger mask — its `grp`, combine with `|`:
 
@@ -416,11 +424,14 @@ Tiles (`cx.MODE_TILE`):
 
 | call | purpose |
 |---|---|
-| `cx.tile_setup(layer) -> bool` | configure + enable a layer |
+| `cx.tile_setup(layer, bpp) -> bool` | configure + enable a layer at `bpp` (2/4/8) |
 | `cx.tile_scroll(layer, hscroll, vscroll)` | hardware scroll |
 | `cx.tile_cell(layer, col, row, cell)` | one map cell |
 | `cx.tile_fill(layer, cell)` | carpet the map |
 | `cx.tile_text(layer, on)` | flip a layer to a 1bpp text overlay and back |
+| `cx.vram_stream(vram, vrambank, srcbank, count)` | banked RAM → VRAM (rolls 8 KB banks) |
+| `cx.tile_dbuf(layer, on) -> bool` | double-buffer a layer (draws go to a hidden map) |
+| `cx.tile_flip(layer) -> bool` | present the drawn buffer at vblank (needs `cx.ev_init`) |
 
 While a `cx.tile_text` overlay is up the toolkit — menus, widgets,
 `cx.dlg_alert`, `cx.panel` — draws on it, over the still-visible game.

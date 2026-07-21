@@ -76,6 +76,8 @@ CX_WG_SIZE    = 16          ; one widget record is exactly this many bytes
 CX_WH_RECT    = 0
 CX_WH_CIRCLE  = 1           ; inscribed in the box; box <= 510 wide/tall
 CX_WH_ELLIPSE = 2
+CX_WH_POLYGON = 3           ; a regular n-gon (square box); cxm_wg_hit_poly
+CX_WH_PIE     = 4           ; an arc/pie wedge (square box); cxm_wg_hit_pie
 CX_WH_CLICK   = %001
 CX_WH_RELEASE = %010
 CX_WH_HOVER   = %100
@@ -418,7 +420,8 @@ CX_EVS_SPRCOL = 4
 ; =====================================================================
 ; tiles (CX_MODE_TILE)
 ; =====================================================================
-.macro cxm_tile_setup layer                  ; -> carry set outside mode 2
+.macro cxm_tile_setup layer, bpp             ; bpp 2/4/8; -> carry set outside mode 2
+    ldx #(bpp)
     lda #(layer)
     jsr cx_tile_setup
 .endmacro
@@ -444,6 +447,24 @@ CX_EVS_SPRCOL = 4
     ldx #(on)
     lda #(layer)
     jsr cx_tile_text
+.endmacro
+.macro cxm_vram_stream vram, vrambank, srcbank, count                ; banked RAM -> VRAM; vrambank = VRAM dst bit 16 (0/1)
+    _cx_pw X16_P0, vram
+    lda #(vrambank)
+    sta X16_P2
+    lda #(srcbank)
+    sta X16_P3
+    _cx_pw X16_P4, count
+    jsr cx_vram_stream
+.endmacro
+.macro cxm_tile_dbuf layer, on                ; double-buffer a tile layer on/off
+    ldx #(on)
+    lda #(layer)
+    jsr cx_tile_dbuf
+.endmacro
+.macro cxm_tile_flip layer                ; present the drawn buffer (waits for vblank)
+    lda #(layer)
+    jsr cx_tile_flip
 .endmacro
 
 ; =====================================================================
@@ -861,6 +882,20 @@ CX_EVS_SPRCOL = 4
     .byte (h0), (shape), (trig)
     .addr 0
     .byte 0, 0, 0
+.endmacro
+.macro cxm_wg_hit_poly x0, y0, w0, h0, sides, rot, trig   ; a hit region: a regular n-gon (square box)
+    .byte CX_WG_HIT, 0
+    .word (x0), (y0), (w0)
+    .byte (h0), CX_WH_POLYGON, (trig)
+    .addr 0
+    .byte (sides), (rot), 0
+.endmacro
+.macro cxm_wg_hit_pie x0, y0, w0, h0, a0, a1, trig        ; a hit region: an arc/pie wedge (square box)
+    .byte CX_WG_HIT, 0
+    .word (x0), (y0), (w0)
+    .byte (h0), CX_WH_PIE, (trig)
+    .addr 0
+    .byte (a0), (a1), 0
 .endmacro
 
 ; --- a widget list's leading count, COMPUTED from the record span ---

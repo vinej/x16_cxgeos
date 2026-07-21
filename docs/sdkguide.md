@@ -286,12 +286,28 @@ against:
 | 0 | `CX_WH_RECT` | the box itself — the same test every other widget uses |
 | 1 | `CX_WH_CIRCLE` | a circle inscribed in the box (make the box square) |
 | 2 | `CX_WH_ELLIPSE` | an ellipse inscribed in the box |
+| 3 | `CX_WH_POLYGON` | a regular convex *n*-gon — matches `CX_GFX_SHAPE` kind 0/1 |
+| 4 | `CX_WH_PIE` | a pie/arc **wedge** — the clickable area of kind 2/3 |
 
 Circle and ellipse share one normalised test — from the box's centre,
 `nx = |dx|·128/rx`, `ny = |dy|·128/ry`, inside when `nx²+ny² ≤ 128²` — the
 same routine `CX_GFX_CIRCLE`/`CX_GFX_ELLIPSE` use to draw the outline, so a
 hit region's edge lines up with the shape you actually drew. Keep the box
 ≤ 510 px on a side (`rx`/`ry` must each fit a byte).
+
+**The round shapes** — `CX_WH_POLYGON` and `CX_WH_PIE` — match the v0.8.0
+`CX_GFX_SHAPE` family (polygon and arc/pie), which are drawn from a centre
+and a radius, so a hit region for them is **circle-based: use a square
+box** (as `CX_WH_CIRCLE` is "an ellipse with a square box"). They need two
+more numbers than the box holds — a polygon's *sides* and *rotation*, a
+wedge's *start* and *end* angle — so they ride two spare record bytes (13,
+14) that a hit region never otherwise uses, and their point tests run in
+bank 19 beside the trig they need. Angles are the sin/cos byte convention:
+0 = east, 64 = south, 128 = west, 192 = north. An **arc** has no interior,
+so its clickable region is the same wedge a filled **pie** covers — one
+`CX_WH_PIE` serves both. The friendly layers give each its own builder
+(`cxm_wg_hit_poly`/`_pie`, `CX_HIT_POLY`/`CX_HIT_PIE`) that fills those
+bytes for you.
 
 **Mouse functionality — `WG_GRP` (record byte 10).** A trigger mask: which
 mouse phases the region reports.
@@ -324,9 +340,11 @@ these fields differ from a visible widget:
 | offset | field | for `WG_HIT` |
 |---|---|---|
 | 0 | type | `CX_WG_HIT` = 7 |
-| 9 | val | the shape, `CX_WH_RECT`/`CIRCLE`/`ELLIPSE` |
+| 9 | val | the shape, `CX_WH_RECT`/`CIRCLE`/`ELLIPSE`/`POLYGON`/`PIE` |
 | 10 | grp | the trigger mask, `CX_WH_CLICK`\|`RELEASE`\|`HOVER` |
 | 11 | label | unused — leave it 0 |
+| 13 | — | polygon: sides (3–24); pie: start angle (else 0) |
+| 14 | — | polygon: rotation; pie: end angle (else 0) |
 
 **How to use it.** Lay one such record per hotspot into your widget list —
 by hand at this ABI level, or with the one-line builders the friendly
@@ -530,11 +548,14 @@ the csdk's `cx_vram_write`); the maps are 64x32 cells at `$08000` (layer
 
 | slot | name | addr | args -> result | purpose |
 |---|---|---|---|---|
-| 81 | `CX_TILE_SETUP` | `$8103` | A=layer (0/1) | ledger config + layer on |
+| 81 | `CX_TILE_SETUP` | `$8103` | A=layer (0/1), X=bpp (2/4/8) | ledger config at that depth + layer on |
 | 82 | `CX_TILE_SCROLL` | `$8106` | A=layer, P0/P1=h, P2/P3=v | hardware scroll |
 | 83 | `CX_TILE_CELL` | `$8109` | A=layer, X=col, Y=row, P0/P1=cell | one map cell |
 | 84 | `CX_TILE_FILL` | `$810C` | A=layer, P0/P1=cell | the whole map |
 | 101 | `CX_TILE_TEXT` | `$813F` | A=layer (0/1), X=on (1 text / 0 graphics) | flip a layer to a 1bpp text overlay and back |
+| 102 | `CX_VRAM_STREAM` | `$8144` | P0/P1=VRAM dst, P2=dst bit 16, P3=first bank, P4/P5=count | copy banked RAM → VRAM, rolling 8 KB banks |
+| 103 | `CX_TILE_DBUF` | `$8147` | A=layer, X=on (0/1) | double-buffer a layer (draws → hidden map) |
+| 104 | `CX_TILE_FLIP` | `$814A` | A=layer | present the drawn buffer at vblank (needs `cx_ev_init`) |
 
 **`CX_TILE_TEXT` — a pause/dialog overlay (v0.9.0).** A game in tile mode
 can flip one layer to a 1bpp **text** layer, over the still-visible world
@@ -561,6 +582,19 @@ game map and scroll. While the overlay is up:
   app draws its own pixels). A tile game thus gets the same dialogs a mode-0
   app does; the modal loop is the usual `cx_ev_init` / `cx_ev_stop`
   game-borrow. `apps/tiledlg` is a full `cx_panel` of widgets over a game.
+
+**8bpp tiles, streaming and double-buffering (v0.9.0).** `CX_TILE_SETUP`'s
+`bpp` (2/4/8) picks the layer depth; the maps sit at `$10000`/`$11000` (a
+constant mapbase at every depth), so 8bpp's full 64 KB / 1024-tile set fits.
+Because VERA reads only VRAM, a big 8bpp tileset lives in **banked RAM** (load
+it once with `CX_BLOAD`) and streams to VRAM per level with **`CX_VRAM_STREAM`**
+(the reciprocal of `CX_VLOAD`: source is a bank, not a file; it rolls
+`RAM_BANK` across the 8 KB window), wrapped by the csdk `cx_tile_load`. For
+tear-free animation, **`CX_TILE_DBUF`** points drawing at a hidden shadow map
+and **`CX_TILE_FLIP`** swaps it in at vblank (so `cx_ev_init` must be running).
+`apps/tiles8` is the whole chain. A game-oriented walkthrough of the depths
+and VRAM/bank usage is [gameguide.md](gameguide.md); the low-level layout is
+[remap.md](remap.md).
 
 ### Asset loaders
 

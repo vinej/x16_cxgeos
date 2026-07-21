@@ -74,7 +74,7 @@ int main(void) {
         tile[i] = (((row >> 2) ^ (col >> 1)) & 1) ? 0x66 : 0x11;
     }
     cx_vram_write(CX_TILE_IMG, tile, 32);
-    cx_tile_setup(0);
+    cx_tile_setup(0, 4);
     cx_tile_fill(0, CX_CELL(0, 0));
 
 

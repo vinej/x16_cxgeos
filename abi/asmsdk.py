@@ -287,6 +287,8 @@ CONSTS = [
     ("CX_WG_HIT shapes (WG_VAL) and triggers (WG_GRP)", [
         ("CX_WH_RECT", "0", ""), ("CX_WH_CIRCLE", "1", "inscribed in the box"),
         ("CX_WH_ELLIPSE", "2", ""),
+        ("CX_WH_POLYGON", "3", "a regular n-gon (square box); cxm_wg_hit_poly"),
+        ("CX_WH_PIE", "4", "an arc/pie wedge (square box); cxm_wg_hit_pie"),
         ("CX_WH_CLICK", "1", ""), ("CX_WH_RELEASE", "2", ""), ("CX_WH_HOVER", "4", ""),
     ]),
     ("icon ids (cxm_icon / a WG_ICON record's WG_VAL)", [
@@ -425,7 +427,8 @@ CALLS = [
      [("pw", "P0", "x0"), ("pw", "P2", "y0"), ("al", None, "str"), ("xh", None, "str")], "jsr", "cx_font_draw"),
     ("ink", ["col"], "text ink for the CURRENT mode", [("a", None, "col")], "jsr"),
     # --- tiles ---
-    ("tile_setup", ["layer"], "-> carry set outside mode 2", [("a", None, "layer")], "jsr"),
+    ("tile_setup", ["layer", "bpp"], "bpp 2/4/8; -> carry set outside mode 2",
+     [("x", None, "bpp"), ("a", None, "layer")], "jsr"),
     ("tile_scroll", ["layer", "hscroll", "vscroll"], "",
      [("pw", "P0", "hscroll"), ("pw", "P2", "vscroll"), ("a", None, "layer")], "jsr"),
     ("tile_cell", ["layer", "column", "row", "cell"], "",
@@ -434,6 +437,14 @@ CALLS = [
      [("pw", "P0", "cell"), ("a", None, "layer")], "jsr"),
     ("tile_text", ["layer", "on"], "flip a tile layer to a 1bpp text overlay and back",
      [("x", None, "on"), ("a", None, "layer")], "jsr"),
+    ("vram_stream", ["vram", "vrambank", "srcbank", "count"],
+     "banked RAM -> VRAM; vrambank = VRAM dst bit 16 (0/1)",
+     [("pw", "P0", "vram"), ("pb", "P2", "vrambank"), ("pb", "P3", "srcbank"),
+      ("pw", "P4", "count")], "jsr"),
+    ("tile_dbuf", ["layer", "on"], "double-buffer a tile layer on/off",
+     [("x", None, "on"), ("a", None, "layer")], "jsr"),
+    ("tile_flip", ["layer"], "present the drawn buffer (waits for vblank)",
+     [("a", None, "layer")], "jsr"),
     # --- events (a handler table is ALWAYS CX_ET_COUNT vectors) ---
     ("ev_init", [], "clear the queue, hook the raster", [], "jsr"),
     ("ev_handlers", ["tbl"], "A/X = CX_ET_COUNT vectors",
@@ -589,6 +600,14 @@ BUILDERS = [
     ("wg_hit", ["x0", "y0", "w0", "h0", "shape", "trig"], "an invisible hit region the app draws", [
         ("byte", ["CX_WG_HIT", "0"]), ("word", ["x0", "y0", "w0"]),
         ("byte", ["h0", "shape", "trig"]), ("addr", ["0"]), ("byte", ["0", "0", "0"]),
+    ]),
+    ("wg_hit_poly", ["x0", "y0", "w0", "h0", "sides", "rot", "trig"], "a hit region: a regular n-gon (square box)", [
+        ("byte", ["CX_WG_HIT", "0"]), ("word", ["x0", "y0", "w0"]),
+        ("byte", ["h0", "CX_WH_POLYGON", "trig"]), ("addr", ["0"]), ("byte", ["sides", "rot", "0"]),
+    ]),
+    ("wg_hit_pie", ["x0", "y0", "w0", "h0", "a0", "a1", "trig"], "a hit region: an arc/pie wedge (square box)", [
+        ("byte", ["CX_WG_HIT", "0"]), ("word", ["x0", "y0", "w0"]),
+        ("byte", ["h0", "CX_WH_PIE", "trig"]), ("addr", ["0"]), ("byte", ["a0", "a1", "0"]),
     ]),
     ("wcount", ["first", "last"], "a widget list's leading count, from the record span", [
         ("byte", ["(last - first - 1) / CX_WG_SIZE"]),

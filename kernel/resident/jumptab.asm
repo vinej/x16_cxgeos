@@ -17,9 +17,9 @@
 cx_hdr_magic
     .byte "CXOS"                  ; the loader looks for this
 cx_hdr_version
-    .word 3                    ; ABI version
+    .word 4                    ; ABI version
 cx_hdr_slots
-    .word 102                    ; slots
+    .word 105                    ; slots
 cx_hdr_init
     .word cx_init               ; the loader starts here
 cx_hdr_shell
@@ -163,7 +163,7 @@ cx_jumptab
     jmp cx_do_gfx_flood  ; 80  P0/P1 = x, P2/P3 = y, A = colour: scanline fill of the region holding the seed, fenced by differing pixels and the canvas edge; carry set if the seed stack overflowed
 
 ; --- tiles (mode 2 only: the tile personality's own API) ---------
-    jmp cx_do_tile_setup ; 81  A = layer (0/1): the ledger config (64x32 map, 8x8 4bpp tiles) and the layer on. Carry set outside mode 2
+    jmp cx_do_tile_setup ; 81  A = layer (0/1), X = bpp (2/4/8; else 4): the ledger config (64x32 map, 8x8 tiles at that depth) and the layer on. Carry set outside mode 2
     jmp cx_do_tile_scroll ; 82  A = layer, P0/P1 = hscroll, P2/P3 = vscroll (0-4095)
     jmp cx_do_tile_cell  ; 83  A = layer, X = col (0-63), Y = row (0-31), P0/P1 = the cell word (index; hi: pal<<4 | vflip<<3 | hflip<<2 | index 9:8)
     jmp cx_do_tile_fill  ; 84  A = layer, P0/P1 = the cell word, into every cell
@@ -208,6 +208,13 @@ cx_jumptab
 
 ; --- mode-2 tile text (v0.9.0) -- a pause/dialog overlay on a tile layer 
     jmp cx_do_tile_text  ; 101  A = layer (0/1), X = on (0 = graphics, 1 = text)
+
+; --- banked RAM -> VRAM streaming (v0.9.0) -- the warehouse -> stage move 
+    jmp cx_do_vram_stream ; 102  P0/P1 = VRAM dst (low 16 bits), P2 = dst bit 16 (0/1), P3 = first source bank, P4/P5 = byte count. Rolls into P3+1... every 8 KB. Carry clear
+
+; --- mode-2 tile double-buffering (v0.9.0) -- tear-free scrolling/animation 
+    jmp cx_do_tile_dbuf  ; 103  A = layer (0/1), X = on (0/1): enable/disable double-buffering. ON draws to the shadow map; OFF is single-buffered on the primary. Carry set outside mode 2
+    jmp cx_do_tile_flip  ; 104  A = layer (0/1): wait for vblank, present the drawn buffer, draw into the other. No-op if the layer is not double-buffered. Carry set outside mode 2
 
 .popseg
 

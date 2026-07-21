@@ -50,6 +50,8 @@
 .const CX_WH_RECT = 0
 .const CX_WH_CIRCLE = 1        // inscribed in the box
 .const CX_WH_ELLIPSE = 2
+.const CX_WH_POLYGON = 3        // a regular n-gon (square box); cxm_wg_hit_poly
+.const CX_WH_PIE = 4        // an arc/pie wedge (square box); cxm_wg_hit_pie
 .const CX_WH_CLICK = 1
 .const CX_WH_RELEASE = 2
 .const CX_WH_HOVER = 4
@@ -362,7 +364,8 @@
     lda #(col)
     jsr cx_ink
 }
-.macro cxm_tile_setup(layer) {                // -> carry set outside mode 2
+.macro cxm_tile_setup(layer, bpp) {                // bpp 2/4/8; -> carry set outside mode 2
+    ldx #(bpp)
     lda #(layer)
     jsr cx_tile_setup
 }
@@ -388,6 +391,24 @@
     ldx #(on)
     lda #(layer)
     jsr cx_tile_text
+}
+.macro cxm_vram_stream(vram, vrambank, srcbank, count) {                // banked RAM -> VRAM; vrambank = VRAM dst bit 16 (0/1)
+    cxpw16(X16_P0, vram)
+    lda #(vrambank)
+    sta X16_P2
+    lda #(srcbank)
+    sta X16_P3
+    cxpw16(X16_P4, count)
+    jsr cx_vram_stream
+}
+.macro cxm_tile_dbuf(layer, on) {                // double-buffer a tile layer on/off
+    ldx #(on)
+    lda #(layer)
+    jsr cx_tile_dbuf
+}
+.macro cxm_tile_flip(layer) {                // present the drawn buffer (waits for vblank)
+    lda #(layer)
+    jsr cx_tile_flip
 }
 .macro cxm_ev_init() {                // clear the queue, hook the raster
     jsr cx_ev_init
@@ -763,6 +784,20 @@
     .byte h0, shape, trig
     .word 0
     .byte 0, 0, 0
+}
+.macro cxm_wg_hit_poly(x0, y0, w0, h0, sides, rot, trig) {                // a hit region: a regular n-gon (square box)
+    .byte CX_WG_HIT, 0
+    .word x0, y0, w0
+    .byte h0, CX_WH_POLYGON, trig
+    .word 0
+    .byte sides, rot, 0
+}
+.macro cxm_wg_hit_pie(x0, y0, w0, h0, a0, a1, trig) {                // a hit region: an arc/pie wedge (square box)
+    .byte CX_WG_HIT, 0
+    .word x0, y0, w0
+    .byte h0, CX_WH_PIE, trig
+    .word 0
+    .byte a0, a1, 0
 }
 .macro cxm_wcount(first, last) {                // a widget list's leading count, from the record span
     .byte (last - first - 1) / CX_WG_SIZE

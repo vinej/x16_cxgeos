@@ -185,11 +185,14 @@ it (see `apps/filer`).
 ### Tiles *(CX_MODE_TILE)*
 | macro | args |
 |---|---|
-| `cxm_tile_setup` | `layer` (→ carry outside mode 2) |
+| `cxm_tile_setup` | `layer, bpp` (2/4/8; → carry outside mode 2) |
 | `cxm_tile_scroll` | `layer, h, v` (0–4095 each axis) |
 | `cxm_tile_cell` | `layer, column, row, cell` (`cell` = `CX_CELL(idx, pal)`) |
 | `cxm_tile_fill` | `layer, cell` (into every cell of the layer) |
 | `cxm_tile_text` | `layer, on` (flip to a 1bpp text overlay and back; the toolkit — menus, widgets, `cxm_dlg_alert`, `cxm_panel` — then draws on it) |
+| `cxm_vram_stream` | `vram, vrambank, srcbank, count` (banked RAM → VRAM, rolls 8 KB banks) |
+| `cxm_tile_dbuf` | `layer, on` (double-buffer: draws go to a hidden map) |
+| `cxm_tile_flip` | `layer` (present the drawn buffer at vblank; needs `cxm_ev_init`) |
 
 ### Loader, DA, asset loaders
 | macro | args |
@@ -249,6 +252,8 @@ events.
 | `cxm_wg_list x, y, w, h, count, ptrs` | a list of `count` strings at `ptrs` |
 | `cxm_wg_icon x, y, w, h, id, label` | a 24×24 icon (`id` = `CX_ICON_*`) |
 | `cxm_wg_hit x, y, w, h, shape, trig` | an invisible hit region (`shape` = `CX_WH_*`, `trig` = trigger mask) |
+| `cxm_wg_hit_poly x, y, w, h, sides, rot, trig` | a hit region shaped as a regular *n*-gon (square box) |
+| `cxm_wg_hit_pie x, y, w, h, a0, a1, trig` | a hit region shaped as a pie/arc wedge (square box) |
 
 `cxm_wg_icon` and, especially, `cxm_wg_hit` get a full section further down
 — see [Icons](#icons) and
@@ -409,12 +414,23 @@ against it.
 | `CX_WH_RECT` | 0 | the box itself — the default, every other widget's test |
 | `CX_WH_CIRCLE` | 1 | a circle inscribed in the box — make the box square |
 | `CX_WH_ELLIPSE` | 2 | an ellipse inscribed in the box |
+| `CX_WH_POLYGON` | 3 | a regular *n*-gon — matches `cxm_gfx_shape` kind 0/1 (square box) |
+| `CX_WH_PIE` | 4 | a pie/arc **wedge** — matches kind 2/3 (square box) |
 
 Circle and ellipse share one normalised test — from the box's centre,
 `nx = |dx|·128/rx`, `ny = |dy|·128/ry`, inside when `nx²+ny² ≤ 128²` — the
 same fixed-point routine `cxm_gfx_circle`/`cxm_gfx_ellipse` use to draw the
 outline, so a hit region's edge lines up with the shape you actually drew.
 Keep the box's width and height each ≤ 510 px.
+
+`CX_WH_POLYGON` and `CX_WH_PIE` match the `cxm_gfx_shape` family (drawn from
+a centre + radius), so they are circle-based: pass a **square box**. Each
+needs two more numbers than the box holds — sides + rotation for a polygon,
+start + end angle for a wedge (byte angles: 0 = east, 64 = south, 128 =
+west, 192 = north) — so they get their own builders, `cxm_wg_hit_poly` and
+`cxm_wg_hit_pie`, which stow those in the record's two spare pad bytes. An
+**arc** has no interior; its clickable area is the wedge a **pie** fills, so
+`CX_WH_PIE` serves both. Their point tests run in bank 19, beside the trig.
 
 ### Mouse functionality — the trigger mask (`trig` / `WG_GRP`)
 
@@ -445,16 +461,22 @@ widgets do.
 `cxm_wg_hit x0, y0, w0, h0, shape, trig` lays down the whole 16-byte record
 — `.byte CX_WG_HIT, 0`, the box, the shape and trigger, a null label
 (unused), and the reserved pad — nothing to miscount, the same guarantee
-every `cxm_wg_*` builder gives. Put it in a list with `cxm_wcount`, exactly
-like a button or a checkbox:
+every `cxm_wg_*` builder gives. `cxm_wg_hit_poly x0, y0, w0, h0, sides, rot,
+trig` and `cxm_wg_hit_pie x0, y0, w0, h0, a0, a1, trig` are the same, with
+the two extra numbers stowed in the pad. Put them in a list with
+`cxm_wcount`, exactly like a button or a checkbox:
 
 ```asm
 hits:
     cxm_wcount hits, hits_end
-    ;            x    y    w    h   shape          triggers
-    cxm_wg_hit  50, 130, 150, 130, CX_WH_RECT,    CX_WH_CLICK | CX_WH_HOVER
-    cxm_wg_hit 255, 120, 150, 150, CX_WH_CIRCLE,  CX_WH_CLICK | CX_WH_HOVER
-    cxm_wg_hit 450, 130, 180, 130, CX_WH_ELLIPSE, CX_WH_CLICK | CX_WH_HOVER
+    ;                x    y    w    h   shape          triggers
+    cxm_wg_hit      25, 135,  90, 120, CX_WH_RECT,    CX_WH_CLICK | CX_WH_HOVER
+    cxm_wg_hit     150, 150,  90,  90, CX_WH_CIRCLE,  CX_WH_CLICK | CX_WH_HOVER
+    cxm_wg_hit     265, 153, 110,  84, CX_WH_ELLIPSE, CX_WH_CLICK | CX_WH_HOVER
+    ;                x    y    w    h  sides rot  triggers
+    cxm_wg_hit_poly 397, 147,  96,  96,  6,   0,  CX_WH_CLICK | CX_WH_HOVER
+    ;                x    y    w    h   a0   a1  triggers
+    cxm_wg_hit_pie  522, 147,  96,  96, 224, 32, CX_WH_CLICK | CX_WH_HOVER
 hits_end:
 
     cxm_wg_set hits
@@ -462,18 +484,22 @@ hits_end:
 
 ### Worked example — the shipped demo, `apps/hittest/hittest.asm`
 
-Three outlines the app draws itself — a rectangle, a circle, an ellipse —
-each backed by exactly the `hits` list above, click *and* hover both on.
-Hovering names the shape on the status line; clicking stamps a filled disc
-at its centre. The point of the demo: the fill only ever lands where the
-pointer is really inside the shape, not merely inside its bounding box,
-because bank 16 did the circle/ellipse math, not the app.
+Five shapes the app draws itself — a rectangle, a circle, an ellipse, a
+regular hexagon and a pie wedge — each backed by exactly the `hits` list
+above, click *and* hover both on. Hovering names the shape on the status
+line; clicking stamps a filled disc at its centre. The point of the demo:
+the fill only ever lands where the pointer is really inside the shape (the
+hexagon rejects the box's corners, the wedge rejects the wrong angles), not
+merely inside its bounding box — the toolkit did the circle/ellipse/polygon/
+wedge math (the round ones in bank 19), not the app.
 
 ```asm
 draw_shapes
-    cxm_gfx_frame   50, 130, 150, 130, 3    ; rectangle at (50,130) 150x130
-    cxm_gfx_circle  330, 195, 75, 3         ; circle:  centre (330,195) r 75
-    cxm_gfx_ellipse 540, 195, 90, 65, 3     ; ellipse: centre (540,195) rx 90 ry 65
+    cxm_gfx_frame   25, 135, 90, 120, 3         ; rectangle
+    cxm_gfx_circle  195, 195, 45, 3             ; circle
+    cxm_gfx_ellipse 320, 195, 55, 42, 3         ; ellipse
+    cxm_gfx_shape   0, 445, 195, 48, 6, 0, 3    ; hexagon OUTLINE (6 sides)
+    cxm_gfx_shape   3, 570, 195, 48, 224, 32, 1 ; pie wedge, filled
     rts
 
 ; on_widget -- a WG_HIT fired: P1 = region index, P2 = phase
