@@ -58,10 +58,10 @@ Full documentation lives in [docs/](docs/).
   - `CX_MODE_TEXT` — 80×60 text cells "like BASIC": colour fills, PETSCII box frames, ruled lines, mixed-case `cx_say`
 - Sprites, audio, events, joysticks, files, widgets and dialogs work in every mode.
 - **Stock ROM (R49+)** — boots from SD via `AUTOBOOT.X16` or from a **cartridge** (`build.ps1 -Cart`, ROM banks 32–36). No ROM patches.
-- **Native CMDR-DOS FAT32 files** — no .d64 images, no disk swapping.
+- **Native CMDR-DOS FAT32 files** .
 - **Apps in any toolchain** — fixed jump-table ABI with generated bindings for 7 assemblers, 5 C compilers, and Prog8.
 - **A documented SDK** — friendly `cx_*` / `cxm_*` / `ui` wrappers over graphics, text, events, widgets, dialogs, themes, files, clipboard, audio (VERA PSG, YM2151 FM, streamed PCM), sprites, joysticks, shapes, and pluggable fonts/charsets.
-- Built on [x16lib](https://github.com/vinej/x16_library) — the kernel vendors the ca65 edition (`x16lib/`).
+- Built on [X16_Library](https://github.com/vinej/x16_library) — the kernel vendors the ca65 edition (`x16lib/`).
 
 **Pre-1.0 contract change:** RAM banks 16–19 now belong to the kernel; the first app bank (and `cx_bload` floor) moved from 16 to **20**.
 
