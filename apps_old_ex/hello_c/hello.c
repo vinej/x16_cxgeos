@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/hello_c/hello.c -- the C hello (llvm-mos)
+ * CXRF :: apps/hello_c/hello.c -- the C hello (llvm-mos)
  * =====================================================================
  * The same app as apps/hello_asm, in C, and the smallest example of the
  * csdk: no private helpers, no hand-packed parameter block -- just the
@@ -8,7 +8,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 static unsigned char fontbuf[1024];    /* PXL8.CXF is 871 bytes */

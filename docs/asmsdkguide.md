@@ -1,6 +1,6 @@
-# CXGEOS asmsdk Guide — the friendly ca65 macros
+# CXRF asmsdk Guide — the friendly ca65 macros
 
-**Release 0.9.0** · ABI version 4 · 105 slots · include: `asmsdk/ca65/cxgeos.inc`
+**Release 0.10.0** · ABI version 4 · 105 slots · include: `asmsdk/ca65/cxrf.inc`
 
 The asmsdk is to assembly what [csdk](csdkguide.md) is to C: named one-line
 **macros** over the raw jump-table equates, plus the shared constants and
@@ -33,7 +33,7 @@ Include it **after** `x16.asm` (the macros use `X16_P0..P7`, and expand to
 
 ```asm
     .include "x16.asm"
-    .include "asmsdk/ca65/cxgeos.inc"
+    .include "asmsdk/ca65/cxrf.inc"
 ```
 
 ```
@@ -392,7 +392,7 @@ a dial, a sprite, a game piece, an image map over a picture you loaded —
 and lay an invisible `WG_HIT` record over it. The toolkit hit-tests that
 record with the same region-stack machinery already serving every button
 and checkbox on screen, including true **hover** tracking. This is the
-sanctioned way to build a custom widget in CXGEOS: the kernel does not need
+sanctioned way to build a custom widget in CXRF: the kernel does not need
 to know your shape, only its box and which of three built-in tests to run
 against it.
 

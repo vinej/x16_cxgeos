@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/hello_asm/hello.asm -- the assembly hello
+; CXRF :: apps/hello_asm/hello.asm -- the assembly hello
 ; =====================================================================
 ; The Phase 4 milestone app: built from sdk/ alone, launched by the
 ; shell, draws through the jump table, and leaves through cx_exit --
@@ -10,7 +10,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 EV_KEY = 5
 

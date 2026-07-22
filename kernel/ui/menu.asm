@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/ui/menu.asm -- the menu engine
+; CXRF :: kernel/ui/menu.asm -- the menu engine
 ; =====================================================================
 ; Resident: four five-byte stubs. Everything else is B2CODE, runs in
 ; bank 2 through cxb_call, and costs the resident budget nothing

@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/smoke_c/smoke.c -- the portable C SDK smoke test
+ * CXRF :: apps/smoke_c/smoke.c -- the portable C SDK smoke test
  * =====================================================================
  * One compiler-agnostic C app that drives the kernel through csdk. It is
  * built by EVERY supported C compiler (llvm-mos, cc65, ...) from this one
@@ -10,16 +10,16 @@
  * the boot smoke greps stdout for "SMOKE C OK".
  * ===================================================================== */
 #if defined(__clang__)
-#include "sdk/include_llvm/cxgeos.h"    /* llvm-mos */
+#include "sdk/include_llvm/cxrf.h"    /* llvm-mos */
 #elif defined(CX_OSCAR64)
-#include "sdk/include_oscar64/cxgeos.h" /* oscar64 (-dCX_OSCAR64) */
+#include "sdk/include_oscar64/cxrf.h" /* oscar64 (-dCX_OSCAR64) */
 #elif defined(CX_KICKC)
-#include "sdk/include_kickc/cxgeos.h"   /* KickC (-DCX_KICKC) */
+#include "sdk/include_kickc/cxrf.h"   /* KickC (-DCX_KICKC) */
 #elif defined(__VBCC__)
 #include <stdio.h>                      /* putchar -> CHROUT on the +x16 target */
-#include "sdk/include_vbcc/cxgeos.h"    /* vbcc (links cxrun.s) */
+#include "sdk/include_vbcc/cxrf.h"    /* vbcc (links cxrun.s) */
 #else
-#include "sdk/include_cc65/cxgeos.h"    /* cc65 (__CC65__) */
+#include "sdk/include_cc65/cxrf.h"    /* cc65 (__CC65__) */
 #endif
 #include "csdk/cxsdk.h"
 

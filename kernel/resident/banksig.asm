@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/resident/banksig.asm -- who is in each bank, signed
+; CXRF :: kernel/resident/banksig.asm -- who is in each bank, signed
 ; =====================================================================
 ; Two kinds of pin, both checked by stage-0 (kernel/boot/auto.asm):
 ;

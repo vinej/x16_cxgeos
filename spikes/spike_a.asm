@@ -1,8 +1,8 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: spikes/spike_a.asm -- Phase 0 risk spike A
+; CXRF :: spikes/spike_a.asm -- Phase 0 risk spike A
 ; =====================================================================
-; Brings up the CXGEOS screen mode (640x480 @ 2bpp on VERA layer 0,
+; Brings up the CXRF screen mode (640x480 @ 2bpp on VERA layer 0,
 ; framebuffer at VRAM $00000, 160 bytes/row, 76,800 bytes) and measures
 ; the raw bandwidth of the three bulk paths the OS will live on:
 ;
@@ -24,12 +24,12 @@ X16_USE_VERAFX  = 1
 X16_USE_PALETTE = 1
 X16_USE_NUMBER  = 1
 
-; CXGEOS screen geometry (the numbers the whole OS is built around).
+; CXRF screen geometry (the numbers the whole OS is built around).
 FB_BASE     = $00000            ; framebuffer VRAM address
 FB_STRIDE   = 160               ; bytes per row (640 px / 4 px per byte)
 FB_HALF     = 38400             ; half a screen in bytes ($9600)
 
-; Spike-private zero page: CXGEOS app space ($60-$7F).
+; Spike-private zero page: CXRF app space ($60-$7F).
 STR_PTR     = $60               ; print_str pointer
 BENCH_T0    = $62               ; RDTIM at bench start (2 bytes)
 REP         = $64               ; benchmark repetition counter
@@ -84,7 +84,7 @@ main
     bra @forever
 
 ; ---------------------------------------------------------------------
-; mode_2bpp_640 -- the CXGEOS screen mode, programmed on bare VERA.
+; mode_2bpp_640 -- the CXRF screen mode, programmed on bare VERA.
 ; No KERNAL screen mode exists for 640x480@2bpp: layer 0 bitmap, 2bpp,
 ; 640-wide, full 1:1 scale. Layer 1 and sprites off. 4-entry palette.
 ; ---------------------------------------------------------------------
@@ -287,7 +287,7 @@ print_str
 @done
     rts
 
-sa_banner .byte $0D, "CXGEOS SPIKE A: 640X480 2BPP", $0D, 0
+sa_banner .byte $0D, "CXRF SPIKE A: 640X480 2BPP", $0D, 0
 sa_vfill  .byte "VFILL8 ", 0
 sa_fxfill .byte "FXFILL8 ", 0
 sa_fxcopy .byte "FXCOPY8H ", 0

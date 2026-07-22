@@ -1,4 +1,4 @@
-# CXGEOS file formats
+# CXRF file formats
 
 ## CXF — the font format
 
@@ -67,7 +67,7 @@ the same text on the 8-pixel grid.
 A CXAP (`.CXA`) is a 32-byte header in front of an ordinary PRG. That is
 the entire design, and the design IS the point: every one of the twelve
 toolchains already emits a working PRG at $0801, so every one of them
-can produce a CXGEOS app without touching a linker script. The header
+can produce a CXRF app without touching a linker script. The header
 is prepended by `tools/mkcxap.py`, which finds the entry point by
 reading the SYS target out of the PRG's own BASIC stub.
 
@@ -107,7 +107,7 @@ The kernel's parameter block at $22 collides with llvm-mos's own zero
 page: the compiler keeps its soft stack pointer in __rc0/__rc1 at
 $22/$23. A C program that wrote $22 directly would corrupt its own
 stack — it did, and the crash took an evening to bisect. So
-`sdk/include_llvm/cxgeos.h` mirrors the block: `cx_p[]`, `cx_a`,
+`sdk/include_llvm/cxrf.h` mirrors the block: `cx_p[]`, `cx_a`,
 `cx_x`, `cx_y` are ordinary memory, and `cx_run()` carries them across
 the real block with $22–$25 — and, since 0.4.0, the whole imaginary
 register file at $02–$21 — saved around the call: llvm's registers are

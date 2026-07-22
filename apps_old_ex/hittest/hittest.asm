@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/hittest/hittest.asm -- the invisible hit-region demo
+; CXRF :: apps/hittest/hittest.asm -- the invisible hit-region demo
 ; =====================================================================
 ; Shows WG_HIT: a hotspot the app draws itself while the toolkit only
 ; routes the mouse. Three outlines -- a rectangle, a circle, an ellipse --
@@ -15,7 +15,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 EV_KEY        = 5
 EV_WIDGET     = 8
@@ -296,7 +296,7 @@ names .addr s_rect, s_circ, s_elli
 
 wtmp   .byte 0
 
-s_title .byte "CXGEOS -- invisible hit regions (WG_HIT)", 0
+s_title .byte "CXRF -- invisible hit regions (WG_HIT)", 0
 s_help  .byte "the app draws the shapes; the toolkit routes the mouse. hover or click; ESC quits.", 0
 s_idle  .byte "move the pointer over a shape.", 0
 s_rect  .byte "rectangle", 0

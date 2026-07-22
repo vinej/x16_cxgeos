@@ -1,6 +1,6 @@
 # Banks — how the kernel's code is laid out, and how to add to it
 
-CXGEOS's kernel is one ca65 translation unit (`kernel/kernel.asm` includes
+CXRF's kernel is one ca65 translation unit (`kernel/kernel.asm` includes
 everything) linked by `kernel/kernel.cfg` into a resident image plus banked
 code. This is the map, the far-call contract, and the playbooks for adding a
 widget, a shape, a bank, or an ABI slot without reshuffling anything.
@@ -151,7 +151,7 @@ The table has 30 free slots (cap 135). Slots are **append-only** — never
 reorder or repurpose one; the frozen canary (`test/canary/CANARY.CXA`) is an
 app from the past that must keep passing.
 
-1. Append the slot to `abi/cxgeos.abi` (name, arg count, doc).
+1. Append the slot to `abi/cxrf.abi` (name, arg count, doc).
 2. `python abi/gen_bindings.py` — regenerates `kernel/resident/jumptab.asm`,
    all `sdk/` headers and `csdk/`. Commit the regenerated files in the SAME
    commit (the `--check` gate in `build.ps1 -Test` fails otherwise).

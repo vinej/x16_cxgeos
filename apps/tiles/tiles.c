@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/tiles/tiles.c -- the tile-mode example (llvm-mos)
+ * CXRF :: apps/tiles/tiles.c -- the tile-mode example (llvm-mos)
  * =====================================================================
  * The game personality: cx_mode(CX_MODE_TILE) hands the screen to two
  * VERA tile layers. This uploads two 8x8 4bpp tiles (a dim checker and
@@ -14,7 +14,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 static unsigned char tiles[64];        /* two 4bpp 8x8 tiles, 32 B each */

@@ -1,6 +1,6 @@
 ;ACME
 ; =====================================================================
-; CXGEOS :: apps/smoke_acme/smoke.asm -- the ACME SDK smoke test
+; CXRF :: apps/smoke_acme/smoke.asm -- the ACME SDK smoke test
 ; =====================================================================
 ; Proves the GENERATED asmsdk/acme layer assembles with the real ACME
 ; and drives the kernel through the jump table. Prints a start marker,
@@ -11,7 +11,7 @@
 
 !cpu 65c02
 !source "x16.asm"                       ; from src_acme: X16_P0.., CHROUT, +basic_stub
-!source "asmsdk/acme/cxgeos.inc"        ; the generated friendly layer
+!source "asmsdk/acme/cxrf.inc"        ; the generated friendly layer
 
 * = $0801
     +basic_stub

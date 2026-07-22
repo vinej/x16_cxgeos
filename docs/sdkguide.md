@@ -1,16 +1,16 @@
-# CXGEOS SDK Guide — the generated ABI header
+# CXRF SDK Guide — the generated ABI header
 
-**Release 0.9.0** · ABI version 4 · 105 slots (append-only; slot 104
+**Release 0.10.0** · ABI version 4 · 105 slots (append-only; slot 104
 `cx_tile_flip` is the newest)
 
-This documents `sdk/include_<compiler>/cxgeos.h` (and `.inc`) — the
-**generated**, low-level binding to the kernel. It is what every CXGEOS app
+This documents `sdk/include_<compiler>/cxrf.h` (and `.inc`) — the
+**generated**, low-level binding to the kernel. It is what every CXRF app
 ultimately calls. Most developers prefer a friendly layer over it —
 [csdk](csdkguide.md) for C, [asmsdk](asmsdkguide.md) for ca65 assembly — but
 both are written *against* this binding, so understanding it explains what they
 do under the hood.
 
-The header is generated from `abi/cxgeos.abi` by `abi/gen_bindings.py`; do not
+The header is generated from `abi/cxrf.abi` by `abi/gen_bindings.py`; do not
 edit it by hand. There is one per toolchain (`include_llvm`, `include_ca65`,
 `include_acme`, …). **llvm-mos** is the fully-supported C target and the one
 described here; the other C headers are partial stubs today (a bare `cx_call`,
@@ -27,7 +27,7 @@ block** — eight bytes plus the CPU registers — and each ABI entry is a
 
 ```c
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 
 cx_p[0] = 100; cx_p[1] = 0;      /* x = 100  (low, high) */
 cx_p[2] = 50;  cx_p[3] = 0;      /* y = 50 */
@@ -265,7 +265,7 @@ descriptor coordinates are in the mode's own units (pixels in 0/1, cells in
 control it owns; a hit region is a hotspot the *app* draws with its own
 `CX_GFX_*`/`CX_ICON`/sprite calls, overlaid with an invisible record so the
 same region-stack routing that serves buttons and checkboxes also serves it.
-This is how a CXGEOS app gets a **custom widget** — a dial, a game piece, a
+This is how a CXRF app gets a **custom widget** — a dial, a game piece, a
 clickable sprite, an odd-shaped icon, an image map — without the kernel
 knowing anything about its shape: the app owns the pixels, `WG_HIT` owns
 the mouse. It is the one widget type built specifically so app authors are
@@ -634,4 +634,4 @@ fonts, charsets, bitmaps and sample data come off the disk.
 - [formats.md](formats.md) — the byte layouts of fonts, apps, menus, widgets,
   dialogs and themes.
 - [memory-map.md](memory-map.md) — the ZP / RAM / VRAM ledger.
-- `abi/cxgeos.abi` — the authoritative slot manifest (slots are append-only).
+- `abi/cxrf.abi` — the authoritative slot manifest (slots are append-only).

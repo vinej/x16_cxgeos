@@ -1,6 +1,6 @@
 ; MADS
 ; =====================================================================
-; CXGEOS :: apps/smoke_mads/smoke.asm -- the MADS SDK smoke test
+; CXRF :: apps/smoke_mads/smoke.asm -- the MADS SDK smoke test
 ; =====================================================================
 ; Proves the GENERATED asmsdk/mads layer assembles with the real MADS and
 ; drives the kernel through the jump table. MADS has no linker and writes
@@ -10,7 +10,7 @@
 ; =====================================================================
 
     icl "x16.asm"                       ; from src_mads: X16_P0.., CHROUT, basic_stub
-    icl "asmsdk/mads/cxgeos.inc"        ; the generated friendly layer
+    icl "asmsdk/mads/cxrf.inc"        ; the generated friendly layer
 
     org $0801
     basic_stub

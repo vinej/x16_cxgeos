@@ -1,9 +1,9 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/boot/auto.asm -- AUTOBOOT.X16, the stage-0 loader
+; CXRF :: kernel/boot/auto.asm -- AUTOBOOT.X16, the stage-0 loader
 ; =====================================================================
 ; The stock KERNAL runs AUTOBOOT.X16 from the SD root at power-on --
-; that is the entire boot hook, and the reason CXGEOS needs no ROM
+; that is the entire boot hook, and the reason CXRF needs no ROM
 ; patch. This program:
 ;
 ;   1. LOADs CXKERNEL.PRG, whose own header says $8000, and checks the
@@ -31,7 +31,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 .include "kernel/resident/banks.inc"
 
 CX_SYSFONT_BANK = 1             ; the boot half of cx_init's contract
@@ -224,7 +224,7 @@ pmsg                            ; A/X = a string for the KERNAL
 @done
     rts
 
-s_banner  .byte $0D, "CXGEOS BOOT", $0D, 0
+s_banner  .byte $0D, "CXRF BOOT", $0D, 0
 s_cxos    .byte "CXOS"
 s_kernel  .byte "CXKERNEL.PRG"
 s_kernel_len = * - s_kernel
@@ -236,9 +236,9 @@ s_banks2  .byte "CXBANKS2.BIN"
 s_banks2_len = * - s_banks2
 s_autorun .byte "AUTORUN.CXA"
 s_autorun_len = * - s_autorun
-s_nok     .byte "CXGEOS: NO CXKERNEL.PRG ON THIS DISK.", $0D, 0
-s_nof     .byte "CXGEOS: PXL8.CXF IS MISSING OR NOT A FONT.", $0D, 0
-s_nob     .byte "CXGEOS: NO CXBANKS.BIN ON THIS DISK.", $0D, 0
-s_nob2    .byte "CXGEOS: NO CXBANKS2.BIN ON THIS DISK.", $0D, 0
-s_skew    .byte "CXGEOS: KERNEL FILES OUT OF STEP.", $0D, 0
-s_stale   .byte "CXGEOS: CXBANKS2.BIN IS STALE OR SHORT.", $0D, 0
+s_nok     .byte "CXRF: NO CXKERNEL.PRG ON THIS DISK.", $0D, 0
+s_nof     .byte "CXRF: PXL8.CXF IS MISSING OR NOT A FONT.", $0D, 0
+s_nob     .byte "CXRF: NO CXBANKS.BIN ON THIS DISK.", $0D, 0
+s_nob2    .byte "CXRF: NO CXBANKS2.BIN ON THIS DISK.", $0D, 0
+s_skew    .byte "CXRF: KERNEL FILES OUT OF STEP.", $0D, 0
+s_stale   .byte "CXRF: CXBANKS2.BIN IS STALE OR SHORT.", $0D, 0

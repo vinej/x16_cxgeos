@@ -14,7 +14,7 @@
 ;   - bitmap (8bpp): predefine SHP_PSET / SHP_HLINE to small shims that
 ;     move the colour from A into X16_P3 (where gfx_pset wants it), then
 ;     jmp gfx_pset / gfx_hline; SHP_READ = gfx_read; SHP_W/H = 320/240.
-;   - CXGEOS points them at its graphics port and gets every mode at once.
+;   - CXRF points them at its graphics port and gets every mode at once.
 ;
 ;   SHP_PSET   pset:  P0/P1 = x, P2/P3 = y, A = colour (must clip)
 ;   SHP_READ   read:  P0/P1 = x, P2/P3 = y -> A = the pixel
@@ -49,7 +49,7 @@
 ; shapes_efl routes each plot through shapes_eplot to the octant points (outline)
 ; or the spans (fill).
 ; ---------------------------------------------------------------------
-; CXGEOS: SKIP_BASE lets this file be .included a 2nd time for the extra
+; CXRF: SKIP_BASE lets this file be .included a 2nd time for the extra
 ; shapes only (base + defaults in bank 17, extras in bank 19). Upstream-safe.
 .ifndef SKIP_BASE
 shape_circle

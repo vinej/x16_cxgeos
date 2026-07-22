@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/tui/tui.asm -- the whole toolkit in the text TUI
+; CXRF :: apps/tui/tui.asm -- the whole toolkit in the text TUI
 ; =====================================================================
 ; One demo for mode 3 (80x60 cells): a menu bar, a panel of ASCII-classic
 ; widgets ([X] checks, (*) radios, [buttons]), and a modal dialog you can
@@ -11,7 +11,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 WG_BUTTON = 0
 WG_CHECK  = 1
@@ -247,5 +247,5 @@ s_msg .byte "Apply these settings?", 0
 s_no  .byte "no", 0
 s_yes .byte "yes", 0
 
-title .byte "CXGEOS toolkit -- menu, widgets, dialog", 0
+title .byte "CXRF toolkit -- menu, widgets, dialog", 0
 s_up  .byte "TUI UP", $0D, 0

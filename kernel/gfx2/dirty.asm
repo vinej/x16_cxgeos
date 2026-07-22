@@ -1,11 +1,11 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/gfx2/dirty.asm -- the dirty-rectangle list
+; CXRF :: kernel/gfx2/dirty.asm -- the dirty-rectangle list
 ; =====================================================================
 ; The redraw ledger: UI code records what it touched, the end-of-frame
 ; compositor walks the list instead of repainting the screen. This is
 ; OS-side (not x16lib) because merge policy and capacity are tied to
-; CXGEOS's window model.
+; CXRF's window model.
 ;
 ; Rects are stored as inclusive corners (x0,y0)-(x1,y1), 16-bit each,
 ; in parallel lo/hi arrays for indexed access. Capacity DR_MAX; adding

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/fs/fileload.asm -- cx_file_load, any file into RAM
+; CXRF :: kernel/fs/fileload.asm -- cx_file_load, any file into RAM
 ; =====================================================================
 ; The generic asset loader (slot 88): a bounded read of any file on the
 ; SD card into a caller buffer. This is how fonts and charsets become

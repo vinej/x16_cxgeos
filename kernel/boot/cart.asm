@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/boot/cart.asm -- the cartridge boot stub (ROM bank 32)
+; CXRF :: kernel/boot/cart.asm -- the cartridge boot stub (ROM bank 32)
 ; =====================================================================
 ; The cartridge counterpart to AUTOBOOT.X16 (kernel/boot/auto.asm). After
 ; the X16 finishes hardware init the KERNAL checks ROM bank 32 for the
@@ -33,7 +33,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 CX_SYSFONT_BANK = 1             ; the boot half of cx_init's contract
 
@@ -41,6 +41,15 @@ CX_SYSFONT_BANK = 1             ; the boot half of cx_init's contract
 .import __CONT_LOAD__, __CONT_RUN__, __CONT_SIZE__
 .import __RESIMG_LOAD__, __RESIMG_SIZE__
 .import __FONTIMG_LOAD__, __FONTIMG_SIZE__
+
+; -D CART_APP: a standalone cartridge with one app baked into ROM bank 37
+; (cart_app.cfg). The stub runs it straight from ROM -- no SD, no shell.
+CX_APP_BASE = $0801             ; where every CXRF app is built and runs
+.ifdef CART_APP
+.import __APPIMG_LOAD__, __APPIMG_SIZE__
+CART_APP_BANK = 37              ; the app's CXA image, at $C000 in this ROM bank
+appentry = $08                  ; its CXAP entry vector, read before ROM_BANK 0
+.endif
 
 ; copy pointers -- KERNAL r0-r2, all scratch at boot
 cpsrc = $02
@@ -167,11 +176,15 @@ cont
     jsr doinit                  ; cx_init, the vector at $8008
     bcs nofont                  ; carry: it would not accept the font
 
+.ifdef CART_APP
+    jmp launch_cart_app         ; standalone: run the app baked into ROM bank 37
+.else
     lda #<s_autorun             ; hand off like auto.asm: AUTORUN if the SD
     ldx #>s_autorun             ; has one, else cx_exit == "go to the shell"
     ldy #s_autorun_len
     jsr cx_app_load
     jmp cx_exit
+.endif
 
 doinit
     jmp ($8008)
@@ -239,8 +252,72 @@ cpmsg                           ; A/X = a NUL string, then stop
 cxos       .byte "CXOS"
 s_autorun  .byte "AUTORUN.CXA"
 s_autorun_len = * - s_autorun
-s_nok      .byte $0D, "CXGEOS CART: BAD KERNEL IMAGE.", $0D, 0
-s_nof      .byte $0D, "CXGEOS CART: FONT REFUSED.", $0D, 0
+s_nok      .byte $0D, "CXRF CART: BAD KERNEL IMAGE.", $0D, 0
+s_nof      .byte $0D, "CXRF CART: FONT REFUSED.", $0D, 0
+
+.ifdef CART_APP
+; ---------------------------------------------------------------------
+; launch_cart_app -- copy the baked app's payload out of ROM bank 37 to
+; $0801 and jump its entry. A fresh cartridge boot has no prior app to
+; tear down (no events, mouse or sprites live yet), so the loader's
+; finalize is unnecessary here -- a clean app ZP and an empty stack, the
+; way cx_app_load leaves them, is all the app is owed. Runs from low RAM
+; (CONT), so it may page ROM_BANK; the bank-32 fcopy is gone by now. It
+; sits at the end so the front's short branches to badkernel/nofont are
+; not pushed out of reach.
+; ---------------------------------------------------------------------
+launch_cart_app
+    lda #CART_APP_BANK
+    sta ROM_BANK                ; the app's CXA sits at $C000 in bank 37
+    lda __APPIMG_LOAD__+6       ; its CXAP entry vector (header bytes 6-7)
+    sta appentry
+    lda __APPIMG_LOAD__+7
+    sta appentry+1
+    lda #<(__APPIMG_LOAD__+34)  ; src: past the 32-byte header + 2-byte PRG addr
+    sta cpsrc
+    lda #>(__APPIMG_LOAD__+34)
+    sta cpsrc+1
+    lda #<CX_APP_BASE           ; dst: $0801
+    sta cpdst
+    lda #>CX_APP_BASE
+    sta cpdst+1
+    lda #<(__APPIMG_SIZE__-34)  ; len: the CXA minus its header and PRG address
+    sta cplen
+    lda #>(__APPIMG_SIZE__-34)
+    sta cplen+1
+    ldy #0                      ; a forward memcpy, inline (fcopy is paged out)
+    ldx cplen+1
+    beq @rem
+@full
+    lda (cpsrc),y
+    sta (cpdst),y
+    iny
+    bne @full
+    inc cpsrc+1
+    inc cpdst+1
+    dex
+    bne @full
+@rem
+    ldx cplen
+    beq @run
+@r
+    lda (cpsrc),y
+    sta (cpdst),y
+    iny
+    dex
+    bne @r
+@run
+    stz ROM_BANK                ; the KERNAL back at $C000-$FFFF
+    ldx #$1F                    ; a clean app ZP ($60-$7F)
+@zp
+    stz $60,x
+    dex
+    bpl @zp
+    ldx #$FF                    ; an empty stack -- the app owns the machine
+    txs
+    cli
+    jmp (appentry)
+.endif
 
 ; ---------------------------------------------------------------------
 ; the payload, laid into ROM by cart.cfg. The resident carries its own
@@ -263,3 +340,8 @@ s_nof      .byte $0D, "CXGEOS CART: FONT REFUSED.", $0D, 0
 
 .segment "BANKS2_HI"
     .incbin "build/CXBANKS2.BIN", $4000, $4000
+
+.ifdef CART_APP
+.segment "APPIMG"               ; the baked app (build.ps1 -App staged it here)
+    .incbin "build/CARTAPP.CXA"
+.endif

@@ -1,8 +1,8 @@
 ; Prog8
 ; =====================================================================
-; CXGEOS :: apps/smoke_prog8/smoke.p8 -- the Prog8 SDK smoke test
+; CXRF :: apps/smoke_prog8/smoke.p8 -- the Prog8 SDK smoke test
 ; =====================================================================
-; Proves the GENERATED Prog8 binding (sdk/include_prog8/cxgeos.p8) drives
+; Proves the GENERATED Prog8 binding (sdk/include_prog8/cxrf.p8) drives
 ; the kernel through the jump table. Prints a start marker, makes a spread
 ; of calls through the binding -- register-only extsubs and the block
 ; asmsub shims -- prints an OK marker, and exits to the shell. Headless:
@@ -11,10 +11,10 @@
 ; =====================================================================
 
 %import syslib
-%import cxgeos
+%import cxrf
 %zeropage basicsafe
-%option no_sysinit      ; REQUIRED: a CXGEOS app is a guest; don't reset the machine (see cxgeos.p8)
-%zpreserved $02,$5f     ; REQUIRED: keep Prog8 vars out of the kernel's zp (see cxgeos.p8)
+%option no_sysinit      ; REQUIRED: a CXRF app is a guest; don't reset the machine (see cxrf.p8)
+%zpreserved $02,$5f     ; REQUIRED: keep Prog8 vars out of the kernel's zp (see cxrf.p8)
 
 main {
     ; the headless markers as explicit ASCII bytes (a number is not

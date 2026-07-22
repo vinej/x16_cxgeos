@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/ui/region.asm -- the region stack
+; CXRF :: kernel/ui/region.asm -- the region stack
 ; =====================================================================
 ; A region is a rectangle with a handler: "while I am on top, mouse
 ; events inside me are mine." Strict LIFO, CX_RG_MAX deep -- a menu

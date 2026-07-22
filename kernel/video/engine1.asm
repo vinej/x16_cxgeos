@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/engine1.asm -- mode 1: 320x240 @ 8bpp (256c)
+; CXRF :: kernel/video/engine1.asm -- mode 1: 320x240 @ 8bpp (256c)
 ; =====================================================================
 ; The second engine image behind the graphics port: the fixed vector,
 ; thin argument adapters, and x16lib's 8bpp bitmap module, compiled to

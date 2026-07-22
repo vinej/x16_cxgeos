@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/event/event.asm -- the heartbeat
+; CXRF :: kernel/event/event.asm -- the heartbeat
 ; =====================================================================
 ; Everything the user does arrives here first. A raster interrupt at
 ; scanline 0 samples the mouse, decodes its button edges, drains the
@@ -146,7 +146,7 @@ ev_init
 
     ; Remember the raster-line handler already installed, if any. A game
     ; that owns the IRQ for smooth motion installs its own line handler,
-    ; then calls cx_ev_init to borrow CXGEOS's events for a dialog; the
+    ; then calls cx_ev_init to borrow CXRF's events for a dialog; the
     ; single line slot below is about to be ours, so save theirs and let
     ; cx_ev_stop hand it back (kernel/event/event.asm ev_suspend).
     lda irq_line_vec
@@ -204,7 +204,7 @@ ev_suspend
 ; around a borrowed dialog. The handler runs inside the IRQ -- A/X/Y and
 ; the VERA address port are saved around it -- so keep it short and end it
 ; with rts. Hooking the line also chains the KERNAL IRQ, so GETIN and the
-; DOS keep working during play without CXGEOS's events.
+; DOS keep working during play without CXRF's events.
 ; ---------------------------------------------------------------------
 ev_raster
     cpx #0

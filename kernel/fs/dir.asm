@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/fs/dir.asm -- reading a directory
+; CXRF :: kernel/fs/dir.asm -- reading a directory
 ; =====================================================================
 ; CMDR-DOS hands a directory back as a BASIC-program listing when you
 ; OPEN "$": a load address, then one "line" per entry -- a next-line

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: spikes/spike_b.asm -- Phase 0 risk spike B
+; CXRF :: spikes/spike_b.asm -- Phase 0 risk spike B
 ; =====================================================================
 ; The project-critical number: how fast can we blit a proportional-font
 ; glyph into the 640x480@2bpp framebuffer at an ARBITRARY x position?
@@ -39,7 +39,7 @@ FB_HALF     = 38400
 ; band boundary at y=120, so transparency shows over two backgrounds
 ROW_BASE    = 116 * FB_STRIDE
 
-; spike-private zero page (CXGEOS app space $60-$7F)
+; spike-private zero page (CXRF app space $60-$7F)
 STR_PTR     = $60
 BENCH_T0    = $62
 REP         = $64
@@ -467,7 +467,7 @@ print_str
 
 dump_buf  .res 40, 0
 
-sb_banner .byte $0D, "CXGEOS SPIKE B: 2BPP GLYPH BLIT", $0D, 0
+sb_banner .byte $0D, "CXRF SPIKE B: 2BPP GLYPH BLIT", $0D, 0
 sb_mask   .byte "MASK1600 ", 0
 sb_opaq   .byte "OPAQ1600 ", 0
 sb_jf     .byte " JF", $0D, 0

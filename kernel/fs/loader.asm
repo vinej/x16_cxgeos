@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/fs/loader.asm -- cx_app_load, the way an app starts
+; CXRF :: kernel/fs/loader.asm -- cx_app_load, the way an app starts
 ; =====================================================================
 ; A CXAP is a 32-byte header in front of an ordinary PRG -- see
 ; docs/formats.md. The header exists so that any of the twelve
@@ -238,7 +238,7 @@ cxl_fatal
     bra @halt
 
 cxl_sig   .byte "CXAP"
-cxl_dead  .byte $0D, "CXGEOS: A LOAD DIED MID-STREAM.", $0D
+cxl_dead  .byte $0D, "CXRF: A LOAD DIED MID-STREAM.", $0D
           .byte "RESET THE MACHINE.", $0D, 0
 
 ; The shell's name lives with the loader because cx_exit is a load: an
@@ -247,4 +247,3 @@ cxl_dead  .byte $0D, "CXGEOS: A LOAD DIED MID-STREAM.", $0D
 ; can CD into a folder -- an app quit down there must still find home.
 cxl_shell     .byte "//:SHELL.CXA"
 CXL_SHELL_LEN = * - cxl_shell
-cxl_noshell   .byte $0D, "CXGEOS: NO SHELL.CXA ON THIS DISK.", $0D, 0

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/filer/filer.asm -- the desktop (Phase 6)
+; CXRF :: apps/filer/filer.asm -- the desktop (Phase 6)
 ; =====================================================================
 ; The file browser that IS the shell: boot lands here, and cx_exit
 ; comes back here. The directory arrives through cx_dir_*, lives in a
@@ -17,7 +17,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 EV_KEY    = 5
 EV_MENU   = 7
@@ -1431,9 +1431,9 @@ theme_night                     ; 0 near-black paper, 1 medium-blue
     .byte $01, $00,  $48, $02,  $56, $03,  $BC, $0A   ; highlight
     .byte 0, 1, 3, 0
 
-s_marker  .byte "CXGEOS SHELL", $0D, 0
-s_title   .byte "CXGEOS -- dbl-click opens (or UP/DOWN+RETURN), TAB menu, ESC quits", 0
-s_m0      .byte "CXGEOS", 0
+s_marker  .byte "CXRF SHELL", $0D, 0
+s_title   .byte "CXRF -- dbl-click opens (or UP/DOWN+RETURN), TAB menu, ESC quits", 0
+s_m0      .byte "CXRF", 0
 s_m1      .byte "File", 0
 s_m2      .byte "Themes", 0
 s_m3      .byte "View", 0
@@ -1448,9 +1448,9 @@ s_cpy     .byte "copy", 0
 s_del     .byte "delete", 0
 s_day     .byte "daylight", 0
 s_night   .byte "midnight", 0
-s_about   .byte "CXGEOS -- a GEOS-inspired desktop for the X16.", 0
+s_about   .byte "CXRF -- a GEOS-inspired desktop for the X16.", 0
 s_ok      .byte "ok", 0
-s_bad     .byte "that is not a CXGEOS app.", 0
+s_bad     .byte "that is not a CXRF app.", 0
 s_noda    .byte "that desk accessory would not open.", 0
 s_shname  .byte "SHELL.CXA"
 s_isdesk  .byte "this is the desktop -- you are already in it.", 0

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/gallery/gallery.asm -- the widget gallery (Phase 5b)
+; CXRF :: apps/gallery/gallery.asm -- the widget gallery (Phase 5b)
 ; =====================================================================
 ; The milestone app: a button, two checkboxes, a radio group of three,
 ; and a scrollbar, all drawn and driven by the kernel's widget toolkit
@@ -13,7 +13,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 EV_KEY    = 5
 EV_MENU   = 7

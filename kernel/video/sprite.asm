@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/sprite.asm -- VERA hardware sprites, in bank 19
+; CXRF :: kernel/video/sprite.asm -- VERA hardware sprites, in bank 19
 ; =====================================================================
 ; The x16lib sprite module rides bank 19 behind resident far-call stubs,
 ; sharing the audio/sprites theme bank with kernel/audio/audio.asm

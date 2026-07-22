@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""mkcxap.py -- wrap a PRG as a CXGEOS app (.CXA).
+"""mkcxap.py -- wrap a PRG as a CXRF app (.CXA).
 
 A CXAP is a 32-byte header in front of an ordinary PRG (docs/formats.md).
 That is the whole trick: every one of the twelve toolchains already
-emits a working PRG at $0801, so every one of them can produce a CXGEOS
+emits a working PRG at $0801, so every one of them can produce a CXRF
 app without touching a linker script. This tool prepends the header.
 
 The entry point defaults to the address in the PRG's own BASIC stub --

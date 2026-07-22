@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/cpanel/cpanel.asm -- the control panel (Phase 6)
+; CXRF :: apps/cpanel/cpanel.asm -- the control panel (Phase 6)
 ; =====================================================================
 ; Settings that belong to the machine, not to an app: the theme, and
 ; the real-time clock. Two radio buttons recolour the desktop live;
@@ -15,7 +15,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "asmsdk/ca65/cxgeos.inc"
+.include "asmsdk/ca65/cxrf.inc"
 
 p4ptr = $60                     ; app zero page: parse4's buffer walker
 

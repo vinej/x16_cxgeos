@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/tiles.asm -- mode 2: the tile engine
+; CXRF :: kernel/video/tiles.asm -- mode 2: the tile engine
 ; =====================================================================
 ; The third personality behind the graphics port, and the one games
 ; want: two VERA tile layers at 320x240 with hardware scrolling, plus

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: test/runner.asm -- on-target regression tests
+; CXRF :: test/runner.asm -- on-target regression tests
 ; =====================================================================
 ;   .\build.ps1 -Test
 ;
@@ -9,7 +9,7 @@
 ; headless under -testbench (nothing here needs VSYNC).
 ;
 ; The 2bpp engine itself is tested where it lives -- the x16_library
-; gfx2 module and its runner2 suite. These tests pin the CXGEOS side:
+; gfx2 module and its runner2 suite. These tests pin the CXRF side:
 ; the vendored module boots our screen, and the framebuffer geometry
 ; the OS is built around holds.
 ; =====================================================================
@@ -706,7 +706,7 @@ test_dr_full
 @f9 .word 400, 400, 10, 10
 
 ; ---------------------------------------------------------------------
-; GFX2_INIT -- the vendored module programs the CXGEOS screen mode
+; GFX2_INIT -- the vendored module programs the CXRF screen mode
 ; ---------------------------------------------------------------------
 test_gfx2_init
     jsr gfx2_init
@@ -1756,7 +1756,7 @@ t_game_irq                      ; a stand-in game handler; never runs here
 
 
 ; =====================================================================
-; the ABI (abi/cxgeos.abi -> kernel/resident/jumptab.asm).
+; the ABI (abi/cxrf.abi -> kernel/resident/jumptab.asm).
 ;
 ; Here the table is linked into the test PRG rather than pinned at
 ; $8000, so these check what that placement does not: that the header

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/ui/icon.asm -- the icon sheet and its renderer
+; CXRF :: kernel/ui/icon.asm -- the icon sheet and its renderer
 ; =====================================================================
 ; A file's icon is one of a small built-in set (folder, app, font, ...),
 ; 24x24 in the port's 2bpp format (tools/icongen.py builds the sheet).

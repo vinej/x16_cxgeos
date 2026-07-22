@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/m1ui/m1ui.asm -- menu + widgets in mode 1 (8bpp)
+; CXRF :: apps/m1ui/m1ui.asm -- menu + widgets in mode 1 (8bpp)
 ; =====================================================================
 ; The full toolkit in the 320x240 256-colour bitmap: a menu bar and a
 ; panel of widgets, drawn by the same engines that paint the desktop --
@@ -10,7 +10,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 WG_BUTTON = 0
 WG_CHECK  = 1

@@ -1,16 +1,16 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/gameloop/gameloop.asm -- a game owns the IRQ; a dialog
+; CXRF :: apps/gameloop/gameloop.asm -- a game owns the IRQ; a dialog
 ; borrows it
 ; =====================================================================
 ; The pattern a game wants: it installs its OWN raster-line handler for
 ; smooth, frame-locked motion and reads input directly, never starting
-; CXGEOS's event sampler. To ask the user something -- a pause menu, an
+; CXRF's event sampler. To ask the user something -- a pause menu, an
 ; options panel -- it borrows the events for the length of one modal
 ; dialog and then takes the raster line back:
 ;
 ;     game loop, game_irq animating, GETIN for input
-;     cx_ev_init      ; CXGEOS takes the line + samples (game_irq saved)
+;     cx_ev_init      ; CXRF takes the line + samples (game_irq saved)
 ;     cx_panel        ; a modal panel the kernel's IRQ drives
 ;     cx_ev_stop      ; the line returns to game_irq; the game resumes
 ;
@@ -22,7 +22,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 KEY_ESC   = $1B
 KEY_SPACE = $20
@@ -62,7 +62,7 @@ main
     jsr drawtext
 
     ; --- take the raster line. This handler is the game's, and runs every
-    ; frame whether CXGEOS's events do or not. cx_ev_raster installs it at
+    ; frame whether CXRF's events do or not. cx_ev_raster installs it at
     ; scanline 0 through the kernel's own IRQ, and chains the KERNAL IRQ so
     ; GETIN keeps working -- so cx_ev_init below can save and restore it.
     stz gtick
@@ -72,17 +72,17 @@ main
 
 gloop
     jsr GETIN                   ; KERNAL: A = a key, or 0. The keyboard is
-    cmp #KEY_SPACE              ; filled by the chained KERNAL IRQ; no CXGEOS
+    cmp #KEY_SPACE              ; filled by the chained KERNAL IRQ; no CXRF
     beq open_config            ; events are running during play
     cmp #KEY_ESC
     beq do_exit
     bra gloop
 
-; --- borrow CXGEOS's events for one modal panel, then take the line back.
+; --- borrow CXRF's events for one modal panel, then take the line back.
 ; This is the whole feature: the game paused (its IRQ off), a dialog the
 ; kernel's IRQ serves, the game resumed exactly where it froze.
 open_config
-    jsr cx_ev_init              ; CXGEOS takes the line + samples input;
+    jsr cx_ev_init              ; CXRF takes the line + samples input;
                                 ; game_irq is saved and the cycle freezes
     lda #1
     jsr cx_mouse_show           ; the pointer, so the buttons can be clicked

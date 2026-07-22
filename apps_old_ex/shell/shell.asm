@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/shell/shell.asm -- the Phase 4/5 stub shell
+; CXRF :: apps/shell/shell.asm -- the Phase 4/5 stub shell
 ; =====================================================================
 ; The first program the boot chain lands in, and the first one that
 ; looks like an operating system: a menu bar, a pointer, drop-downs
@@ -13,7 +13,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 EV_KEY  = 5                     ; ABI event numbering
 EV_MENU = 7
@@ -80,7 +80,7 @@ say
 ; ---------------------------------------------------------------------
 on_menu
     lda X16_P2                  ; which menu
-    beq @sys                    ; 0: CXGEOS
+    beq @sys                    ; 0: CXRF
     cmp #2
     beq @theme                  ; 2: Themes
     lda X16_P1                  ; 1: Demos -- which item
@@ -224,7 +224,7 @@ theme_night                     ; pale ink on a deep blue-black
     .byte $01, $00,  $23, $01,  $56, $03,  $BC, $0A
     .byte 0, 1, 3, 0
 
-s_m0      .byte "CXGEOS", 0
+s_m0      .byte "CXRF", 0
 s_m1      .byte "Demos", 0
 s_m2      .byte "Themes", 0
 s_i_about .byte "about this machine", 0
@@ -236,11 +236,11 @@ s_i_day   .byte "daylight", 0
 s_i_night .byte "midnight", 0
 s_i_ok    .byte "ok", 0
 
-s_marker  .byte "CXGEOS SHELL", $0D, 0
-s_title   .byte "CXGEOS 0.1", 0
+s_marker  .byte "CXRF SHELL", $0D, 0
+s_title   .byte "CXRF 0.1", 0
 s_hint1   .byte "the menus up there work with the mouse.", 0
 s_hint2   .byte "keys work too: 1 and 2 launch the demos.", 0
-s_about   .byte "CXGEOS 0.1 -- a from-scratch, GEOS-inspired OS, on stock ROM.", 0
+s_about   .byte "CXRF 0.1 -- a from-scratch, GEOS-inspired OS, on stock ROM.", 0
 s_missing .byte "that app is not on this disk.                                        ", 0
 s_f1      .byte "HELLO1.CXA"
 s_f1_len = * - s_f1

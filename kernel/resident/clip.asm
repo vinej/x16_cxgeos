@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/resident/clip.asm -- the clipboard
+; CXRF :: kernel/resident/clip.asm -- the clipboard
 ; =====================================================================
 ; One typed entry, up to ~32KB, in banks 10-13. Put replaces whatever
 ; was there; get copies out up to the caller's capacity; type answers

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fontconv.py -- BDF to CXF, the CXGEOS font format.
+"""fontconv.py -- BDF to CXF, the CXRF font format.
 
     python tools/fontconv.py fonts/pxl8.bdf fonts/pxl8.cxf
     python tools/fontconv.py --selftest
@@ -11,7 +11,7 @@ which is why glyph ink cannot exceed 8 pixels -- the advance may be
 narrower, and that is what makes the font proportional.
 
 Only the mechanical part of BDF is read: the encoding, the advance, the
-bounding box and the bitmap. BDF is a big format and CXGEOS wants none
+bounding box and the bitmap. BDF is a big format and CXRF wants none
 of the rest of it.
 
 The one subtlety is vertical placement. A BDF glyph's bitmap is not

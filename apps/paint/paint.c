@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/paint/paint.c -- a small paint program (llvm-mos)
+ * CXRF :: apps/paint/paint.c -- a small paint program (llvm-mos)
  * =====================================================================
  * The mouse example: freehand drawing, plus a saved picture. Two tools
  * -- a 1-pixel PENCIL and a chunky ERASER -- both driven by dragging the
@@ -29,7 +29,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 /* the canvas -- width a multiple of 4 (four pixels a byte at 2bpp) */

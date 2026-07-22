@@ -1,8 +1,8 @@
 ; ca65
 ; =====================================================================
-; CXGEOS asmsdk (ca65) -- friendly macros over the generated ABI
+; CXRF asmsdk (ca65) -- friendly macros over the generated ABI
 ; =====================================================================
-; The generated include (sdk/include_ca65/cxgeos.inc) is deliberately
+; The generated include (sdk/include_ca65/cxrf.inc) is deliberately
 ; low-level: it gives you the slot ADDRESSES, and you hand-load the
 ; X16_P0..P7 parameter block before every jsr. This layer is the
 ; assembler parallel of csdk/cxsdk.h: named one-line macros, the shared
@@ -12,7 +12,7 @@
 ; Include it AFTER x16.asm (the macros use X16_P0..P7):
 ;
 ;     .include "x16.asm"
-;     .include "asmsdk/ca65/cxgeos.inc"
+;     .include "asmsdk/ca65/cxrf.inc"
 ;
 ; THREE tiers, no name clashes:
 ;   cx_*   (lower)  the ABI slot ADDRESSES  -- generated, pulled in below
@@ -30,12 +30,12 @@
 ; letter.
 ; =====================================================================
 
-.ifndef CXGEOS_ASMSDK
-CXGEOS_ASMSDK = 1
+.ifndef CXRF_ASMSDK
+CXRF_ASMSDK = 1
 
 ; the slot addresses (cx_version = $8010, ...). This is the ONE place the
 ; generated equates are pulled in; converted apps include only this file.
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 ; =====================================================================
 ; constants  (mirror csdk/cxsdk.h; CX_* never clashes with the lower-case
@@ -897,4 +897,4 @@ CX_EVS_SPRCOL = 4
     .byte (paper), (hi), (frame), 0
 .endmacro
 
-.endif ; CXGEOS_ASMSDK
+.endif ; CXRF_ASMSDK

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/resident/core.asm -- the resident odds and ends
+; CXRF :: kernel/resident/core.asm -- the resident odds and ends
 ; =====================================================================
 ; The routines that are the kernel itself rather than one of its
 ; subsystems, and that the ABI's first section names.
@@ -153,14 +153,13 @@ cx_do_exit
     lda #<cxl_shell
     ldx #>cxl_shell
     ldy #CXL_SHELL_LEN
-    jsr cxl_load                ; returns only on failure
+    jsr cxl_load                ; returns only on failure: no SHELL.CXA on the
+                                ; disk, or no disk at all (a standalone cart)
 
-    ldx #0                      ; no shell: say so where it can be read,
-@msg                            ; and stop -- there is nothing to run
-    lda cxl_noshell,x
-    beq @halt
-    jsr CHROUT
-    inx
-    bra @msg
-@halt
-    bra @halt
+    jsr CINT                    ; no shell -- hand the machine to BASIC. CINT
+                                ; ($FF81) rebuilds the stock text screen the 2bpp
+                                ; desktop clobbered: the charset upload, layer
+                                ; setup and default palette, so BASIC is legible.
+    sec                         ; ENTER_BASIC ($FF47), carry set = cold start: a
+    jmp ENTER_BASIC             ; clean READY. Not a reset, so a cartridge's
+                                ; "CX16" auto-boot does not re-fire

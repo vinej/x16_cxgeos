@@ -1,6 +1,6 @@
 ; dasm
 ; =====================================================================
-; CXGEOS :: apps/smoke_dasm/smoke.asm -- the dasm SDK smoke test
+; CXRF :: apps/smoke_dasm/smoke.asm -- the dasm SDK smoke test
 ; =====================================================================
 ; Proves the GENERATED asmsdk/dasm layer assembles with the real dasm and
 ; drives the kernel through the jump table. dasm has no linker; -f1 emits
@@ -11,7 +11,7 @@
 
     processor 65c02
     include "x16.asm"                   ; from src_dasm: X16_P0.., CHROUT, basic_stub
-    include "asmsdk/dasm/cxgeos.inc"    ; the generated friendly layer
+    include "asmsdk/dasm/cxrf.inc"    ; the generated friendly layer
 
     org $0801
     basic_stub

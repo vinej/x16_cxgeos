@@ -21,7 +21,7 @@ opts in — the defaults stay exactly as they are today.
 **Decided out of scope (this round):** *no new bitmap depths for mode 1.* At
 320×240 the VRAM-footprint reason for low bpp evaporates (even 8bpp is only
 75 KB), 8bpp is the simplest and often fastest to draw (1 byte = 1 pixel, no
-masking), and CXGEOS already has it. 4bpp would be a whole new pixel engine for
+masking), and CXRF already has it. 4bpp would be a whole new pixel engine for
 no payoff at this resolution; 2bpp has only narrow niche uses. So **mode 1 stays
 8bpp-only** — the bpp knob that actually earns its keep is the tile one, because
 tiles are where VRAM is contended (the 64 KB 8bpp set). See §5 for the reasoning.
@@ -79,7 +79,7 @@ natural boundary between the two zones.
 |---|---|---|---|
 | `$13000–$130FF` | 256 B | KERNAL mouse pointer sprite | **yes** (driver) |
 | `$13100–$1DFFF` | ~44 KB | bitmap-mode **save-unders** / tile-mode **free scratch** (double-buffer shadows, extra sprite frames) | no |
-| `$1E000–$1EFFF` | 4 KB | CXGEOS sprite images (cursors, drag outlines) | no |
+| `$1E000–$1EFFF` | 4 KB | CXRF sprite images (cursors, drag outlines) | no |
 | `$1F000–$1F7FF` | 2 KB | charset (text/tile-text overlays + panic console) | semi |
 | `$1F800–$1F9BF` | 448 B | VERA FX scratch | no |
 | `$1F9C0–$1F9FF` | 64 B | PSG audio registers | **yes** (HW) |
@@ -158,7 +158,7 @@ directly; it feeds the stage.
 
 ### 3.2 What's free for an app
 
-CXGEOS reserves banks 0–19 ([banks.inc](../kernel/resident/banks.inc):
+CXRF reserves banks 0–19 ([banks.inc](../kernel/resident/banks.inc):
 `CX_APP_BANK_FLOOR = 20`). Apps own bank 20 upward:
 
 | machine RAM | app banks | free |
@@ -341,7 +341,7 @@ per-frame software animation — that's what mode 2's tiles + sprites are for).
   640×480 doesn't apply. 8bpp is then the natural pick: simplest to draw (1
   byte = 1 pixel, no read-modify-write masking), 256 colors "for free" since
   the VRAM is there, and it already exists. **4bpp** would need a brand-new
-  nibble-packing engine (~a second `ov1`-sized image; no code to reuse — CXGEOS
+  nibble-packing engine (~a second `ov1`-sized image; no code to reuse — CXRF
   only has 2bpp `gfx2` and 8bpp `ov1`) for essentially no benefit here. **2bpp**
   is cheap to add later (reuse `gfx2` with a 320-wide init + a `cx_minfo` row),
   but its only real wins — double-buffering and per-frame full-screen software

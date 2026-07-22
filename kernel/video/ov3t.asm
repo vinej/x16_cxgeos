@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/ov3t.asm -- mode-2 tile-text port engine (OV3T)
+; CXRF :: kernel/video/ov3t.asm -- mode-2 tile-text port engine (OV3T)
 ; =====================================================================
 ; A FIFTH graphics-port image, and the one that turns the tile mode into
 ; a place a dialog can live. It is NOT a mode: cx_vmode stays 2 (tiles)

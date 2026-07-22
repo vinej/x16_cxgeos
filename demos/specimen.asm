@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: demos/specimen.asm -- the Phase 2 milestone
+; CXRF :: demos/specimen.asm -- the Phase 2 milestone
 ; =====================================================================
 ; The system font on the real screen: a type specimen, a paragraph
 ; reflowed at two measured widths, and the number the phase exists to
@@ -328,7 +328,7 @@ print_str
     rts
 
 ; ---------------------------------------------------------------------
-sp_banner  .byte $0D, "CXGEOS SPECIMEN: PXL8", $0D, 0
+sp_banner  .byte $0D, "CXRF SPECIMEN: PXL8", $0D, 0
 sp_bench   .byte "PANGRAM32 ", 0
 sp_jf      .byte " JF", $0D, 0
 sp_skip    .byte "SKIP TIMER DEAD", $0D, 0

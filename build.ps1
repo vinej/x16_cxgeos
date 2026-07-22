@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Assemble a CXGEOS program (kernel, spike, test or app) and optionally
+    Assemble a CXRF program (kernel, spike, test or app) and optionally
     run it. Follows the x16_library build_ca65.ps1 harness contract:
     -Test greps CHROUT output for PASS/FAIL/SKIP/DONE lines.
 
@@ -19,7 +19,8 @@ param(
     [switch]$Apps,         # build AUTOBOOT.X16, the shell and the hellos
     [switch]$Image,        # ...and stage a bootable SD root in build\sdroot
     [switch]$Boot,         # ...and boot it, windowed, from the staged root
-    [switch]$Cart,         # build the cartridge image (ROM banks 32-34); with -Boot, run it via -cartbin
+    [switch]$Cart,         # build the cartridge image (ROM banks 32-36); with -Boot, run it via -cartbin
+    [string]$App = "",     # with -Cart: bake this .CXA into the cart (ROM bank 37) as a STANDALONE, no-SD appliance -- e.g. -Cart -App build\PAINT.CXA
     [int]$Scale = 1,
     [int]$TimeoutSec = 90
 )
@@ -82,20 +83,40 @@ function Build-KernelImage {
 # CXKERNEL.PRG, CXBANKS.BIN, CXBANKS2.BIN and the font by CWD-relative path,
 # so this must run after Build-KernelImage and from the repo root. Output is
 # a raw 80 KB image (ROM banks 32-36) that x16emu -cartbin loads at bank 32.
-function Build-CartImage {
+function Build-CartImage([string]$appCxa = "") {
     $o   = Join-Path $build "cart.o"
-    $bin = Join-Path $build "cxgeos_cart.bin"
-    Write-Host "ca65  kernel\boot\cart.asm -> $bin"
+    $bin = Join-Path $build "cxrf_cart.bin"
+    $cfg = Join-Path $root "kernel\boot\cart.cfg"
+    $defs = @()
+    if ($appCxa) {
+        # Standalone: bake the app's CXA into ROM bank 37. The stub copies its
+        # payload to $0801 and runs it -- no SD card in the loop. The image is
+        # named after the app so it stands apart from the plain framework cart.
+        if (-not (Test-Path $appCxa)) { Fail "cart -App: '$appCxa' not found" }
+        $appbase = ([IO.Path]::GetFileNameWithoutExtension($appCxa)).ToLower()
+        $bin = Join-Path $build "cxrf_cart_$appbase.bin"
+        $cxa = Join-Path $build "CARTAPP.CXA"
+        Copy-Item $appCxa $cxa -Force
+        if ((Get-Item $cxa).Length -gt 0x4000) {
+            Fail "cart -App: '$appCxa' is $((Get-Item $cxa).Length) bytes; the baked-in app must fit one 16 KB ROM bank"
+        }
+        $cfg = Join-Path $root "kernel\boot\cart_app.cfg"
+        $defs = @('-D', 'CART_APP=1')
+        Write-Host "ca65  kernel\boot\cart.asm (+ $([IO.Path]::GetFileName($appCxa)) baked into bank 37) -> $bin"
+    } else {
+        Write-Host "ca65  kernel\boot\cart.asm -> $bin"
+    }
     Push-Location $root
-    & $ca65 --cpu 65C02 -I $lib -I $root -o $o (Join-Path $root "kernel\boot\cart.asm")
+    & $ca65 --cpu 65C02 @defs -I $lib -I $root -o $o (Join-Path $root "kernel\boot\cart.asm")
     $ex = $LASTEXITCODE
     if ($ex -eq 0) {
-        & $ld65 -C (Join-Path $root "kernel\boot\cart.cfg") -o $bin $o
+        & $ld65 -C $cfg -o $bin $o
         $ex = $LASTEXITCODE
     }
     Pop-Location
     if ($ex -ne 0) { Fail "cart image build failed" }
-    Write-Host "      $((Get-Item $bin).Length) bytes (cart ROM banks 32-36)"
+    $topbank = 31 + [int]((Get-Item $bin).Length / 0x4000)
+    Write-Host "      $((Get-Item $bin).Length) bytes (cart ROM banks 32-$topbank)"
     return $bin
 }
 
@@ -129,7 +150,7 @@ if ($single) {
 
 # --- run the emulator and capture CHROUT output until a pattern --------
 function Invoke-Emulator([string[]]$emuArgs, [int]$timeout, [string]$until, [string]$tag) {
-    $stdin  = Join-Path $env:TEMP "cxgeos-empty.in"
+    $stdin  = Join-Path $env:TEMP "cxrf-empty.in"
     $stdout = Join-Path $build "$tag-output.txt"
     [IO.File]::WriteAllText($stdin, "")
     if (Test-Path $stdout) { Remove-Item $stdout -Force }
@@ -511,7 +532,7 @@ function Stage-SdRoot {
 
 if ($Test) {
     # The ABI first: sdk/ and the jump table are generated from
-    # abi/cxgeos.abi, and a suite that passed against a stale sdk/ would
+    # abi/cxrf.abi, and a suite that passed against a stale sdk/ would
     # be testing something no app is built with. --check writes nothing
     # and fails if anything would change.
     $py = Get-Command python -ErrorAction SilentlyContinue
@@ -537,7 +558,7 @@ if ($Test) {
         $gendir = Join-Path $build "asmsdk_gen\asmsdk\ca65"
         New-Item -ItemType Directory -Force -Path $gendir | Out-Null
         & $py.Source (Join-Path $root "abi\asmsdk.py") ca65 |
-            Set-Content -Encoding ascii (Join-Path $gendir "cxgeos.inc")
+            Set-Content -Encoding ascii (Join-Path $gendir "cxrf.inc")
         if ($LASTEXITCODE -ne 0) { Fail "asmsdk: ca65 generation failed" }
         $cover = Join-Path $root "test\asmsdk_cover.asm"
         & $ca65 --cpu 65C02 -I $lib -I $root -o (Join-Path $build "cover_hand.o") $cover
@@ -610,7 +631,7 @@ if ($Test) {
     if (-not (Test-Path $canary)) { Fail "test\canary\CANARY.CXA is missing -- the ABI freeze test needs the committed binary" }
     Copy-Item $canary (Join-Path $sdroot "AUTORUN.CXA")
 
-    $text = Invoke-Emulator @('-fsroot', $sdroot) $TimeoutSec '(?m)^CXGEOS SHELL' "boot"
+    $text = Invoke-Emulator @('-fsroot', $sdroot) $TimeoutSec '(?m)^CXRF SHELL' "boot"
     if ($text -notmatch '(?m)^CANARY OK') {
         if ($text -match '(?m)^CANARY FAILED') { Fail "boot smoke: the frozen canary FAILED against this kernel -- the ABI moved" }
         Fail "boot smoke: the canary never reported"
@@ -631,7 +652,7 @@ if ($Test) {
     # its GENERATED SDK variant, and prints its OK marker AFTER surviving a
     # spread of calls -- that marker (not the shell banner) is the success
     # signal, because a C app can leave the text cursor mid-line so the
-    # shell's "CXGEOS SHELL" is not at column 0 for the ^-anchored wait.
+    # shell's "CXRF SHELL" is not at column 0 for the ^-anchored wait.
     foreach ($sm in @(
         @{ cxa = "SMOKE64.CXA";   mk = "SMOKE 64TASS OK" },
         @{ cxa = "SMOKEACME.CXA"; mk = "SMOKE ACME OK" },
@@ -655,7 +676,7 @@ if ($Test) {
     }
     foreach ($h in $hellos) {
         Copy-Item (Join-Path $build $h.cxa) (Join-Path $sdroot "AUTORUN.CXA") -Force
-        $wait = if ($h.wait) { $h.wait } else { '(?m)^CXGEOS SHELL' }
+        $wait = if ($h.wait) { $h.wait } else { '(?m)^CXRF SHELL' }
         $text = Invoke-Emulator @('-fsroot', $sdroot) $TimeoutSec $wait "boot-$($h.cxa)"
         # not ^-anchored: -echo renders a control byte ahead of the text
         # as \X0F, so the marker is not at column 0
@@ -666,14 +687,14 @@ if ($Test) {
     # The SD-image path: fold the staged root into one FAT32 image and
     # boot it through -sdcard, the way a real card boots (the ROM's
     # CMDR-DOS reads AUTOBOOT.X16 off the FAT). No AUTORUN, so it lands
-    # straight in the desktop and "CXGEOS SHELL" alone proves the image.
+    # straight in the desktop and "CXRF SHELL" alone proves the image.
     Remove-Item (Join-Path $sdroot "AUTORUN.CXA") -Force -ErrorAction SilentlyContinue
-    $img = Join-Path $build "cxgeos_smoke.img"
+    $img = Join-Path $build "cxrf_smoke.img"
     $files = Get-ChildItem $sdroot -File | ForEach-Object { $_.FullName }
     & python (Join-Path $root "tools\mksd.py") $img @files | Out-Null
     if ($LASTEXITCODE) { Fail "boot smoke: mksd.py failed to build the image" }
-    $text = Invoke-Emulator @('-sdcard', $img) $TimeoutSec '(?m)^CXGEOS SHELL' "boot-sdcard"
-    if ($text -notmatch '(?m)^CXGEOS SHELL') { Fail "boot smoke: the SD image never reached the desktop" }
+    $text = Invoke-Emulator @('-sdcard', $img) $TimeoutSec '(?m)^CXRF SHELL' "boot-sdcard"
+    if ($text -notmatch '(?m)^CXRF SHELL') { Fail "boot smoke: the SD image never reached the desktop" }
     Remove-Item $img -Force -ErrorAction SilentlyContinue
     Write-Host "      boot: FAT32 image via -sdcard, desktop up" -ForegroundColor Green
 
@@ -684,8 +705,8 @@ if ($Test) {
     # ROM, apps still off the staged SD root.
     Write-Host "x16emu (boot smoke: cartridge -> kernel -> shell)"
     $cartbin = Build-CartImage
-    $text = Invoke-Emulator @('-cartbin', $cartbin, '-fsroot', $sdroot) $TimeoutSec '(?m)^CXGEOS SHELL' "boot-cart"
-    if ($text -notmatch '(?m)^CXGEOS SHELL') { Fail "boot smoke: the cartridge never reached the desktop" }
+    $text = Invoke-Emulator @('-cartbin', $cartbin, '-fsroot', $sdroot) $TimeoutSec '(?m)^CXRF SHELL' "boot-cart"
+    if ($text -notmatch '(?m)^CXRF SHELL') { Fail "boot smoke: the cartridge never reached the desktop" }
     Write-Host "      boot: cartridge via -cartbin, desktop up" -ForegroundColor Green
 
     # ---- the skew sentinels: a wrong SD set must refuse, loudly --------
@@ -719,7 +740,7 @@ if ($Apps -or $Image -or $Boot -or $Cart) {
     if ($Image) {
         # ...and fold the same files into one bootable FAT32 image, so a
         # real SD card (or -sdcard) boots identically to -fsroot.
-        $img = Join-Path $build "cxgeos_sd.img"
+        $img = Join-Path $build "cxrf_sd.img"
         $files = Get-ChildItem $sdroot -File | ForEach-Object { $_.FullName }
         & python (Join-Path $root "tools\mksd.py") $img @files
         if ($LASTEXITCODE) { throw "mksd.py failed" }
@@ -727,11 +748,11 @@ if ($Apps -or $Image -or $Boot -or $Cart) {
     }
     $cartbin = $null
     if ($Cart) {
-        # The same kernel in a cartridge (ROM banks 32-34). One SD card
-        # serves both: with the cart inserted its "CX16" auto-boot wins
-        # over AUTOBOOT.X16, so the kernel comes from ROM and the apps
-        # still come from the card.
-        $cartbin = Build-CartImage
+        # The same kernel in a cartridge (ROM banks 32-36). Without -App the
+        # cart's "CX16" auto-boot brings up the framework and runs AUTORUN.CXA
+        # (or the desktop) from the card. With -App the chosen app is baked
+        # into ROM bank 37 too, so the cartridge boots it with no SD at all.
+        $cartbin = Build-CartImage $App
         Write-Host "cart: $cartbin"
     }
     if ($Boot) {

@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/beep/beep.c -- the audio example (llvm-mos)
+ * CXRF :: apps/beep/beep.c -- the audio example (llvm-mos)
  * =====================================================================
  * The sound example: a PSG scale on voice 0, a held YM (FM) note, and a
  * PCM blip, then a key returns to the desktop. Shows the csdk audio calls
@@ -11,7 +11,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 /* a C-major-ish scale as PSG frequency words (Hz * 2.68435): C4..C5 */

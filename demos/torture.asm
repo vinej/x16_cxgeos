@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: demos/torture.asm -- the Phase 1 milestone demo
+; CXRF :: demos/torture.asm -- the Phase 1 milestone demo
 ; =====================================================================
 ; Every gfx2 primitive in one composite scene, timed. This is also the
 ; perf regression gate: docs/perf.md pins the SCENE4 number.
@@ -313,7 +313,7 @@ print_str
 
 IDX2      .byte 0
 
-tt_banner .byte $0D, "CXGEOS TORTURE: GFX2 COMPOSITE SCENE", $0D, 0
+tt_banner .byte $0D, "CXRF TORTURE: GFX2 COMPOSITE SCENE", $0D, 0
 tt_scene  .byte "SCENE4 ", 0
 tt_jf     .byte " JF", $0D, 0
 tt_skip   .byte "SKIP TIMER DEAD", $0D, 0

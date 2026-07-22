@@ -1,5 +1,5 @@
 # =====================================================================
-# CXGEOS :: abi/cxgeos.abi -- the jump table, and the only place it is
+# CXRF :: abi/cxrf.abi -- the jump table, and the only place it is
 # decided
 # =====================================================================
 # An app never links kernel code. It calls through a table of JMPs at a
@@ -259,14 +259,14 @@ version = 4
 
 #= events, cont. -- lending the IRQ to a game
 # A game wants the raster line for smooth, frame-locked motion, and reads
-# input directly (cx_joy_get, GETIN) rather than through CXGEOS's events.
+# input directly (cx_joy_get, GETIN) rather than through CXRF's events.
 # It installs a per-frame handler with cx_ev_raster and never starts the
 # sampler. To ask the user something it borrows the events for the length
 # of one modal dialog and then takes the line back:
 #
 #     cx_ev_raster(game_irq)   ; the game owns the raster line, scanline 0
 #     ... game loop: game_irq animates, GETIN / cx_joy_get for input ...
-#     cx_ev_init               ; borrow: CXGEOS takes the line and samples
+#     cx_ev_init               ; borrow: CXRF takes the line and samples
 #                              ;   (game_irq saved); the game is paused
 #     cx_panel / cx_dlg_alert  ; a modal dialog the kernel's IRQ drives
 #     cx_ev_stop               ; the line returns to game_irq; play resumes

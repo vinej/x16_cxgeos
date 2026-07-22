@@ -10,7 +10,7 @@
 ;       +xm_pal_set 1, $0F00
 ;       +xm_sprite_pos 0, 100, 50
 ;
-; instead of a dozen lda/sta lines. This is the same idea as the CXGEOS
+; instead of a dozen lda/sta lines. This is the same idea as the CXRF
 ; asmsdk cxm_* layer, adapted to this repo's conventions and generated
 ; the same way as everything else here (written for ACME; the six ports
 ; are produced by tools/acme2*sugar_py -- it is NOT in their SKIP set).

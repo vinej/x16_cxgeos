@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/tiles8/tiles8.c -- the 8bpp tile + streaming + flip demo
+ * CXRF :: apps/tiles8/tiles8.c -- the 8bpp tile + streaming + flip demo
  * =====================================================================
  * The payoff of the mode-2 remap: a tile game at 8bpp (256 colours a
  * tile), its tileset STREAMED from banked RAM, drawn tear-free with the
@@ -20,7 +20,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 /* VERA layer-0 registers, to read back the 8bpp config and the flip */

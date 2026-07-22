@@ -1,7 +1,7 @@
 /* =====================================================================
- * CXGEOS csdk -- friendly C wrappers over the generated ABI header
+ * CXRF csdk -- friendly C wrappers over the generated ABI header
  * =====================================================================
- * The generated header (sdk/include_<compiler>/cxgeos.h) is deliberately
+ * The generated header (sdk/include_<compiler>/cxrf.h) is deliberately
  * low-level: you set the parameter block by hand and call a slot number.
  * This header turns that into named cx_* functions, a typed event
  * record, the shared constants, and packed structs/macros for building
@@ -11,7 +11,7 @@
  * Include it AFTER the generated header:
  *
  *     #include <cbm.h>
- *     #include "sdk/include_llvm/cxgeos.h"
+ *     #include "sdk/include_llvm/cxrf.h"
  *     #include "csdk/cxsdk.h"
  *
  * Header-only: every wrapper is `static`, so -Os drops the ones you do

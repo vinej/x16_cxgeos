@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/fs/dosglue.asm -- the DOS command channel (bank 18)
+; CXRF :: kernel/fs/dosglue.asm -- the DOS command channel (bank 18)
 ; =====================================================================
 ; The library's storage/dos.asm does all the work: send any CMDR-DOS
 ; command on channel 15, read the "62,FILE NOT FOUND,00,00" reply, hand

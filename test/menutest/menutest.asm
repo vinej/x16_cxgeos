@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: test/menutest/menutest.asm -- the menu engine, driven blind
+; CXRF :: test/menutest/menutest.asm -- the menu engine, driven blind
 ; =====================================================================
 ; Runs as AUTORUN.CXA in the boot smoke. Synthetic clicks go down the
 ; same path a mouse's would (ev_post is the point), so the whole
@@ -17,7 +17,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 EV_MOUSE_MOVE = 1               ; ABI event numbering
 EV_MOUSE_DOWN = 2

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/ui/theme.asm -- the live theme
+; CXRF :: kernel/ui/theme.asm -- the live theme
 ; =====================================================================
 ; Twelve resident bytes every UI drawer reads, plus a bank-2 setter.
 ; Resident, deliberately: the menu and dialog engines execute in bank 2

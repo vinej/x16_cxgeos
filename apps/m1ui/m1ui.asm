@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/m1ui/m1ui.asm -- menu + widgets in mode 1 (8bpp)
+; CXRF :: apps/m1ui/m1ui.asm -- menu + widgets in mode 1 (8bpp)
 ; =====================================================================
 ; The full toolkit in the 320x240 256-colour bitmap: a menu bar and a
 ; panel of widgets, drawn by the same engines that paint the desktop --
@@ -10,7 +10,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "asmsdk/ca65/cxgeos.inc"
+.include "asmsdk/ca65/cxrf.inc"
 
 FONTCAP   = 1024                ; the font buffer (pxl8 is 871 bytes)
 nptr      = $60                 ; app zero page: the filename walker

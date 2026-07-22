@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/kernel.asm -- the resident image
+; CXRF :: kernel/kernel.asm -- the resident image
 ; =====================================================================
 ; Everything that lives at $8000 and stays there. Built by
 ;
@@ -40,11 +40,11 @@
 ; image behind the graphics port (kernel/video/ovl.inc). Its resident
 ; helpers stay gated in:
 ; The fine gates (x16_library 0.6.1) take each module's core and leave out
-; the parts CXGEOS never calls: VERA_CORE drops vera_copy, IRQ_CORE drops
+; the parts CXRF never calls: VERA_CORE drops vera_copy, IRQ_CORE drops
 ; vsync_wait, INPUT_CORE drops key_wait/key_peek, SCREEN_CORE drops
 ; get_mode/border/get_cursor/charset/puts. IRQ_SPRCOL is the collision
 ; CAPTURE (the handler accumulate + irq_sprcol_mask) that cx_spr_collide
-; reads -- CXGEOS enables VERA_IEN and polls the mask itself, so it skips
+; reads -- CXRF enables VERA_IEN and polls the mask itself, so it skips
 ; the IRQ_SPRCOL_API (install/remove/sprite_collisions/callback).
 X16_USE_VERA_CORE   = 1         ; vera_fill (engine clears), not vera_copy
 X16_USE_VERAFX_FILL = 1         ; fx_fill (engine rects)

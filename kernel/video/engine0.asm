@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/engine0.asm -- mode 0: 640x480 @ 2bpp (the GUI)
+; CXRF :: kernel/video/engine0.asm -- mode 0: 640x480 @ 2bpp (the GUI)
 ; =====================================================================
 ; The first engine image behind the graphics port (ovl.inc). The image
 ; is the fixed 13-entry vector, then x16lib's bitmap2 module, compiled

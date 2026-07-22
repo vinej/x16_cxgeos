@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/resident/vstream.asm -- banked RAM -> VRAM streaming
+; CXRF :: kernel/resident/vstream.asm -- banked RAM -> VRAM streaming
 ; =====================================================================
 ; cx_vram_stream copies bytes from banked RAM into VRAM, rolling RAM_BANK
 ; across the 8 KB window as it goes -- the "warehouse -> stage" move an

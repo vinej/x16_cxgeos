@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/pal.asm -- the VERA palette API (banked)
+; CXRF :: kernel/video/pal.asm -- the VERA palette API (banked)
 ; =====================================================================
 ; pal_set / pal_load (x16lib video/palette.asm) program VERA's 256-entry
 ; palette at $1FA00. Most useful to a mode-1 (8bpp) app that wants a few

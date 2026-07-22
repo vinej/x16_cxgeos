@@ -1,6 +1,6 @@
-# CXGEOS csdk Guide — the friendly C wrapper
+# CXRF csdk Guide — the friendly C wrapper
 
-**Release 0.9.0** · header: `csdk/cxsdk.h`
+**Release 0.10.0** · header: `csdk/cxsdk.h`
 
 The csdk turns the low-level [ABI](sdkguide.md) into clean, named `cx_*`
 functions, a typed event record, the shared constants, immediate-mode widget
@@ -12,7 +12,7 @@ do not call. It targets **llvm-mos** (the fully-supported C toolchain).
 
 ```c
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"   /* the generated ABI: slots + macros */
+#include "sdk/include_llvm/cxrf.h"   /* the generated ABI: slots + macros */
 #include "csdk/cxsdk.h"                /* the friendly wrappers */
 ```
 
@@ -488,7 +488,7 @@ game piece, an image map over a picture you loaded — and lay an invisible
 `WG_HIT` record over it. The toolkit hit-tests that record with the same
 region-stack machinery already serving every button and checkbox on screen,
 including true **hover** tracking. This is the sanctioned way to build a
-custom widget in CXGEOS: the kernel does not need to know your shape, only
+custom widget in CXRF: the kernel does not need to know your shape, only
 its box and which of three built-in tests to run against it.
 
 ### Why it earns its keep
@@ -995,7 +995,7 @@ cx_menu_set(&bar);
 message and one or more button labels. Pass to `cx_alert` (returns the button
 index).
 ```c
-CX_DIALOG(about,   "CXGEOS -- a C app", "ok");
+CX_DIALOG(about,   "CXRF -- a C app", "ok");
 CX_DIALOG(confirm, "delete it?", "keep", "delete");
 
 if (cx_alert(&confirm) == 1) do_delete();

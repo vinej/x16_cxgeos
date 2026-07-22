@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/text.asm -- mode 3: 80x60 text (like BASIC)
+; CXRF :: kernel/video/text.asm -- mode 3: 80x60 text (like BASIC)
 ; =====================================================================
 ; The fourth personality behind the graphics port, and the cheapest:
 ; the KERNAL's own 80x60 text screen. It is a CHARACTER GRID, not a
@@ -85,7 +85,7 @@ ov3_refuse
 
 ; ov3_init -- the KERNAL 80x60 text mode. CINT (screen_reset) does the
 ; FULL reinit -- VERA layers, the charset, the editor -- which
-; screen_set_mode alone did not over CXGEOS's bitmap display (the text
+; screen_set_mode alone did not over CXRF's bitmap display (the text
 ; layer stayed dark). Then the upper/lower PETSCII charset: mixed case
 ; AND the box glyphs (ISO has no box glyphs at all).
 ov3_init

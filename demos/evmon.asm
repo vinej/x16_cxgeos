@@ -1,12 +1,12 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: demos/evmon.asm -- the Phase 3 milestone
+; CXRF :: demos/evmon.asm -- the Phase 3 milestone
 ; =====================================================================
 ; The event system with a face on it: every kind of event the kernel
 ; produces, shown live, rendered with the font engine and dispatched
 ; through the mainloop an app will use.
 ;
-; This is the first program shaped like a CXGEOS app rather than a demo:
+; This is the first program shaped like a CXRF app rather than a demo:
 ; a table of handlers and a call to ev_mainloop. Nothing polls, nothing
 ; loops waiting. The pointer is the KERNAL's hardware sprite, so it
 ; tracks the hand no matter what the log is doing.
@@ -439,7 +439,7 @@ draw_chrome
 labels
     .word t_null, t_move, t_down, t_up, t_dbl, t_key, t_tick, t_queue
 
-t_title  .byte "CXGEOS event monitor", 0
+t_title  .byte "CXRF event monitor", 0
 t_help   .byte "Move the mouse, click, double-click, type. ESC quits.", 0
 t_null   .byte "idle", 0
 t_move   .byte "move", 0

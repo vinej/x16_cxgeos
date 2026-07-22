@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/cdemo/cdemo.c -- the csdk descriptor demo (llvm-mos)
+ * CXRF :: apps/cdemo/cdemo.c -- the csdk descriptor demo (llvm-mos)
  * =====================================================================
  * The C answer to the asm gallery: a menu bar, the full widget set
  * (button, checkboxes, radios, two sliders, a text field, a list), a
@@ -18,7 +18,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 /* the widget list, in declaration order -- these are its indices, the

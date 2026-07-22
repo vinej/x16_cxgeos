@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/fs/assets.asm -- cx_vload / cx_bload, assets off disk
+; CXRF :: kernel/fs/assets.asm -- cx_vload / cx_bload, assets off disk
 ; =====================================================================
 ; The two loaders the X16 asset ecosystem is built around, as ABI slots:
 ;

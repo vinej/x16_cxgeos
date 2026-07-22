@@ -1,4 +1,4 @@
-# CXGEOS memory map — the live ledger
+# CXRF memory map — the live ledger
 
 Every byte of contended address space is accounted for here. Change this
 file in the same commit as the code that claims or releases a region.
@@ -8,9 +8,9 @@ file in the same commit as the code that claims or releases a region.
 | Range | Owner | Notes |
 |---|---|---|
 | $00–$01 | hardware | RAM_BANK / ROM_BANK registers |
-| $02–$21 | KERNAL r0–r15 | caller-save scratch; never live across a CXGEOS API call; IRQ callbacks bracket with `irq_save_regs` |
+| $02–$21 | KERNAL r0–r15 | caller-save scratch; never live across a CXRF API call; IRQ callbacks bracket with `irq_save_regs` |
 | $22–$31 | x16lib | `X16_P0..P7` + `X16_T0..T7`, fixed as vendored |
-| $32–$5F | CXGEOS kernel | allocate only in `kernel/resident/zp.inc` (46 bytes) |
+| $32–$5F | CXRF kernel | allocate only in `kernel/resident/zp.inc` (46 bytes) |
 | $60–$7F | application | guaranteed untouched by kernel and IRQ (spikes use it too) |
 | $80–$FF | KERNAL/BASIC/DOS | never touch (Phase 8 may audit and reclaim) |
 
@@ -114,7 +114,7 @@ are never touched by the overlay, so lowering it is instant.
 | $13000–$130FF | 256 | **KERNAL mouse pointer image** (r49 `io.inc: sprite_addr = $13000`; we use the KERNAL mouse driver, so this is spoken for) |
 | $13100–$170FF | 16,384 | menu/drop-down save-under strips (`fx_copy` restore) |
 | $17100–$1DFFF | 28,416 | icon/pattern sheets, extra save-under (was budgeted for glyph caches — see below) |
-| $1E000–$1EFFF | 4,096 | CXGEOS sprite images (extra cursors, drag outlines) |
+| $1E000–$1EFFF | 4,096 | CXRF sprite images (extra cursors, drag outlines) |
 | $1F000–$1F7FF | 2,048 | KERNAL charset — kept for the panic/debug console |
 | $1F800–$1F9BF | 448 | unused by VERA; x16lib `VRAM_FX_SCRATCH` = $1F800 (4 bytes) |
 | $1F9C0–$1F9FF | 64 | PSG registers (hardware) |
@@ -138,7 +138,7 @@ build it judged, it failed — and the failure was worth having.
 | | at first | after 0.4.1 | now |
 |---|---|---|---|
 | x16lib | 6,055 | 3,893 | **3,072** |
-| CXGEOS kernel code | 2,096 | 2,096 | 3,650 (+3,944 in bank 2) |
+| CXRF kernel code | 2,096 | 2,096 | 3,650 (+3,944 in bank 2) |
 | `fonts/pxl8.cxf` | 871 | 871 | **0 — on the SD card** |
 | **resident total** | **9,022** | **6,728** | **6,525** (+4,314 in bank 2) |
 | budget, `$8200`–`$9EFF` | 7,424 | 7,424 | 7,424 |
@@ -173,7 +173,7 @@ Placement (0.4-era): `JUMPHDR` at `$8000`, `JUMPTAB` at `$8010`–`$812C`,
 **Two thirds of the image was the library, and most of it was unused.**
 Measured, one gate at a time, when it first failed to fit:
 
-| gate | bytes | what CXGEOS calls from it | now |
+| gate | bytes | what CXRF calls from it | now |
 |---|---|---|---|
 | VERA | 143 | `vera_fill`, via gfx2 | kept |
 | **VERAFX** | **2,502** | **`fx_fill`, via gfx2 — and nothing else** | **`_FILL` alone: 340** |
@@ -194,7 +194,7 @@ and `fx_triangle` with it.
 asks for `_FILL` alone. Worth 2,162 bytes here, and worth it to every X16
 program that wanted a fast fill and paid for a rotozoom sampler to get
 one. `X16_USE_VERAFX` still means all of it, so nothing that existed
-broke. A CXGEOS-local trimmed copy would have worked and been the wrong
+broke. A CXRF-local trimmed copy would have worked and been the wrong
 answer: the vendored tree is a clean snapshot on purpose, and the next
 re-vendor would have silently undone it.
 
@@ -234,7 +234,7 @@ pulls in, the image carries whether anything calls it or not.
 ## The boot chain (Phase 4c)
 
 Stock ROM runs `AUTOBOOT.X16` from the SD root — that is the entire
-boot hook, and the reason CXGEOS needs no ROM patch. Stage-0 LOADs
+boot hook, and the reason CXRF needs no ROM patch. Stage-0 LOADs
 `CXKERNEL.PRG` to $8000 (the file's own header address), checks the
 `CXOS` magic, LOADs `PXL8.CXF` headerless to bank 1:$A000, calls the
 init vector at $8008, then hands off: `AUTORUN.CXA` if the disk has one
@@ -259,7 +259,7 @@ Addresses the loader owns:
 ### Booting from a cartridge
 
 The same kernel also ships in ROM. `kernel/boot/cart.asm` + `cart.cfg`
-build an 80 KB image (`build/cxgeos_cart.bin`, **five cartridge ROM banks
+build an 80 KB image (`build/cxrf_cart.bin`, **five cartridge ROM banks
 32–36**) that `x16emu -cartbin` loads at bank 32. After hardware init the
 stock KERNAL scans ROM bank 32 for `"CX16"` at `$C000` and jumps to
 `$C004` with interrupts disabled (Programmer's Reference: Booting from

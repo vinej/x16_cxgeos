@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/da_notes/notes.asm -- the notes desk accessory
+; CXRF :: apps/da_notes/notes.asm -- the notes desk accessory
 ; =====================================================================
 ; The first DA: a one-line scratchpad floating over whatever is
 ; running. Type into it; DEL trims; ESC hands the screen back through
@@ -22,7 +22,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "asmsdk/ca65/cxgeos.inc"
+.include "asmsdk/ca65/cxrf.inc"
 
 .segment "LOADADDR"
     .word $A000

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/ui/widget.asm -- the widget toolkit (bank 16)
+; CXRF :: kernel/ui/widget.asm -- the widget toolkit (bank 16)
 ; =====================================================================
 ; A widget is a 16-byte record the APP owns (docs/formats.md). The app
 ; hands the kernel a list -- a count, then the records -- and the kernel

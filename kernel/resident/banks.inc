@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/resident/banks.inc -- the bank ledger, as constants
+; CXRF :: kernel/resident/banks.inc -- the bank ledger, as constants
 ; =====================================================================
 ; Values only, no bytes: included by the kernel, both boot stubs and
 ; the test runner alike. docs/memory-map.md is the prose ledger; this

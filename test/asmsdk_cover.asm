@@ -3,7 +3,7 @@
 ; all (hand-written asmsdk/ca65 vs the spec-generated one, byte-identical
 ; machine code). Assembles; not meant to run.
 .include "x16.asm"
-.include "asmsdk/ca65/cxgeos.inc"
+.include "asmsdk/ca65/cxrf.inc"
 .segment "LOADADDR"
     .word $0801
 .segment "CODE"

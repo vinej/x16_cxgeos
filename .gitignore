@@ -13,6 +13,9 @@
 
 # scratch
 /test/fsroot/
+# a standalone cart run (paint.bat, no -fsroot) writes the app's data file
+# into the repo root -- e.g. paint's canvas save
+/PAINT.DAT
 
 # local project brief for Claude -- kept local, never published
 /CLAUDE.md

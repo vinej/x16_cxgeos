@@ -1,4 +1,4 @@
-# CXGEOS UI architecture (Phase 5)
+# CXRF UI architecture (Phase 5)
 
 ## Where UI code lives, and why
 

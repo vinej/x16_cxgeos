@@ -1,10 +1,10 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/audio/pcm.asm -- PCM playback, refilled per frame
+; CXRF :: kernel/audio/pcm.asm -- PCM playback, refilled per frame
 ; =====================================================================
 ; x16lib's AFLOW-driven streaming refills the FIFO from its interrupt,
 ; and that ISR has to be resident (the resident IRQ handler calls it
-; with no bank switch) -- which overflows the budget. CXGEOS refills the
+; with no bank switch) -- which overflows the budget. CXRF refills the
 ; FIFO a different way: the event IRQ already fires every frame, so
 ; pcm_refill (called from ev_irq) tops the 4 KB FIFO up each frame from
 ; the app's sample buffer. At 48 kHz a frame is ~800 bytes; the FIFO

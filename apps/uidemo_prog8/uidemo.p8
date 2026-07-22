@@ -1,6 +1,6 @@
 ; Prog8
 ; =====================================================================
-; CXGEOS :: apps/uidemo_prog8/uidemo.p8 -- the p8sdk showcase
+; CXRF :: apps/uidemo_prog8/uidemo.p8 -- the p8sdk showcase
 ; =====================================================================
 ; Drives the friendly Prog8 UI layer (p8sdk/cxui.p8, block `ui`), both
 ; halves of it:
@@ -18,7 +18,7 @@
 ; =====================================================================
 
 %import syslib
-%import cxgeos
+%import cxrf
 %import cxui
 %zeropage basicsafe
 %option no_sysinit

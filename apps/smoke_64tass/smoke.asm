@@ -1,6 +1,6 @@
 ; 64tass
 ; =====================================================================
-; CXGEOS :: apps/smoke_64tass/smoke.asm -- the 64tass SDK smoke test
+; CXRF :: apps/smoke_64tass/smoke.asm -- the 64tass SDK smoke test
 ; =====================================================================
 ; Proves the GENERATED asmsdk/64tass layer assembles with the real
 ; 64tass and drives the kernel through the jump table. It prints a start
@@ -10,12 +10,12 @@
 ; Headless: the boot smoke greps stdout for "SMOKE 64TASS OK".
 ;
 ; x16lib's 64tass edition supplies X16_P0..P7, CHROUT and #basic_stub;
-; the CXGEOS asmsdk/64tass supplies the cxm_* macros and CX_* constants.
+; the CXRF asmsdk/64tass supplies the cxm_* macros and CX_* constants.
 ;   64tass -C -a --cbm-prg -I . -I <x16_library/src_64tass> smoke.asm
 ; =====================================================================
 
 .include "x16.asm"                      ; from src_64tass: X16_P0.., CHROUT, macros
-.include "asmsdk/64tass/cxgeos.inc"     ; the generated friendly layer
+.include "asmsdk/64tass/cxrf.inc"     ; the generated friendly layer
 
 * = $0801
     #basic_stub

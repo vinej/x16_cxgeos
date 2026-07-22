@@ -1,7 +1,7 @@
-# p8sdk — a friendly Prog8 layer over the CXGEOS ABI
+# p8sdk — a friendly Prog8 layer over the CXRF ABI
 
 `p8sdk/cxui.p8` (block `ui`) is a small friendly layer over the generated
-Prog8 ABI binding (`sdk/include_prog8/cxgeos.p8`, block `cx`). The binding
+Prog8 ABI binding (`sdk/include_prog8/cxrf.p8`, block `cx`). The binding
 is already ergonomic — `cx.gfx_rect(x, y, w, h, colour)` — but a real app
 still re-derives the same helpers: a framed button with a centred label,
 pulling a mouse event out of the `$22` block, laying down a widget-list
@@ -68,7 +68,7 @@ starting another of the same kind. Size a widget buffer `1 + 16*N` bytes.
 Import it alongside the binding and put **both** source dirs on the path:
 
 ```
-%import cxgeos      ; the generated ABI: block cx
+%import cxrf      ; the generated ABI: block cx
 %import cxui        ; the friendly layer: block ui
 ```
 ```

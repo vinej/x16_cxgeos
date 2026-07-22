@@ -1,4 +1,4 @@
-# CXGEOS performance ledger — Phase 0 spike results
+# CXRF performance ledger — Phase 0 spike results
 
 Measured 2026-07-16 on x16emu (stock R49 ROM, sha256 `b81654cc…`,
 official `X16Community/x16-rom` r49 release), 8 MHz 65C02, VERA FX.
@@ -140,7 +140,7 @@ Re-run with:
   port work at all.
 - `X16_Geos/emulator/rom.bin` and `x16_library/emulator/rom.bin` are
   **not** stock R49 (sha256 `298e3e2a…` ≠ release `b81654cc…`).
-  CXGEOS vendors the official release ROM only.
+  CXRF vendors the official release ROM only.
 - fx_fill/fx_copy destination alignment: 4 bytes = 16 pixels at 2bpp.
 - FX transparent writes skip whole zero BYTES (4 px), useless for
   per-pixel masking — masked blits stay on the CPU RMW path.

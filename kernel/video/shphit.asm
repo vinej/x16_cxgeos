@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/shphit.asm -- WG_HIT tests for the extra shapes
+; CXRF :: kernel/video/shphit.asm -- WG_HIT tests for the extra shapes
 ; =====================================================================
 ; The rectangle/circle/ellipse hit tests live in the widget bank (bank 16,
 ; kernel/ui/widget.asm). The v0.8.0 shapes that joined the port -- the

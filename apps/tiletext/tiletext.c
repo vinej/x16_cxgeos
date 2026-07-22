@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/tiletext/tiletext.c -- the mode-2 text-overlay self-test
+ * CXRF :: apps/tiletext/tiletext.c -- the mode-2 text-overlay self-test
  * =====================================================================
  * Proves cx_tile_text: in tile mode, flip layer 1 to a 1bpp TEXT layer,
  * draw over the still-visible game world, then flip back -- and the
@@ -18,7 +18,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 /* VERA layer-1 config registers, to read back what cx_tile_text put them

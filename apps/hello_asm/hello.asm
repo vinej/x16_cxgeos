@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/hello_asm/hello.asm -- the assembly hello
+; CXRF :: apps/hello_asm/hello.asm -- the assembly hello
 ; =====================================================================
 ; The Phase 4 milestone app: built from the SDK alone, launched by the
 ; shell, draws through the jump table, and leaves through cx_exit --
@@ -13,7 +13,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "asmsdk/ca65/cxgeos.inc"
+.include "asmsdk/ca65/cxrf.inc"
 
 .segment "LOADADDR"
     .word $0801

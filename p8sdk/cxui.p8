@@ -1,9 +1,9 @@
 ; Prog8
 ; =====================================================================
-; CXGEOS :: p8sdk/cxui.p8 -- the friendly Prog8 UI layer (block `ui`)
+; CXRF :: p8sdk/cxui.p8 -- the friendly Prog8 UI layer (block `ui`)
 ; =====================================================================
 ; The Prog8 parallel of csdk/cxsdk.h's widget helpers, one level above the
-; generated ABI binding (sdk/include_prog8/cxgeos.p8, block `cx`). It adds:
+; generated ABI binding (sdk/include_prog8/cxrf.p8, block `cx`). It adds:
 ;
 ;   - immediate-mode PAINTERS (ui.button / checkbox / slider / edit): draw a
 ;     widget by name for custom layouts (a keypad, a status bar). They only
@@ -24,7 +24,7 @@
 ;   prog8c ... -srcdirs sdk\include_prog8 -srcdirs p8sdk  app.p8
 ; =====================================================================
 
-%import cxgeos
+%import cxrf
 
 ui {
     ; --- painter geometry (matches the kernel toolkit) ---

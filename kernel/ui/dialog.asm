@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/ui/dialog.asm -- the alert and prompt dialogs (bank 2)
+; CXRF :: kernel/ui/dialog.asm -- the alert and prompt dialogs (bank 2)
 ; =====================================================================
 ; cx_dlg_alert and cx_dlg_prompt are SYNCHRONOUS, the GEOS shape: the
 ; app calls, the box appears, and the call does not return until the

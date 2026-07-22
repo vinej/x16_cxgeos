@@ -1,8 +1,8 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: spikes/spike_c.asm -- Phase 0 risk spike C
+; CXRF :: spikes/spike_c.asm -- Phase 0 risk spike C
 ; =====================================================================
-; The event heartbeat, on the CXGEOS screen mode:
+; The event heartbeat, on the CXRF screen mode:
 ;
 ;   1. irq_install chains CINV over the 2bpp bitmap mode; proof that
 ;      the KERNAL jiffy clock still ticks (FRAMES60 / JIFFY60 both 60).
@@ -35,7 +35,7 @@ X16_USE_NUMBER  = 1
 FB_BASE     = $00000
 FB_STRIDE   = 160
 
-; spike-private zero page (CXGEOS app space $60-$7F)
+; spike-private zero page (CXRF app space $60-$7F)
 STR_PTR     = $60
 BENCH_T0    = $62
 CNT         = $64
@@ -402,7 +402,7 @@ print_str
 @done
     rts
 
-sc_banner .byte $0D, "CXGEOS SPIKE C: EVENTS + MOUSE", $0D, 0
+sc_banner .byte $0D, "CXRF SPIKE C: EVENTS + MOUSE", $0D, 0
 sc_frames .byte "FRAMES60 ", 0
 sc_jiffy  .byte "JIFFY60 ", 0
 sc_latmin .byte "QLATMIN ", 0

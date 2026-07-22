@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: apps/cpanel/cpanel.asm -- the control panel (Phase 6)
+; CXRF :: apps/cpanel/cpanel.asm -- the control panel (Phase 6)
 ; =====================================================================
 ; Settings that belong to the machine, not to an app: the theme, and
 ; the real-time clock. Two radio buttons recolour the desktop live;
@@ -15,7 +15,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 EV_KEY    = 5
 EV_WIDGET = 8

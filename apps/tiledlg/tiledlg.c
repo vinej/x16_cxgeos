@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/tiledlg/tiledlg.c -- a modal PANEL of widgets on a tile game
+ * CXRF :: apps/tiledlg/tiledlg.c -- a modal PANEL of widgets on a tile game
  * =====================================================================
  * The payoff of cx_tile_text: a game in tile mode can raise the SAME
  * modal toolkit a desktop app uses. Here it is cx_panel -- a full box of
@@ -24,7 +24,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 static const char t_opts[]   = "Options";

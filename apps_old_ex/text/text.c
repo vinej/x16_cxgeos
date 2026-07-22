@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/text/text.c -- the text-mode example (llvm-mos)
+ * CXRF :: apps/text/text.c -- the text-mode example (llvm-mos)
  * =====================================================================
  * cx_mode(CX_MODE_TEXT) hands the screen to the KERNAL's 80x60 text
  * grid -- a CHARACTER surface, not pixels. The SAME csdk calls work,
@@ -15,7 +15,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 int main(void) {
@@ -26,7 +26,7 @@ int main(void) {
     cx_mode(CX_MODE_TEXT);
 
     cx_clear(6);                         /* a blue screen (white ink)    */
-    cx_say("CXGEOS -- 80x60 text mode", 27, 1);
+    cx_say("CXRF -- 80x60 text mode", 27, 1);
     cx_say("boxes, rules and panels, in text cells", 20, 3);
 
     cx_frame(18, 6, 44, 12, 5);          /* a green box on the blue      */

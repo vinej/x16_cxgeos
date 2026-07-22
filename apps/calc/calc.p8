@@ -1,6 +1,6 @@
 ; Prog8
 ; =====================================================================
-; CXGEOS :: apps/calc/calc.p8 -- the calculator, in Prog8
+; CXRF :: apps/calc/calc.p8 -- the calculator, in Prog8
 ; =====================================================================
 ; A port of apps/calc/calc.c to Prog8. A four-function floating-point calc:
 ; click the keypad or type; digits, '.', + - * /, RETURN for =, C clears,
@@ -8,7 +8,7 @@
 ; SDK -- a real interactive app on the two SDK layers:
 ;   - the friendly p8sdk (p8sdk/cxui.p8, block `ui`): ui.button paints the
 ;     keypad; ui.poll pulls each event into ui.etype / detail / mx / my
-;   - the generated ABI binding (sdk/include_prog8/cxgeos.p8, block `cx`):
+;   - the generated ABI binding (sdk/include_prog8/cxrf.p8, block `cx`):
 ;     gfx primitives, cx.say, cx.font_measure, cx.gfx_init/ev_init, and floats
 ; A headless self-test (2 + 3 = 5) prints "CALC P8 OK" before the loop.
 ;
@@ -17,16 +17,16 @@
 
 %import syslib
 %import floats
-%import cxgeos
+%import cxrf
 %import cxui           ; the p8sdk friendly layer -- ui.button paints the keypad
 %zeropage basicsafe
-%option no_sysinit      ; REQUIRED: a CXGEOS app is a guest -- the kernel owns
+%option no_sysinit      ; REQUIRED: a CXRF app is a guest -- the kernel owns
                         ; the machine. Prog8's default init_system does a full
                         ; reset (RESTOR/CINT/IOINIT/mouse_config) that tears out
                         ; the live kernel IRQ + video and crashes a desktop launch.
-%zpreserved $02,$5f     ; REQUIRED: the CXGEOS kernel owns zp $02..$5F and
+%zpreserved $02,$5f     ; REQUIRED: the CXRF kernel owns zp $02..$5F and
                         ; clobbers it on every API call, so keep Prog8's
-                        ; variables in the app-safe $60..$7F (see cxgeos.p8)
+                        ; variables in the app-safe $60..$7F (see cxrf.p8)
 
 main {
     const uword GX      = 200
@@ -38,7 +38,7 @@ main {
     const uword CLEARW  = 248       ; 4*CW + 3*GAP, the wide clear button
 
     ; keypad glyphs as ASCII bytes -- digits and operators are the same in
-    ; PETSCII, and the CXGEOS font is ASCII-indexed, so these draw and match
+    ; PETSCII, and the CXRF font is ASCII-indexed, so these draw and match
     ; the EV_KEY codes directly.  7 8 9 /  4 5 6 *  1 2 3 -  0 . = +
     ubyte[16] keys = [$37,$38,$39,$2f,  $34,$35,$36,$2a,
                       $31,$32,$33,$2d,  $30,$2e,$3d,$2b]

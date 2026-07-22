@@ -1,11 +1,11 @@
-# CXGEOS developer guide — VS Code setup & deployment
+# CXRF developer guide — VS Code setup & deployment
 
-This guide sets up a Visual Studio Code workspace for writing a CXGEOS
+This guide sets up a Visual Studio Code workspace for writing a CXRF
 application, building it, and deploying it to the emulator (or a real SD
 card). It assumes you have the repository checked out and the toolchain
 in place (see [README.md](../README.md) → Building).
 
-A CXGEOS *application* is a small 65C02 program wrapped as a **`.CXA`**
+A CXRF *application* is a small 65C02 program wrapped as a **`.CXA`**
 file. The desktop lists `.CXA` files and launches one when you open it;
 the app talks to the kernel entirely through a fixed **jump table** (the
 ABI), draws through the graphics port, and returns to the desktop with
@@ -26,7 +26,7 @@ For assembly, pick whichever dialect you already use — swap the include
 in the examples below (`sdk/include_ca65/…` → `sdk/include_acme/…`, etc.)
 and assemble with that tool. This guide uses **ca65**, the dialect the
 sample apps and `build.ps1` are written in. On ca65 you can also layer the
-**asmsdk** (`asmsdk/ca65/cxgeos.inc`) on top — one-line `cxm_*` macros that
+**asmsdk** (`asmsdk/ca65/cxrf.inc`) on top — one-line `cxm_*` macros that
 pack the parameter block for you, plus descriptor builders; see
 [asmsdkguide.md](asmsdkguide.md). It expands byte-identical to hand code, so
 it costs nothing.
@@ -45,7 +45,7 @@ API. Assembly, or C on llvm-mos, are the two paths covered below.
 These live in the repo but are never committed (the `.gitignore` keeps
 them out); install them once per machine.
 
-| Tool | Where CXGEOS looks for it | From |
+| Tool | Where CXRF looks for it | From |
 |---|---|---|
 | `ca65.exe`, `ld65.exe` | `cc65\` at the repo root | [cc65](https://cc65.github.io/) |
 | `x16emu.exe` + SDL DLLs | `emulator\` | [x16-emulator](https://github.com/X16Community/x16-emulator) |
@@ -82,7 +82,7 @@ apps/
 
 Every build command below is run **with the repo root as the working
 directory**, so `-I x16lib` and `-I .` make `x16.asm`,
-`sdk/include_ca65/cxgeos.inc`, and `csdk/cxsdk.h` resolve. (Out-of-tree
+`sdk/include_ca65/cxrf.inc`, and `csdk/cxsdk.h` resolve. (Out-of-tree
 apps work too — copy `sdk/`, `csdk/`, and `x16lib/` into your project and
 point `-I` at them — but in-tree is the path this guide walks.)
 
@@ -177,32 +177,32 @@ build); `Terminal → Run Task…` lists the rest. The per-app tasks build
   "options": { "cwd": "${workspaceFolder}" },
   "tasks": [
     {
-      "label": "CXGEOS: Full build + stage (kernel, apps, sdroot)",
+      "label": "CXRF: Full build + stage (kernel, apps, sdroot)",
       "type": "shell",
       "command": ".\\build.ps1 -Image",
       "problemMatcher": [],
       "group": { "kind": "build", "isDefault": true }
     },
     {
-      "label": "CXGEOS: Test (unit suite + boot smoke)",
+      "label": "CXRF: Test (unit suite + boot smoke)",
       "type": "shell",
       "command": ".\\build.ps1 -Test",
       "problemMatcher": []
     },
     {
-      "label": "CXGEOS: Build this ASM app -> sdroot",
+      "label": "CXRF: Build this ASM app -> sdroot",
       "type": "shell",
       "command": "& '${workspaceFolder}\\cc65\\ca65.exe' --cpu 65C02 -I x16lib -I . -o 'build\\${fileBasenameNoExtension}.o' '${relativeFile}'; if ($?) { & '${workspaceFolder}\\cc65\\ld65.exe' -C prg.cfg -o 'build\\${fileBasenameNoExtension}.PRG' 'build\\${fileBasenameNoExtension}.o' }; if ($?) { python tools\\mkcxap.py 'build\\${fileBasenameNoExtension}.PRG' \"build\\sdroot\\$('${fileBasenameNoExtension}'.ToUpper()).CXA\" --name '${fileBasenameNoExtension}' }",
       "problemMatcher": []
     },
     {
-      "label": "CXGEOS: Build this C app -> sdroot",
+      "label": "CXRF: Build this C app -> sdroot",
       "type": "shell",
       "command": "& \"$($env:LLVM_MOS_HOME + '\\bin\\mos-cx16-clang.bat')\" -Os -mreserve-zp=90 -I . -o 'build\\${fileBasenameNoExtension}.PRG' '${relativeFile}'; if ($?) { python tools\\mkcxap.py 'build\\${fileBasenameNoExtension}.PRG' \"build\\sdroot\\$('${fileBasenameNoExtension}'.ToUpper()).CXA\" --name '${fileBasenameNoExtension}' }",
       "problemMatcher": []
     },
     {
-      "label": "CXGEOS: Run desktop (fsroot)",
+      "label": "CXRF: Run desktop (fsroot)",
       "type": "shell",
       "command": "& '${workspaceFolder}\\emulator\\x16emu.exe' -rom emulator\\rom.bin -fsroot build\\sdroot -scale 2 -capture",
       "problemMatcher": []
@@ -231,7 +231,7 @@ Notes:
 ```asm
 ; apps/myapp/myapp.asm
 .include "x16.asm"                       ; the X16 HAL (via -I x16lib)
-.include "sdk/include_ca65/cxgeos.inc"   ; the ABI: cx_* jump-table addresses
+.include "sdk/include_ca65/cxrf.inc"   ; the ABI: cx_* jump-table addresses
 
 .segment "LOADADDR"
     .word $0801                          ; the PRG load address
@@ -249,10 +249,10 @@ main
 
     jmp cx_exit                          ; return to the desktop (never rts)
 
-msg .byte "hello, cxgeos", 0
+msg .byte "hello, cxrf", 0
 ```
 
-- `cx_*` names come from `sdk/include_ca65/cxgeos.inc`; each is just the
+- `cx_*` names come from `sdk/include_ca65/cxrf.inc`; each is just the
   fixed address of a `jmp` in the kernel's table. Arguments go in `A`/`X`
   and the parameter block `X16_P0..X16_P7` (zero page), per the ABI.
 - **`cx_exit` is the only clean way out** — it reloads the desktop. Never
@@ -301,7 +301,7 @@ raster split re-arms its scanline after `cx_ev_stop`.
 ```c
 /* apps/myapp/myapp.c */
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"   /* the generated ABI */
+#include "sdk/include_llvm/cxrf.h"   /* the generated ABI */
 #include "csdk/cxsdk.h"               /* friendly cx_* wrappers + cx_event */
 
 int main(void) {
@@ -332,7 +332,7 @@ int main(void) {
 
 ### 4.3 What the kernel gives you
 
-- The full slot list (every `cx_*` you can call): **`abi/cxgeos.abi`**.
+- The full slot list (every `cx_*` you can call): **`abi/cxrf.abi`**.
 - Descriptor byte-layouts (menu bar, widget list, dialog, the modal
   **panel**): **[docs/formats.md](formats.md)**.
 - Graphics modes, the toolkit, save-under, banks: **[docs/ui.md](ui.md)**
@@ -350,7 +350,7 @@ int main(void) {
 
 This builds the kernel image (`CXKERNEL.PRG` + `CXBANKS.BIN`), all the
 sample apps, and stages a bootable SD root in **`build\sdroot`** (plus a
-FAT32 image `build\cxgeos_sd.img`). You need `build\sdroot` present
+FAT32 image `build\cxrf_sd.img`). You need `build\sdroot` present
 before your app has somewhere to land. Re-run it only when the **kernel
 or the SDK** changes — not on every app edit.
 
@@ -406,16 +406,55 @@ Delete `build\sdroot\AUTORUN.CXA` to get the desktop back.
 FAT32-formatted card, or build the single image and write that:
 
 ```powershell
-.\build.ps1 -Image          # produces build\cxgeos_sd.img
+.\build.ps1 -Image          # produces build\cxrf_sd.img
 ```
 
 Boot the emulator from the image exactly like real hardware would:
 
 ```powershell
-emulator\x16emu.exe -rom emulator\rom.bin -sdcard build\cxgeos_sd.img -capture
+emulator\x16emu.exe -rom emulator\rom.bin -sdcard build\cxrf_sd.img -capture
 ```
 
 A real Commander X16 boots the same image off a physical card.
+
+### 5.5 Shipping as a cartridge
+
+The whole CXRF framework — kernel, banked code, font — fits in ROM, so you
+can hand a user your program as a **cartridge** and skip installing anything.
+The stock KERNAL finds the `"CX16"` signature in ROM bank 32 and boots it; no
+`AUTOBOOT.X16`, no ROM patch (see [memory-map.md](memory-map.md), *Booting from
+a cartridge*).
+
+**Framework in ROM, your app on the card.** `build.ps1 -Cart` builds
+`build\cxrf_cart.bin` (5 ROM banks, 32–36). On boot the stub runs
+`AUTORUN.CXA` from the card if there is one, else the desktop — so drop your
+program on the SD as `AUTORUN.CXA` and the cartridge boots straight into it:
+
+```powershell
+python tools\mkcxap.py build\MYAPP.PRG build\sdroot\AUTORUN.CXA --name "My App"
+.\build.ps1 -Cart
+emulator\x16emu.exe -rom emulator\rom.bin -cartbin build\cxrf_cart.bin -fsroot build\sdroot -capture
+```
+
+**Standalone: bake the app into the cartridge too.** `-App <CXA>` copies your
+app into a sixth ROM bank (37); the boot stub loads it from ROM to `$0801` and
+runs it, so the cartridge boots the program with **no SD card at all** — the
+single-item deliverable:
+
+```powershell
+.\build.ps1 -Cart -App build\MYAPP.CXA        # -> build\cxrf_cart_myapp.bin
+emulator\x16emu.exe -rom emulator\rom.bin -cartbin build\cxrf_cart_myapp.bin -capture
+```
+
+`paint.bat` in the repo root is a worked example — it bakes `PAINT.CXA` into a
+cart and launches it. The baked app must fit one 16 KB ROM bank. It is an
+appliance: it owns the machine. `cx_exit` still works — with no `SHELL.CXA` on a
+card to load, the kernel rebuilds the stock text screen (`CINT`) and hands the
+machine to the **X16 BASIC prompt**. It does this without a reset, so the
+cartridge does not reboot itself into the app again. Add `-fsroot build\sdroot`
+to the emulator line if the app needs a card for its own files (saved images,
+data) or a desktop to exit to instead — the framework still comes entirely from
+the cartridge.
 
 ---
 
@@ -423,15 +462,15 @@ A real Commander X16 boots the same image off a physical card.
 
 Once `build\sdroot` exists, a normal edit cycle is two steps:
 
-1. **`CXGEOS: Build this ASM app -> sdroot`** (or the C task) — rebuilds
+1. **`CXRF: Build this ASM app -> sdroot`** (or the C task) — rebuilds
    only your `.CXA`.
-2. **`CXGEOS: Run desktop (fsroot)`** — boots and lets you launch it.
+2. **`CXRF: Run desktop (fsroot)`** — boots and lets you launch it.
 
 Bind them if you like, or make a compound task that runs the build then
 the run. The kernel stays as-is, so this is seconds, not a full rebuild.
 
 To keep the whole project honest before you commit, run
-**`CXGEOS: Test`** (`.\build.ps1 -Test`): the unit suite plus a real boot
+**`CXRF: Test`** (`.\build.ps1 -Test`): the unit suite plus a real boot
 smoke (stage-0 → kernel → the frozen ABI canary → the desktop). If you
 only touched your own app it won't be exercised there — but a green
 suite proves you didn't disturb the kernel or the ABI.
@@ -466,7 +505,7 @@ demos are regression-checked.
   truncated.
 - **Rebuild the kernel only when needed.** App edits don't require
   `-Image`; that's for kernel/SDK changes. But if you *do* change the ABI
-  (`abi/cxgeos.abi`), regenerate the headers with
+  (`abi/cxrf.abi`), regenerate the headers with
   `python abi\gen_bindings.py` and rebuild everything.
 - **`build\` is disposable.** It's regenerated and git-ignored; don't put
   sources there.

@@ -1,6 +1,6 @@
 ; vasm oldstyle
 ; =====================================================================
-; CXGEOS :: apps/smoke_vasm/smoke.asm -- the vasm SDK smoke test
+; CXRF :: apps/smoke_vasm/smoke.asm -- the vasm SDK smoke test
 ; =====================================================================
 ; Proves the GENERATED asmsdk/vasm layer assembles with the real
 ; vasm6502_oldstyle and drives the kernel through the jump table.
@@ -10,7 +10,7 @@
 ; =====================================================================
 
     include "x16.asm"                   ; from src_vasm: X16_P0.., CHROUT, basic_stub
-    include "asmsdk/vasm/cxgeos.inc"    ; the generated friendly layer
+    include "asmsdk/vasm/cxrf.inc"    ; the generated friendly layer
 
     org $0801
     basic_stub

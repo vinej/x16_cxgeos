@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""icongen.py -- build the CXGEOS icon sheet from ASCII art.
+"""icongen.py -- build the CXRF icon sheet from ASCII art.
 
 An icon is 24x24, 2bpp (four shades), the same pixel format the graphics
 port draws in: mode 0 blits it straight to the framebuffer; mode 1 expands

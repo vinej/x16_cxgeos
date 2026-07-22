@@ -1,7 +1,7 @@
-# csdk — a friendly C wrapper over the CXGEOS ABI
+# csdk — a friendly C wrapper over the CXRF ABI
 
 `csdk/cxsdk.h` is a header-only layer over the generated ABI header
-(`sdk/include_llvm/cxgeos.h`). The generated header is deliberately
+(`sdk/include_llvm/cxrf.h`). The generated header is deliberately
 low-level: you set the parameter block by hand and call a slot number.
 
 ```c
@@ -31,7 +31,7 @@ macros (`cx_p`, `cx_call_a`, `cx_call_p`, `cx_ret`, `cx_a`/`cx_x`/`cx_c`):
 
 ```c
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"   /* the generated ABI: slots + macros */
+#include "sdk/include_llvm/cxrf.h"   /* the generated ABI: slots + macros */
 #include "csdk/cxsdk.h"                /* the friendly wrappers */
 ```
 

@@ -1,10 +1,10 @@
-# CXGEOS p8sdk Guide — Prog8 for CXGEOS
+# CXRF p8sdk Guide — Prog8 for CXRF
 
-**Release 0.9.0** · ABI version 4 · binding: `sdk/include_prog8/cxgeos.p8`
+**Release 0.10.0** · ABI version 4 · binding: `sdk/include_prog8/cxrf.p8`
 (block `cx`) · friendly layer: `p8sdk/cxui.p8` (block `ui`)
 
 Prog8 ([Irmen de Jong's structured 6502 language](https://prog8.readthedocs.io))
-is a first-class CXGEOS toolchain. There are **two layers**:
+is a first-class CXRF toolchain. There are **two layers**:
 
 - **`cx`** — the generated ABI binding: every [ABI](sdkguide.md) slot as a typed
   Prog8 call, plus the shared `cx.*` constants. This is the "normal wrappers".
@@ -13,7 +13,7 @@ is a first-class CXGEOS toolchain. There are **two layers**:
 
 ```
 %import syslib
-%import cxgeos          ; the ABI binding: block cx
+%import cxrf          ; the ABI binding: block cx
 %import cxui            ; the p8sdk friendly layer: block ui  (optional)
 %zeropage basicsafe
 %option no_sysinit      ; REQUIRED — see below
@@ -31,9 +31,9 @@ python tools\mkcxap.py build\MYAPP.PRG build\MYAPP.CXA --name "My App"
 
 ---
 
-## The two rules every Prog8 CXGEOS app must follow
+## The two rules every Prog8 CXRF app must follow
 
-A Prog8 CXGEOS app is a **guest**: the kernel owns the machine and its zero
+A Prog8 CXRF app is a **guest**: the kernel owns the machine and its zero
 page. Two directives in your **main** program make that safe. Prog8 applies them
 per-program, so they can't be inherited from the binding — every app repeats
 them.
@@ -264,7 +264,7 @@ and `p6` = end (byte angles: 0 = east, 64 = south, 128 = west, 192 = north).
 | `cx.say(txt, x, y) -> uword` | draw `txt` at `(x,y)`; returns the pen x (chains calls) |
 | `cx.ink(col)` | set the text colour role |
 
-Strings are ASCII-indexed in the CXGEOS font, so pass `iso:"..."` literals (not
+Strings are ASCII-indexed in the CXRF font, so pass `iso:"..."` literals (not
 Prog8's default PETSCII):
 
 ```

@@ -635,7 +635,7 @@ bitmap_plot
 ; --- X16_BITMAP_MIN: core-only build ---------------------------------
 ; The gfx_char / gfx_text glyph drawing below is optional. Define
 ; X16_BITMAP_MIN to leave it out: init/clear/read/pset/lines/rect/
-; frame/pattern/blit only. CXGEOS's 8bpp overlay image uses it to fit
+; frame/pattern/blit only. CXRF's 8bpp overlay image uses it to fit
 ; its fixed region; a full build is unchanged.
 ;
 ; Circle, disc and flood are NOT here -- they live in gfx/shapes.asm,

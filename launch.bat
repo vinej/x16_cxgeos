@@ -1,6 +1,6 @@
 @echo off
 REM ===================================================================
-REM  CXGEOS -- build the desktop and boot it in the emulator, windowed
+REM  CXRF -- build the desktop and boot it in the emulator, windowed
 REM  with the mouse captured. Double-click this, or run it from a shell.
 REM
 REM  Needs the repo-local tools in place (not committed; see README.md):

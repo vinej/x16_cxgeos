@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/ovl.inc -- the graphics port contract
+; CXRF :: kernel/video/ovl.inc -- the graphics port contract
 ; =====================================================================
 ; The resident kernel contains no graphics engine. It contains a PORT:
 ; the OVL region (kernel.cfg), whose first bytes are a fixed ENTRY

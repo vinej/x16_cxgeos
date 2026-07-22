@@ -1,6 +1,6 @@
 // KickAssembler
 // =====================================================================
-// CXGEOS :: apps/smoke_kick/smoke.asm -- the KickAssembler SDK smoke test
+// CXRF :: apps/smoke_kick/smoke.asm -- the KickAssembler SDK smoke test
 // =====================================================================
 // Proves the GENERATED asmsdk/kick layer assembles with KickAssembler and
 // drives the kernel through the jump table. Macros are invoked call-style,
@@ -12,7 +12,7 @@
 .cpu _65c02
 .encoding "ascii"
 #import "x16.asm"                       // from src_kick: X16_P0.., CHROUT, basic_stub
-#import "asmsdk/kick/cxgeos.inc"        // the generated friendly layer
+#import "asmsdk/kick/cxrf.inc"        // the generated friendly layer
 
 .pc = $0801
     basic_stub()

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/audio/audio.asm -- PSG + YM audio, in bank 19
+; CXRF :: kernel/audio/audio.asm -- PSG + YM audio, in bank 19
 ; =====================================================================
 ; The x16lib PSG and YM modules will not fit the resident budget (all of
 ; audio + sprites + PCM overflows it by 868 bytes), so they ride bank 19

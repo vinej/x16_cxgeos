@@ -1,7 +1,7 @@
 ; =====================================================================
-; CXGEOS :: kernel/resident/impl.inc -- ABI name -> kernel routine
+; CXRF :: kernel/resident/impl.inc -- ABI name -> kernel routine
 ; =====================================================================
-; abi/cxgeos.abi names what an app may call. This names the code behind
+; abi/cxrf.abi names what an app may call. This names the code behind
 ; each one. They are kept apart on purpose: the left column is a promise
 ; to every app ever built, the right is the kernel's business. A routine
 ; can be renamed, rewritten or moved to another module by editing this

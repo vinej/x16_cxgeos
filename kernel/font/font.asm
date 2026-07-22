@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/font/font.asm -- the font engine
+; CXRF :: kernel/font/font.asm -- the font engine
 ; =====================================================================
 ; Proportional text on the 640x480 2bpp screen, at gfx2_blitm's speed.
 ;

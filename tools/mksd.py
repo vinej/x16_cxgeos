@@ -86,7 +86,7 @@ def build(out, files):
     bs[64] = 0x80                               # drive number
     bs[66] = 0x29                               # ext boot signature
     struct.pack_into("<I", bs, 67, 0x12345678)  # volume id
-    bs[71:82] = b"CXGEOS     "
+    bs[71:82] = b"CXRF     "
     bs[82:90] = b"FAT32   "
     bs[510:512] = b"\x55\xAA"
     img[base:base + SECTOR] = bs

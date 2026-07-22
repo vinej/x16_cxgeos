@@ -1,14 +1,14 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/resident/zp.inc -- the kernel's zero page
+; CXRF :: kernel/resident/zp.inc -- the kernel's zero page
 ; =====================================================================
 ; The ONLY place kernel zero page is allocated. docs/memory-map.md is
 ; the ledger; this file is the enforcement.
 ;
 ;   $02-$21  KERNAL r0-r15      caller-save scratch, never live across
-;                               a CXGEOS API call
+;                               a CXRF API call
 ;   $22-$31  x16lib             X16_P0..P7 + X16_T0..T7, fixed
-;   $32-$5F  CXGEOS kernel      here
+;   $32-$5F  CXRF kernel      here
 ;   $60-$7F  application        the kernel and its IRQ never touch it
 ;   $80-$FF  KERNAL/BASIC/DOS   never touch
 ;

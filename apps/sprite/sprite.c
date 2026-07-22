@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/sprite/sprite.c -- the hardware-sprite example (llvm-mos)
+ * CXRF :: apps/sprite/sprite.c -- the hardware-sprite example (llvm-mos)
  * =====================================================================
  * Builds a 16x16 4bpp sprite image in RAM, uploads it to the reserved
  * sprite VRAM (cx_vram_write to CX_SPR_VRAM), points hardware sprite 1 at
@@ -9,7 +9,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 #define SW 16                          /* 16x16, 4bpp: 8 bytes/row, 128 total */

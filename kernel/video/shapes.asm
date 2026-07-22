@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/video/shapes.asm -- shapes on the graphics PORT
+; CXRF :: kernel/video/shapes.asm -- shapes on the graphics PORT
 ; =====================================================================
 ; x16lib's engine-agnostic shapes module, bound to the graphics PORT:
 ; SHP_PSET/READ/HLINE point at the overlay's entry vector, and the

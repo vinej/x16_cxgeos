@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/resident/vrows.asm -- full screen rows <-> banked RAM
+; CXRF :: kernel/resident/vrows.asm -- full screen rows <-> banked RAM
 ; =====================================================================
 ; The dialog engine's save-under: menus fit the VRAM strip, dialogs do
 ; not, so their pixels go to banked RAM (banks 8-9 in the ledger). The

@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/calc/calc.c -- the calculator (llvm-mos)
+ * CXRF :: apps/calc/calc.c -- the calculator (llvm-mos)
  * =====================================================================
  * The first real C application: a four-function FLOATING-POINT
  * calculator, drawn through the csdk (cx_button for the keypad, cx_say
@@ -18,7 +18,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 /* the grid: 4 columns x 5 rows at (200,150), 56 wide, 28 tall, 8 apart */

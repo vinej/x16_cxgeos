@@ -1,5 +1,5 @@
 /* =====================================================================
- * CXGEOS :: apps/gfx8/gfx8.c -- the 256-colour mode example (llvm-mos)
+ * CXRF :: apps/gfx8/gfx8.c -- the 256-colour mode example (llvm-mos)
  * =====================================================================
  * The graphics port's second personality: cx_mode(CX_MODE_BMP8) swaps
  * the kernel's engine to 320x240 @ 8bpp, and the SAME csdk drawing
@@ -14,7 +14,7 @@
  * ===================================================================== */
 
 #include <cbm.h>
-#include "sdk/include_llvm/cxgeos.h"
+#include "sdk/include_llvm/cxrf.h"
 #include "csdk/cxsdk.h"
 
 static unsigned char pal[512];

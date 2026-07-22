@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/ui/da.asm -- desk accessories
+; CXRF :: kernel/ui/da.asm -- desk accessories
 ; =====================================================================
 ; A desk accessory is a small program that opens ON TOP of the running
 ; app: its window floats over the host's screen, its keys are its own,

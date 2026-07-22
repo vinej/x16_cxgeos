@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: test/canary/canary.asm -- the ABI freeze test
+; CXRF :: test/canary/canary.asm -- the ABI freeze test
 ; =====================================================================
 ; This app was built ONCE, from the sdk/ of the day the ABI shipped,
 ; and the binary -- test/canary/CANARY.CXA -- is committed. The boot
@@ -22,7 +22,7 @@
 ; =====================================================================
 
 .include "x16.asm"
-.include "sdk/include_ca65/cxgeos.inc"
+.include "sdk/include_ca65/cxrf.inc"
 
 EV_KEY = 5
 

@@ -1,6 +1,6 @@
 ; ca65
 ; =====================================================================
-; CXGEOS :: kernel/resident/farcall.asm -- calling code in a kernel bank
+; CXRF :: kernel/resident/farcall.asm -- calling code in a kernel bank
 ; =====================================================================
 ; Menus, dialogs and widgets live in kernel banks (docs/ui.md): several
 ; kilobytes of cold code with no claim to the resident budget. An ABI
