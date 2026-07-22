@@ -21,6 +21,13 @@
 ; (bank 17) and the extras (bank 19) -- without a duplicate symbol.
 ; =====================================================================
 
+; We place gfx/shapes.asm (banks 17 + 19) and util/math.asm (bank 19)
+; ourselves, so x16_code.asm's own X16_USE_SHAPES/MATH includes -- now pulled
+; in transitively by X16_USE_SHAPES_POLY (x16lib 0.9.0) -- must stay quiet, or
+; every shape symbol lands twice. These opt out of that flat include.
+X16_SKIP_SHAPES = 1
+X16_SKIP_MATH   = 1
+
 .ifndef CX_NO_OVERLAY
 
 SHP_PSET  = cxov_pset

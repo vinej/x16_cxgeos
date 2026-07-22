@@ -1,7 +1,7 @@
 # CXGEOS SDK Guide — the generated ABI header
 
-**Release 0.8.0** · ABI version 2 · 101 slots (append-only; slot 100
-`cx_gfx_shape`)
+**Release 0.9.0** · ABI version 4 · 105 slots (append-only; slot 104
+`cx_tile_flip` is the newest)
 
 This documents `sdk/include_<compiler>/cxgeos.h` (and `.inc`) — the
 **generated**, low-level binding to the kernel. It is what every CXGEOS app
@@ -112,8 +112,8 @@ python tools/mkcxap.py build/MYAPP.PRG build/MYAPP.CXA --name "My App"
 
 | name | value | meaning |
 |---|---|---|
-| `CX_ABI_VERSION` | `2` | the ABI version these bindings were cut from |
-| `CX_ABI_SLOTS` | `101` | the number of slots defined (indices 0–100) |
+| `CX_ABI_VERSION` | `4` | the ABI version these bindings were cut from |
+| `CX_ABI_SLOTS` | `105` | the number of slots defined (indices 0–104) |
 
 Query the *running* kernel's version with `cx_version` (slot 0); the loader
 refuses an app whose min-ABI exceeds it.
@@ -450,11 +450,16 @@ a list row, or label a hit region without hand-drawing anything.
 | 6 | `CX_ICON_IMAGE` | a picture/image |
 | 7 | `CX_ICON_DISK` | a disk/volume |
 
+Ids 8–17 are the desktop's per-app icons — 8 calc, 9 paint, 10 game, 11
+text, 12 sound, 13 sprite, 14 tile, 15 term, 16 gears, 17 globe — drawn by
+number (see the filer's `ICON_*` and `tools/icongen.py`); they have no named
+SDK constant.
+
 *(Added in 0.6.1.)*
 
 | slot | name | addr | args → result | purpose |
 |---|---|---|---|---|
-| 96 | `CX_ICON` | `$8130` | A=icon id (0–7), P0/P1=x, P2/P3=y | draw a 24×24 icon at that pixel (modes 0 and 1) |
+| 96 | `CX_ICON` | `$8130` | A=icon id (0–17), P0/P1=x, P2/P3=y | draw a 24×24 icon at that pixel (modes 0 and 1) |
 
 **As a widget.** `WG_ICON` (widget type 6, `WG_VAL` = the id above) is the
 toolkit-managed form: it draws the icon with `WG_LBL` centred in text
@@ -463,7 +468,7 @@ view does — a single click posts `EV_WIDGET(index, 0)`, a double-click
 `EV_WIDGET(index, 1)`. It shares the same 16-byte record and the same
 `CX_WG_SET` list as `WG_HIT` above — the two are siblings: one is the
 kernel's own clickable icon, the other is what you reach for when the
-built-in eight are not enough. See `apps/filer/filer.asm` for the icon-grid
+built-in eighteen are not enough. See `apps/filer/filer.asm` for the icon-grid
 file browser this exists for.
 
 ### Palette — VERA's 256-entry table at `$1FA00`
@@ -543,8 +548,8 @@ bytes for the family. The friendly layers unpack it into named calls
 ### Tiles -- mode 2 only
 
 Tile images live at VRAM `$00000` (4bpp 8x8, 32 bytes each; upload with
-the csdk's `cx_vram_write`); the maps are 64x32 cells at `$08000` (layer
-0) / `$09000` (layer 1). All refuse with carry outside mode 2.
+the csdk's `cx_vram_write`); the maps are 64x32 cells at `$10000` (layer
+0) / `$11000` (layer 1). All refuse with carry outside mode 2.
 
 | slot | name | addr | args -> result | purpose |
 |---|---|---|---|---|

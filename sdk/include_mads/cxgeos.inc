@@ -277,7 +277,7 @@ cx_spr_collide = $812D
 
 ; --- icons (a 24x24 bitmap from the built-in sheet)
 cx_icon = $8130
-;     A = icon id (0-7), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it)
+;     A = icon id (0-17), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it)
 
 ; --- palette (VERA's 256-entry colour table at $1FA00)
 cx_pal_set = $8133

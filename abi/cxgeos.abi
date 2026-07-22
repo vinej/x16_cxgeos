@@ -295,8 +295,10 @@ version = 4
 # The desktop's icon view and its WG_ICON widget draw these; an app can
 # blit one directly too. One 2bpp definition serves both bitmap modes:
 # mode 0 blits it, mode 1 expands each 2-bit index to an 8bpp pixel.
-# ids: 0 up, 1 folder, 2 app, 3 font, 4 accessory, 5 data, 6 image, 7 disk.
-96  cx_icon         1   A = icon id (0-7), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it)
+# ids: 0 up, 1 folder, 2 app, 3 font, 4 accessory, 5 data, 6 image, 7 disk,
+# and the per-app set 8 calc, 9 paint, 10 game, 11 text, 12 sound, 13 sprite,
+# 14 tile, 15 term, 16 gears, 17 globe.
+96  cx_icon         1   A = icon id (0-17), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it)
 
 #= palette (VERA's 256-entry colour table at $1FA00)
 # Program palette entries directly -- most useful to a mode-1 (8bpp) app

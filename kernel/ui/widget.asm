@@ -86,6 +86,10 @@ WG_TOP    = 13                  ; list scroll offset (a pad byte)
 WL_ROWH   = 10                  ; a list row's height
 
 WG_DISABLED = $01               ; flags bit 0
+WG_SELECTED = $40               ; flags bit 6: the widget a fresh list installs
+                                ; focused (its frame drawn). The desktop pre-
+                                ; sets it on the icon/row an app was launched
+                                ; from, so exit returns there instead of item 0.
 
 ; record layout, 16 bytes (stride is n<<4)
 WG_TYPE  = 0
@@ -156,7 +160,38 @@ wg_setup
     lda #$FF                    ; a fresh list starts unfocused, and over no
     sta wg_focus                ; hit region
     sta wg_hover
-    jmp wg_draw_all
+    ; A record flagged WG_SELECTED becomes the initial focus (its frame is
+    ; drawn), so the desktop lands on the icon/row an app was launched from.
+    ; The scan runs BEFORE wg_draw_all so the paint stays the last thing
+    ; wg_setup does and its exit state is unchanged for every other caller --
+    ; the toolkit tests lean on wg_setup ending exactly as wg_draw_all does.
+    ; No caller sets the bit unless it means to, so all of them still install
+    ; unfocused.
+    lda #$FF
+    sta wg_initf
+    stz wg_i
+@fsel
+    lda wg_i
+    cmp wg_n
+    bcs @fseldone
+    jsr wg_rec
+    ldy #WG_FLAGS
+    lda (CX_M_PTR),y
+    and #WG_SELECTED
+    beq @fselnext
+    lda wg_i
+    sta wg_initf
+    bra @fseldone
+@fselnext
+    inc wg_i
+    bra @fsel
+@fseldone
+    jsr wg_draw_all             ; paint everything (leaves the usual exit state)
+    lda wg_initf
+    bmi @nofsel                 ; nothing flagged: install unfocused, as always
+    jmp wg_setfocus             ; else focus (and frame) the flagged widget
+@nofsel
+    rts
 
 ; wg_restore -- put back the widget context wg_setup parked. The panel
 ; calls it (through a trampoline) when it closes, so the app's own
@@ -631,6 +666,10 @@ wg_p_toggle
     stz X16_P7
     lda th_paper                ; clear it
     jsr cxov_rect
+    ldy #WG_TYPE                ; a radio is round; a check is square
+    lda (CX_M_PTR),y
+    cmp #WG_RADIO
+    beq @radio
     jsr wg_toggle_box
     lda th_frame
     jsr cxov_frame
@@ -663,6 +702,21 @@ wg_p_toggle
     stz X16_P7
     lda th_frame
     jsr cxov_rect
+    bra @label
+@radio                          ; a circle inscribed in the marker box, filled
+    jsr wg_radio_center         ; with a centre dot when selected
+    lda #(WG_BOX/2 - 1)
+    sta X16_P4
+    lda th_frame
+    jsr cx_do_gfx_circle
+    ldy #WG_VAL
+    lda (CX_M_PTR),y
+    beq @label
+    jsr wg_radio_center
+    lda #2
+    sta X16_P4
+    lda th_frame
+    jsr cx_do_gfx_disc
 @label
     ldy #WG_X                   ; the label, WG_BOX+6 to the right
     lda (CX_M_PTR),y
@@ -1251,6 +1305,29 @@ wg_toggle_box                   ; P0..P7 = the WG_BOX marker square
     lda #WG_BOX
     sta X16_P6
     stz X16_P7
+    rts
+
+; wg_radio_center -- P0/P1 = cx, P2/P3 = cy: the centre of the WG_BOX marker
+; square, for the round radio's cx_do_gfx_circle / _disc.
+wg_radio_center
+    clc
+    ldy #WG_X
+    lda (CX_M_PTR),y
+    adc #(WG_BOX/2)
+    sta X16_P0
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P1
+    clc
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    adc #(WG_BOX/2)
+    sta X16_P2
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    adc #0
+    sta X16_P3
     rts
 
 ; =====================================================================
@@ -2114,7 +2191,9 @@ wg_act
     jmp wg_setfocus
 
 @icon
-    lda wg_evt                  ; single click selects, double click opens
+    lda wg_i                    ; a click selects: move the focus frame to this
+    jsr wg_setfocus             ; icon (repaints the old one plain, this framed)
+    lda wg_evt                  ; then only a double-click opens
     cmp #EV_DBLCLICK
     beq @iconopen
     lda #0
@@ -2180,11 +2259,17 @@ wg_key
     beq @field
     cpx #WG_SCROLL
     beq @scroll
+    cpx #WG_ICON                ; the desktop's icon grid: arrows walk it
+    beq @iconk
     cmp #WK_SPACE               ; button / check / radio
     beq @act
     cmp #WK_ENTER
     beq @act
     bra @no
+@iconk
+    jsr wg_icon_key             ; L/R/U/D move the focus, RETURN opens
+    bcc @no
+    bra @yes
 
 @list
     jsr wg_list_key             ; UP/DOWN select, RETURN posts
@@ -2225,6 +2310,173 @@ wg_key
     rts
 @no
     clc
+    rts
+
+; =====================================================================
+; icon-grid keys -- the desktop's icon view. Arrows walk the focus around
+; the grid; RETURN/SPACE opens the focused icon. The grid is row-major with
+; a uniform row width, so the width is read off the first row and movement
+; is index arithmetic; L/R also honour the row edge (so the caller can turn
+; the page). Carry set if the key was consumed.
+; =====================================================================
+DIR_LEFT  = 0
+DIR_RIGHT = 1
+DIR_UP    = 2
+DIR_DOWN  = 3
+
+wg_icon_key                     ; A = key
+    cmp #WK_LEFT
+    bne @nl
+    lda #DIR_LEFT
+    bra wg_icon_move
+@nl
+    cmp #WK_RIGHT
+    bne @nr
+    lda #DIR_RIGHT
+    bra wg_icon_move
+@nr
+    cmp #WK_UP
+    bne @nu
+    lda #DIR_UP
+    bra wg_icon_move
+@nu
+    cmp #WK_DOWN
+    bne @nd
+    lda #DIR_DOWN
+    bra wg_icon_move
+@nd
+    cmp #WK_ENTER
+    beq @open
+    cmp #WK_SPACE
+    beq @open
+    clc                         ; not one of ours
+    rts
+@open                           ; open the focused icon: EV_WIDGET(index, 1)
+    lda wg_focus
+    sta wg_i
+    jsr wg_rec
+    lda #1
+    jsr wg_post_val
+    sec
+    rts
+
+; wg_icon_move -- A = DIR_*. Move the focus to the neighbour in that
+; direction. wg_cols is the grid width, read from the first row (the run of
+; widgets sharing widget 0's WG_Y). Carry set if it moved, clear at the edge.
+wg_icon_move
+    sta wg_navdir
+    lda wg_focus
+    bpl @havef
+    clc                         ; nothing focused: not ours
+    rts
+@havef
+    stz wg_i                    ; wg_cols = widgets sharing row 0's y
+    jsr wg_rec
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    sta wg_navy
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    sta wg_navy+1
+    lda #1
+    sta wg_cols
+@cc
+    lda wg_cols
+    cmp wg_n
+    bcs @ccdone
+    sta wg_i
+    jsr wg_rec
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    cmp wg_navy
+    bne @ccdone
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    cmp wg_navy+1
+    bne @ccdone
+    inc wg_cols
+    bra @cc
+@ccdone
+    lda wg_navdir
+    cmp #DIR_UP
+    beq @up
+    cmp #DIR_DOWN
+    beq @down
+    cmp #DIR_RIGHT
+    beq @right
+; --- LEFT: focus-1, only if it shares the focused icon's row ---
+    lda wg_focus
+    beq @edge                   ; nothing left of index 0
+    jsr @focus_y                ; wg_navy = focus's y
+    lda wg_focus
+    sec
+    sbc #1
+    jsr @row_of                 ; same row as focus?
+    bne @edge
+    lda wg_focus
+    sec
+    sbc #1
+    bra @go
+@right
+    lda wg_focus                ; focus+1, only if same row (and it exists)
+    clc
+    adc #1
+    cmp wg_n
+    bcs @edge
+    jsr @focus_y
+    lda wg_focus
+    clc
+    adc #1
+    jsr @row_of
+    bne @edge
+    lda wg_focus
+    clc
+    adc #1
+    bra @go
+@up
+    lda wg_focus                ; focus - cols, unless on the top row
+    cmp wg_cols
+    bcc @edge
+    sec
+    sbc wg_cols
+    bra @go
+@down
+    lda wg_focus                ; focus + cols, unless there is no row below
+    clc
+    adc wg_cols
+    cmp wg_n
+    bcs @edge
+@go
+    jsr wg_setfocus             ; A = the new index; frame follows
+    sec
+    rts
+@edge
+    clc
+    rts
+; @focus_y -- wg_navy = the focused icon's WG_Y (word)
+@focus_y
+    lda wg_focus
+    sta wg_i
+    jsr wg_rec
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    sta wg_navy
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    sta wg_navy+1
+    rts
+; @row_of -- A = a widget index; Z set if its WG_Y equals wg_navy
+@row_of
+    sta wg_i
+    jsr wg_rec
+    ldy #WG_Y
+    lda (CX_M_PTR),y
+    cmp wg_navy
+    bne @rowno
+    ldy #WG_Y+1
+    lda (CX_M_PTR),y
+    cmp wg_navy+1
+@rowno
     rts
 
 ; wg_scroll_key -- A = signed step. If the focused widget is a
@@ -2572,6 +2824,10 @@ wg_rem   .byte 0
 wg_res   .word 0
 wg_acc   .word 0
 wg_focus .byte $FF               ; the keyboard-focused widget; $FF none
+wg_initf .byte $FF               ; the WG_SELECTED widget to focus on install; $FF none
+wg_navdir .byte 0                ; icon-grid arrow direction (DIR_*)
+wg_navy  .word 0                 ; a row's WG_Y, while walking the icon grid
+wg_cols  .byte 0                 ; the icon grid's width (widgets per row)
 wg_drag  .byte $FF               ; the scrollbar being dragged; $FF none
 wg_dragpx .word 0                ; ...and its thumb's live pixel offset,
                                  ; so the thumb tracks the mouse smoothly

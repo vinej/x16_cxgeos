@@ -44,6 +44,18 @@
 ;                     agnostic: they draw through SHP_PSET/SHP_READ/
 ;                     SHP_HLINE (+ SHP_W/SHP_H bounds), which default to
 ;                     the 2bpp module; predefine them to bind any engine
+;   X16_USE_SHAPES_POLY  + shape_polygon, shape_fpolygon (regular convex
+;                     N-gons, outline and filled; pulls in MATH for the
+;                     sin8/cos8 vertex placement)
+;   X16_USE_SHAPES_RRECT + shape_rrect, shape_frrect (rounded rectangle,
+;                     outline and filled; self-contained, no trig)
+;   X16_USE_SHAPES_ARC   + shape_arc (a portion of a circle outline
+;                     between two byte-angles; pulls MATH + the shared
+;                     line helper X16_USE_SHP_LINE)
+;   X16_USE_SHAPES_PIE   + shape_pie (a filled wedge from the centre to
+;                     the arc; pulls in SHAPES_ARC)
+;   X16_USE_SHAPES_BEZIER + shape_bezier (a cubic Bezier curve through
+;                     four control points; pulls the shared line helper)
 ;   X16_USE_VERAFX    all of the below, as it always has been
 ;     _MULT           fx_mult
 ;     _FILL           fx_fill, fx_clear
@@ -71,10 +83,24 @@
 ;                     pulls in PCM and IRQ)
 ;   X16_USE_INPUT     joy_scan, joy_get, mouse_show/hide/get,
 ;                     key_get, key_wait, key_peek
+;   X16_USE_SERIAL    ser_detect, ser_init, ser_avail, ser_get,
+;                     ser_get_wait, ser_put, ser_puts, ser_write,
+;                     ser_read_until, ser_discard_until -- the serial /
+;                     WiFi card's 16C550 UARTs at $9F60/$9F68
+;   X16_USE_SERIAL_ZIMODEM  + zi_init, zi_cmd, zi_wait_ok, zi_reset,
+;                     zi_get_ip, zi_hex_open/chunk/close, zi_hexdecode --
+;                     the ESP32 WiFi modem (ZiModem AT commands) on top of
+;                     SERIAL
 ;   X16_USE_BANK      bank_set/get, bank_peek/poke, mem_to_bank,
 ;                     bank_to_mem, bank_copy_far
 ;   X16_USE_BANKALLOC bank_alloc_init, bank_alloc, bank_free,
 ;                     bank_reserve
+;   X16_USE_STACK     stack_init(bank), stack_push/pushw/pop/popw,
+;                     stack_size/free/isempty/isfull -- an 8 KB LIFO in a
+;                     HIRAM bank (the 256-byte stk_* live in BUFFERS)
+;   X16_USE_RINGBUFFER ring_init(bank), ring_put/putw/get/getw,
+;                     ring_size/free/isempty/isfull -- an 8 KB FIFO in a
+;                     HIRAM bank (the 256-byte rb_* live in BUFFERS)
 ;   X16_USE_MEM       mem_fill, mem_copy, mem_crc, mem_decompress
 ;                     (KERNAL block ops; they stream to/from VERA too)
 ;   X16_USE_LOAD      fs_setname, fs_load, fs_save, fs_vload
@@ -90,6 +116,8 @@
 ;   X16_USE_ZX0       zx0_decompress (tighter than the ROM's LZSA2)
 ;   X16_USE_TSC       tsc_decompress (TSCrunch: faster unpack)
 ;   X16_USE_FIXED     umul16, mul88
+;   X16_USE_BCD       bcd_add8/16/32, bcd_sub8/16/32, bcd_addto,
+;                     bcd_subfrom -- packed-BCD (decimal-mode) arithmetic
 ;   X16_USE_COLLIDE   collide8, collide16
 ;   X16_USE_BITS      catnib, hinib, lonib, bit_set/clr/put/test
 ;   X16_USE_NUMBER    u16_to_dec, u16_to_hex, dec_to_u16
@@ -102,6 +130,25 @@
 ;   X16_USE_FLOAT     f_load/store, f_add/sub/mul/div, f_rsub/rdiv,
 ;                     f_pow, f_cmp, f_sqrt, f_ln, f_exp, f_sin, f_cos,
 ;                     f_tan, f_atan, f_from_s16/u8/str, f_to_s16/str
+;   X16_USE_DOUBLE    64-bit software binary64 (~15-16 digits) on a d_ac
+;                     accumulator -- a scientific calculator core with
+;                     decimal I/O: d_load/store, d_from_s16/s32, d_to_s32,
+;                     d_neg/abs, d_cmp, d_add/sub/mul/div, d_from_str,
+;                     d_to_str, d_sqrt, d_exp, d_ln, d_pow, d_sin, d_cos,
+;                     d_tan, d_atan, d_sinh, d_cosh, d_tanh
+;   X16_USE_STRING    str_length, str_copy, str_ncopy, str_append,
+;                     str_nappend, str_compare, str_hash -- NUL-terminated
+;                     string fundamentals (string/string.asm)
+;   X16_USE_STRING_CTYPE  str_isdigit/isxdigit/islower/isspace and
+;                     isupper/isletter/isprint (+ _iso) -- char predicates
+;   X16_USE_STRING_CASE   str_lower/upper/lowerchar/upperchar (+ _iso),
+;                     str_compare_nocase (+ _iso) -- case folding
+;   X16_USE_STRING_FIND   str_find, str_rfind, str_find_eol, str_contains,
+;                     str_pattern_match -- searching
+;   X16_USE_STRING_SLICE  str_left, str_right, str_slice -- substrings
+;                     (the five string gates are independent; set what you
+;                      use. Number<->string conversion stays in NUMBER,
+;                      INT16/INT32, FLOAT, DOUBLE.)
 ; =====================================================================
 
 ; Gates are set with !ifndef so that asking for a module twice -- say via
@@ -236,12 +283,104 @@ X16_USE_NUMBER = 1
     X16_USE_SCREEN = 1
 .endif
 .endif
+.ifdef X16_USE_SHAPES_POLY
+    .ifndef X16_USE_SHAPES
+    X16_USE_SHAPES = 1
+.endif
+    .ifndef X16_USE_MATH
+    X16_USE_MATH   = 1
+.endif
+.endif
+; The curve shapes. PIE reuses ARC's trig point helper, so it pulls ARC;
+; ARC and BEZIER share one 16-bit Bresenham (the internal X16_USE_SHP_LINE).
+; Ordered so a pulled gate's own dependencies still get a turn below it:
+; PIE sets ARC, then ARC sets MATH + SHP_LINE, then SHP_LINE sets SHAPES.
+.ifdef X16_USE_SHAPES_PIE
+    .ifndef X16_USE_SHAPES
+    X16_USE_SHAPES     = 1
+.endif
+    .ifndef X16_USE_SHAPES_ARC
+    X16_USE_SHAPES_ARC = 1
+.endif
+.endif
+.ifdef X16_USE_SHAPES_ARC
+    .ifndef X16_USE_SHAPES
+    X16_USE_SHAPES   = 1
+.endif
+    .ifndef X16_USE_MATH
+    X16_USE_MATH     = 1
+.endif
+    .ifndef X16_USE_SHP_LINE
+    X16_USE_SHP_LINE = 1
+.endif
+.endif
+.ifdef X16_USE_SHAPES_RRECT
+.ifndef X16_USE_SHAPES
+X16_USE_SHAPES = 1
+.endif
+.endif
+.ifdef X16_USE_SHAPES_BEZIER
+    .ifndef X16_USE_SHAPES
+    X16_USE_SHAPES   = 1
+.endif
+    .ifndef X16_USE_SHP_LINE
+    X16_USE_SHP_LINE = 1
+.endif
+.endif
+.ifdef X16_USE_SHP_LINE
+.ifndef X16_USE_SHAPES
+X16_USE_SHAPES = 1
+.endif
+.endif
 .ifdef X16_USE_SHAPES
     .ifndef SHP_PSET
         .ifndef X16_USE_BITMAP2
         X16_USE_BITMAP2 = 1
 .endif
 .endif
+.endif
+; util/double.asm stands alone (no module dependencies). This otherwise
+; empty gate block is what makes the 64tass gate-model generator register
+; xuse_double -- it scans the dependency section here, not the module
+; !source lines below. DOUBLE is deliberately kept OUT of X16_USE_ALL so
+; the dist blob stays under the $9EFF low-RAM ceiling.
+.ifdef X16_USE_DOUBLE
+.endif
+; comms/serial.asm stands alone too -- same empty-block trick to register
+; xuse_serial in the 64tass gate model. Kept OUT of X16_USE_ALL / the dist
+; blob: it drives a specific add-on card, so you enable the gate to pay for
+; it, and a program that never talks serial carries none of it.
+.ifdef X16_USE_SERIAL
+.endif
+; comms/zimodem.asm layers the ESP32 WiFi AT-command protocol over SERIAL.
+; Also pay-per-use (out of X16_USE_ALL); pulls SERIAL in.
+.ifdef X16_USE_SERIAL_ZIMODEM
+    .ifndef X16_USE_SERIAL
+    X16_USE_SERIAL = 1
+.endif
+.endif
+; util/bcd.asm stands alone (decimal-mode add/sub). Empty block registers
+; xuse_bcd in the 64tass gate model; kept OUT of X16_USE_ALL (pay-per-use).
+.ifdef X16_USE_BCD
+.endif
+; storage/stack.asm and storage/ringbuffer.asm each own an 8 KB HIRAM bank.
+; Standalone; empty blocks register xuse_stack / xuse_ringbuffer in the
+; 64tass gate model. Both pay-per-use (out of X16_USE_ALL).
+.ifdef X16_USE_STACK
+.endif
+.ifdef X16_USE_RINGBUFFER
+.endif
+; The five string/ modules are independent and self-contained; these empty
+; blocks register their gates in the 64tass gate model. All pay-per-use.
+.ifdef X16_USE_STRING
+.endif
+.ifdef X16_USE_STRING_CTYPE
+.endif
+.ifdef X16_USE_STRING_CASE
+.endif
+.ifdef X16_USE_STRING_FIND
+.endif
+.ifdef X16_USE_STRING_SLICE
 .endif
 .ifdef X16_USE_BITMAP2
     .ifndef X16_USE_VERA
@@ -459,8 +598,15 @@ X16_USE_SCREEN_ANY = 1
 .ifdef X16_USE_BITMAP2
 .include "gfx/bitmap2.asm"
 .endif
+; X16_SKIP_SHAPES / X16_SKIP_MATH (below): a program that sources these two
+; modules itself -- e.g. a custom bank layout, or a gate pulled in only for a
+; dependency like X16_USE_SHAPES_POLY -> X16_USE_SHAPES/MATH -- defines the
+; matching skip symbol to keep this wrapper's flat include quiet, so the
+; module's symbols are not defined twice.
 .ifdef X16_USE_SHAPES
+.ifndef X16_SKIP_SHAPES
 .include "gfx/shapes.asm"
+.endif
 .endif
 .ifdef X16_USE_VERAFX_ANY
 .include "gfx/verafx.asm"
@@ -480,11 +626,23 @@ X16_USE_SCREEN_ANY = 1
 .ifdef X16_USE_INPUT_ANY
 .include "input/input.asm"
 .endif
+.ifdef X16_USE_SERIAL
+.include "comms/serial.asm"
+.endif
+.ifdef X16_USE_SERIAL_ZIMODEM
+.include "comms/zimodem.asm"
+.endif
 .ifdef X16_USE_BANK
 .include "storage/bank.asm"
 .endif
 .ifdef X16_USE_BANKALLOC
 .include "storage/bankalloc.asm"
+.endif
+.ifdef X16_USE_STACK
+.include "storage/stack.asm"
+.endif
+.ifdef X16_USE_RINGBUFFER
+.include "storage/ringbuffer.asm"
 .endif
 .ifdef X16_USE_MEM
 .include "storage/mem.asm"
@@ -499,7 +657,9 @@ X16_USE_SCREEN_ANY = 1
 .include "storage/bmx.asm"
 .endif
 .ifdef X16_USE_MATH
+.ifndef X16_SKIP_MATH
 .include "util/math.asm"
+.endif
 .endif
 .ifdef X16_USE_CLIP
 .include "util/clip.asm"
@@ -519,6 +679,9 @@ X16_USE_SCREEN_ANY = 1
 .ifdef X16_USE_FIXED
 .include "util/fixed.asm"
 .endif
+.ifdef X16_USE_BCD
+.include "util/bcd.asm"
+.endif
 .ifdef X16_USE_COLLIDE
 .include "util/collide.asm"
 .endif
@@ -536,4 +699,22 @@ X16_USE_SCREEN_ANY = 1
 .endif
 .ifdef X16_USE_FLOAT
 .include "util/float.asm"
+.endif
+.ifdef X16_USE_DOUBLE
+.include "util/double.asm"
+.endif
+.ifdef X16_USE_STRING
+.include "string/string.asm"
+.endif
+.ifdef X16_USE_STRING_CTYPE
+.include "string/ctype.asm"
+.endif
+.ifdef X16_USE_STRING_CASE
+.include "string/case.asm"
+.endif
+.ifdef X16_USE_STRING_FIND
+.include "string/find.asm"
+.endif
+.ifdef X16_USE_STRING_SLICE
+.include "string/slice.asm"
 .endif

@@ -20,8 +20,11 @@
 .include "asmsdk/ca65/cxgeos.inc"
 
 WG_ICON   = 6                   ; emit_icon_rec writes this record type at runtime
+WG_SELECTED = $40               ; WG_FLAGS bit: emit_icon_rec sets it on the icon
+                                ; an app was launched from, and the kernel focuses
+                                ; the flagged record when the list is installed
 
-; the icon ids cx_icon draws (kernel/ui/icon.asm)
+; the icon ids cx_icon draws (kernel/ui/icon.asm; order = tools/icongen.py)
 ICON_UP        = 0
 ICON_FOLDER    = 1
 ICON_APP       = 2
@@ -30,6 +33,16 @@ ICON_ACCESSORY = 4
 ICON_DATA      = 5
 ICON_IMAGE     = 6
 ICON_DISK      = 7
+ICON_CALC      = 8              ; per-app icons for the shipped demos
+ICON_PAINT     = 9
+ICON_GAME      = 10
+ICON_TEXT      = 11
+ICON_SOUND     = 12
+ICON_SPRITE    = 13
+ICON_TILE      = 14
+ICON_TERM      = 15
+ICON_GEARS     = 16
+ICON_GLOBE     = 17
 
 MAXFILES  = 96
 NAMEMAX   = 20                  ; bytes reserved per name in the pool
@@ -40,7 +53,9 @@ CONTENT_Y0 = 44
 GX0    = 32
 GY0    = 52
 GCW    = 96                     ; cell width  (icon centred in it)
-GCH    = 66                     ; cell height (icon then caption)
+GCH    = 38                     ; cell height: icon (24) + one caption line,
+                                ; hugged tight so the selection frame sits just
+                                ; around it -- no empty band below the title
 GCOLS  = 6
 GROWS  = 6
 PERPAGE = GCOLS * GROWS         ; 36 icons a page
@@ -52,6 +67,11 @@ MAXICON = PERPAGE
 ; it was launched from -- the directory still resets to root (above), but
 ; list-vs-icons is a preference and should stick.
 CX_SHELL_STATE = $800A
+; $800B: the file index the last app was launched from (into the root
+; listing), restored as the desktop's selection on the cx_exit back. $FF =
+; none -- a cold boot, or a launch from inside a folder, where the reset-to-
+; root above makes the index meaningless.
+CX_SHELL_SEL = $800B
 
 ; app zero page ($60-$7F is the app's)
 poolp = $60                     ; the pool write head / a name walker
@@ -89,6 +109,30 @@ main
 
     cxm_ev_init
     cxm_menu_set bar
+
+    ; --- restore the selection the last app was launched from ----------
+    ; The list installs focused now (WG_SELECTED on its record), so UP/DOWN
+    ; work at once without the old priming TAB; the icon grid flags the one
+    ; restored file the same way, so both views land on the launched app.
+    lda #WG_SELECTED
+    sta wl_rec + 1
+    lda CX_SHELL_SEL            ; the launched file's index; $FF or stale -> 0
+    cmp fcount
+    bcc @selok
+    lda #0
+@selok
+    sta wl_rec + 9             ; list view: the selected row
+    sta restore_sel            ; icon view: emit_icon_rec flags this file
+    ldx #0                     ; iconpage = sel / PERPAGE (the page holding it)
+@selpg
+    cmp #PERPAGE
+    bcc @selpgok
+    sbc #PERPAGE
+    inx
+    bra @selpg
+@selpgok
+    stx iconpage
+
     lda CX_SHELL_STATE          ; the view the last desktop left (0 at cold
     and #1                      ; boot); an app launch does not clear it
     sta viewmode
@@ -101,10 +145,10 @@ main
     lda #<widgets
     ldx #>widgets
 @vset
-    jsr cx_wg_set               ; A/X = the chosen list (built above)
+    jsr cx_wg_set               ; A/X = the chosen list; wg_set focuses the
+    lda #$FF                    ; WG_SELECTED record. Clear the one-shot so a
+    sta restore_sel             ; later page turn does not re-force it
     cxm_mouse_show 1            ; the arrow
-
-    cxm_wg_key CX_K_TAB         ; focus the list so UP/DOWN work at once
 
     cxm_ev_timer 60                ; a tick a second, for the clock
     jsr on_timer                ; and the clock NOW, not in a second
@@ -322,11 +366,60 @@ entry_icon
     lda #ICON_DATA
     rts
 @app
-    lda #ICON_APP
-    rts
+    jmp app_icon                ; a known demo -> its own icon, else ICON_APP
 @acc
     lda #ICON_ACCESSORY
     rts
+
+; ---------------------------------------------------------------------
+; app_icon -- A = the per-app icon for the .CXA at (poolp), matched by name
+; against app_tab; the generic ICON_APP if the name is not one the desktop
+; knows. app_tab is (NUL-terminated name, icon byte) pairs, ended by a lone
+; 0 byte. The name is still bare here (entry_icon runs before the slash).
+; ---------------------------------------------------------------------
+app_icon
+    lda #<app_tab
+    sta iwp                     ; iwp is free until build_icons; reuse it as the
+    lda #>app_tab               ; table walker so (iwp),y reaches each entry
+    sta iwp+1
+@ent
+    ldy #0
+    lda (iwp),y                 ; a lone 0 byte ends the table
+    bne @cmp
+    lda #ICON_APP
+    rts
+@cmp
+    ldy #0                      ; compare the file name to this entry's name
+@ch
+    lda (iwp),y
+    beq @eend                   ; entry name ended...
+    cmp (poolp),y
+    bne @adv                    ; a mismatch: on to the next entry
+    iny
+    bra @ch
+@eend
+    lda (poolp),y               ; ...the file name must end in the same spot
+    bne @adv
+    iny                         ; Y on the NUL -> the icon byte follows it
+    lda (iwp),y
+    rts
+@adv                            ; iwp += strlen(entry) + 2 (its NUL and icon)
+    ldy #0
+@sk
+    lda (iwp),y
+    beq @skend
+    iny
+    bra @sk
+@skend
+    iny
+    iny
+    tya
+    clc
+    adc iwp
+    sta iwp
+    bcc @ent
+    inc iwp+1
+    bra @ent
 
 ; ---------------------------------------------------------------------
 ; the icon view: a page of the directory as a grid of icon widgets
@@ -382,6 +475,12 @@ build_icons
     dex
     bne @pbmul
 @pbok
+    lda restore_sel             ; the icon to install focused: the restored file,
+    cmp #$FF                    ; or -- absent one (a page turn) -- the first icon
+    bne @ffok                   ; on this page, so the frame always lands somewhere
+    lda pagebase                ; and the arrow keys have a place to start
+@ffok
+    sta focus_fidx
     stz iw_n
     lda #<(iwbuf+1)
     sta iwp
@@ -448,8 +547,13 @@ emit_icon_rec
     ldy #0                      ; WG_TYPE
     lda #WG_ICON
     sta (iwp),y
-    ldy #1                      ; WG_FLAGS
-    lda #0
+    ldy #1                      ; WG_FLAGS -- focus_fidx installs focused
+    lda #0                      ; (WG_SELECTED): the restored file, or the first
+    ldx fidx                    ; icon of the page after a turn
+    cpx focus_fidx
+    bne @flags
+    lda #WG_SELECTED
+@flags
     sta (iwp),y
     ldy #2                      ; WG_X
     lda cxw
@@ -665,6 +769,14 @@ on_widget                       ; an entry was activated: open it
     ldx #>s_isdesk
     jmp note
 @load
+    lda depth                   ; remember which file we launched so the cx_exit
+    bne @nosel                  ; back lands on it -- but only at the root, since
+    lda wl_rec + 9              ; a launch from inside a folder is meaningless
+    bra @savesel                ; once the desktop resets to root on reload
+@nosel
+    lda #$FF
+@savesel
+    sta CX_SHELL_SEL
     ; a file: only a CXAP comes back from this
     lda #<obuf
     ldx #>obuf
@@ -1294,12 +1406,20 @@ on_key
     beq @open
     cmp #$1B                    ; ESC: leave the desktop
     beq @quit
-    ldx viewmode                ; icon view turns pages with LEFT/RIGHT
-    beq @tolist
-    cmp #$9D                    ; LEFT
+    ldx viewmode
+    beq @tolist                 ; list view: straight to the widget keys
+    ; icon view: the arrows walk the grid focus (RETURN opens); only a LEFT
+    ; or RIGHT that runs off the row edge falls through to turn the page.
+    lda X16_P1                  ; keep the key -- the grid move clobbers X16_P*
+    pha
+    jsr cx_wg_key               ; carry set if it moved the focus (or opened)
+    pla
+    bcs @pgnone                 ; consumed by the grid
+    cmp #$9D                    ; LEFT at the row edge
     beq @pgprev
-    cmp #$1D                    ; RIGHT
+    cmp #$1D                    ; RIGHT at the row edge
     beq @pgnext
+    bra @pgnone
 @tolist
     jsr cx_wg_key               ; UP/DOWN select, RETURN opens (list view)
     rts
@@ -1325,7 +1445,11 @@ on_key
     cxm_exit
 @menu                           ; UP/DOWN move items, LEFT/RIGHT switch menus,
     lda X16_P1                  ; RETURN picks, ESC dismisses -- cx_menu_key
-    jmp cx_menu_key             ; owns the whole interaction while a menu is up
+    cmp #$09                    ; owns the interaction while a menu is up. TAB
+    bne @menukey                ; toggles back out: dismiss the menu and return
+    lda #$1B                    ; to the list/icon, the same as ESC does here
+@menukey
+    jmp cx_menu_key
 
 handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY
     .addr 0, 0, 0, 0, 0
@@ -1388,7 +1512,7 @@ theme_night                     ; 0 near-black paper, 1 medium-blue
     cxm_theme_rec $0001, $0248, $0356, $0ABC, 0, 1, 3
 
 s_marker  .byte "CXGEOS SHELL", $0D, 0
-s_title   .byte "CXGEOS -- dbl-click opens (or UP/DOWN+RETURN), TAB menu, ESC quits", 0
+s_title   .byte "CXGEOS -- dbl-click opens (or UP/DOWN/LEFT/RIGHT+RETURN), TAB menu", 0
 s_m0      .byte "CXGEOS", 0
 s_m1      .byte "File", 0
 s_m2      .byte "Themes", 0
@@ -1432,6 +1556,27 @@ hidden_tab .byte ".X16", ".BIN", ".PRG", ".CXF"
 ext4       .res 4, 0
 he_i       .byte 0
 
+; app_icon's table: each shipped demo the desktop knows, mapped to its own
+; icon. (name, NUL, icon id); a lone 0 ends it. Anything not here draws the
+; generic ICON_APP, so a new app just works until it earns its own picture.
+app_tab
+    .byte "CALC.CXA", 0,    ICON_CALC
+    .byte "CALC8.CXA", 0,   ICON_CALC
+    .byte "PAINT.CXA", 0,   ICON_PAINT
+    .byte "GAMELOOP.CXA", 0, ICON_GAME
+    .byte "TEXT.CXA", 0,    ICON_TEXT
+    .byte "BEEP.CXA", 0,    ICON_SOUND
+    .byte "SPRITE.CXA", 0,  ICON_SPRITE
+    .byte "TILES.CXA", 0,   ICON_TILE
+    .byte "TILES8.CXA", 0,  ICON_TILE
+    .byte "TILEDLG.CXA", 0, ICON_TILE
+    .byte "TUI.CXA", 0,     ICON_TERM
+    .byte "CPANEL.CXA", 0,  ICON_GEARS
+    .byte "HELLO1.CXA", 0,  ICON_GLOBE
+    .byte "HELLO2.CXA", 0,  ICON_GLOBE
+    .byte "GFX8.CXA", 0,    ICON_IMAGE
+    .byte 0
+
 fcount    .byte 0
 ftype     .byte 0
 deldir    .byte 0
@@ -1439,6 +1584,10 @@ depth     .byte 0               ; folders deep from the root; 0 = home
 ddelta    .byte 0               ; a pending CD's step: +1 down, -1 up
 viewmode  .byte 0               ; 0 = list, 1 = icons
 iconpage  .byte 0               ; the icon page on screen
+restore_sel .byte $FF           ; the file index main restores focused across an
+                                ; app launch; $FF = none (main clears it post-build)
+focus_fidx  .byte 0             ; the file build_icons flags focused: restore_sel,
+                                ; or the page's first icon when there is no restore
 pagebase  .byte 0               ; the first file index of that page
 iw_n      .byte 0               ; icons built on it
 fidx      .byte 0               ; the file build_icons is placing

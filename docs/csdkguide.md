@@ -1,6 +1,6 @@
 # CXGEOS csdk Guide — the friendly C wrapper
 
-**Release 0.8.0** · header: `csdk/cxsdk.h`
+**Release 0.9.0** · header: `csdk/cxsdk.h`
 
 The csdk turns the low-level [ABI](sdkguide.md) into clean, named `cx_*`
 functions, a typed event record, the shared constants, immediate-mode widget
@@ -300,7 +300,7 @@ sits beside a real one. For *interactive* widgets the kernel manages, use the
 | function | purpose |
 |---|---|
 | `cx_button(x, y, w, h, label)` | a framed button, label centred both ways |
-| `cx_checkbox(x, y, label, checked)` | a marker box (filled when `checked`) + a label (radios share this look) |
+| `cx_checkbox(x, y, label, checked)` | a marker box (filled when `checked`) + a label (this immediate-mode helper draws a box; the toolkit's `WG_RADIO` widget is round — a circle with a filled centre dot when selected) |
 | `cx_slider(x, y, w, value, max)` | a trough with a thumb at `value/max` (0..max inclusive); height `CX_SLIDER_H` |
 | `cx_edit(x, y, w, h, text)` | a framed field showing `text`, no caret (repaint to update) |
 
@@ -422,7 +422,7 @@ cx_wg_set(&panel);
 
 ## Icons
 
-The kernel ships a built-in 24×24 icon sheet — the same eight glyphs the
+The kernel ships a built-in 24×24 icon sheet — the same eighteen glyphs the
 desktop's file browser draws — plus `cx_icon` to blit any one of them
 directly, in either bitmap mode.
 
@@ -436,6 +436,11 @@ directly, in either bitmap mode.
 | `CX_ICON_DATA` | 5 | any other file |
 | `CX_ICON_IMAGE` | 6 | a picture/image |
 | `CX_ICON_DISK` | 7 | a disk/volume |
+
+Ids 8–17 are the desktop's per-app icons — 8 calc, 9 paint, 10 game, 11
+text, 12 sound, 13 sprite, 14 tile, 15 term, 16 gears, 17 globe — drawn by
+number (see the filer's `ICON_*` and `tools/icongen.py`); they have no named
+SDK constant.
 
 | function | purpose |
 |---|---|

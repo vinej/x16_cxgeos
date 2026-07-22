@@ -153,12 +153,15 @@ the toolkit stores each widget's state back into its record).
 0   type    .byte    0 button, 1 checkbox, 2 radio, 3 h-scrollbar,
                      4 text field, 5 list, 6 icon, 7 hit region
 1   flags   .byte    bit0 = disabled (drawn, but not clickable)
+                     bit6 = WG_SELECTED -- the widget a fresh list installs
+                     focused (the desktop sets it on the icon/row an app was
+                     launched from, so exit returns there)
 2   x       .word
 4   y       .word
 6   w       .word
 8   h       .byte
 9   value   .byte    checkbox/radio 0-1; scrollbar 0..max;
-                     icon: the id 0-7; hit region: the shape (WH_*)
+                     icon: the id 0-17; hit region: the shape (WH_*)
 10  group   .byte    radio: the group id; scrollbar: the max value;
                      hit region: the trigger mask (WH_CLICK/RELEASE/HOVER)
 11  label   .word    a zero-terminated string (unused by a hit region)
@@ -195,7 +198,7 @@ index. It is the file browser's list.
 ### The icon and hit-region widgets (types 6, 7)
 
 `WG_ICON` (type 6) draws a built-in 24×24 icon — `WG_VAL` is the icon id
-(0–7, `kernel/ui/icon.asm`) — with `WG_LBL` centred beneath it; the
+(0–17, `kernel/ui/icon.asm`) — with `WG_LBL` centred beneath it; the
 desktop's icon view is a grid of them. A single click posts
 `EV_WIDGET(index, 0)`, a double-click `(index, 1)` — select versus open.
 

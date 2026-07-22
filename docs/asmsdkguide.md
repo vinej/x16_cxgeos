@@ -1,6 +1,6 @@
 # CXGEOS asmsdk Guide — the friendly ca65 macros
 
-**Release 0.8.0** · ABI version 2 · 101 slots · include: `asmsdk/ca65/cxgeos.inc`
+**Release 0.9.0** · ABI version 4 · 105 slots · include: `asmsdk/ca65/cxgeos.inc`
 
 The asmsdk is to assembly what [csdk](csdkguide.md) is to C: named one-line
 **macros** over the raw jump-table equates, plus the shared constants and
@@ -333,7 +333,7 @@ theme_night:
 
 ## Icons
 
-The kernel ships a built-in 24×24 icon sheet — the same eight glyphs the
+The kernel ships a built-in 24×24 icon sheet — the same eighteen glyphs the
 desktop's file browser draws — plus `cxm_icon` to blit any one of them
 directly, in either bitmap mode.
 
@@ -347,6 +347,11 @@ directly, in either bitmap mode.
 | 5 | `CX_ICON_DATA` | any other file |
 | 6 | `CX_ICON_IMAGE` | a picture/image |
 | 7 | `CX_ICON_DISK` | a disk/volume |
+
+Ids 8–17 are the desktop's per-app icons — 8 calc, 9 paint, 10 game, 11
+text, 12 sound, 13 sprite, 14 tile, 15 term, 16 gears, 17 globe — drawn by
+number (see the filer's `ICON_*` and `tools/icongen.py`); they have no named
+SDK constant.
 
 ```asm
 cxm_icon CX_ICON_FOLDER, 40, 60      ; paint one icon directly

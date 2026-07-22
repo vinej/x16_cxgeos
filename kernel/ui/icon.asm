@@ -25,7 +25,8 @@ ICON_H       = 24
 ICON_ROWB    = ICON_W / 4       ; 6 bytes a row
 ICON_BYTES   = ICON_ROWB * ICON_H   ; 144
 
-; the ids the filer maps a file's kind to (must match tools/icongen.py)
+; the ids the filer maps a file's kind (and known demo names) to; the order
+; is the contract with tools/icongen.py and apps/filer
 ICON_UP      = 0
 ICON_FOLDER  = 1
 ICON_APP     = 2
@@ -34,6 +35,16 @@ ICON_ACCESSORY = 4
 ICON_DATA    = 5
 ICON_IMAGE   = 6
 ICON_DISK    = 7
+ICON_CALC    = 8
+ICON_PAINT   = 9
+ICON_GAME    = 10
+ICON_TEXT    = 11
+ICON_SOUND   = 12
+ICON_SPRITE  = 13
+ICON_TILE    = 14
+ICON_TERM    = 15
+ICON_GEARS   = 16
+ICON_GLOBE   = 17
 
 ; ---------------------------------------------------------------------
 ; cx_do_icon (RESIDENT) -- render icon A at (P0/P1, P2/P3).
@@ -87,6 +98,12 @@ cx_do_icon
     sta X16_P6
     lda CX_I_SRC+1
     sta X16_P7
+    lda #0                      ; raster op 0 = opaque copy. MUST be set: the
+                                ; blit reads A as its op, and leaving the source
+                                ; high byte here means any icon whose sheet
+                                ; address has (high & 3) == 2 blits op 2 (AND)
+                                ; over paper 0 -> a blank icon (font/game/text/
+                                ; globe hit exactly that before this was fixed)
     jsr cxov_blit
     pla
     sta RAM_BANK

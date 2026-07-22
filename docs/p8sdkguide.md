@@ -1,6 +1,6 @@
 # CXGEOS p8sdk Guide — Prog8 for CXGEOS
 
-**Release 0.8.0** · ABI version 2 · binding: `sdk/include_prog8/cxgeos.p8`
+**Release 0.9.0** · ABI version 4 · binding: `sdk/include_prog8/cxgeos.p8`
 (block `cx`) · friendly layer: `p8sdk/cxui.p8` (block `ui`)
 
 Prog8 ([Irmen de Jong's structured 6502 language](https://prog8.readthedocs.io))
@@ -118,6 +118,11 @@ Trigger mask — its `grp`, combine with `|`:
 | `cx.ICON_DATA` | 5 | a data file |
 | `cx.ICON_IMAGE` | 6 | an image |
 | `cx.ICON_DISK` | 7 | a disk |
+
+Ids 8–17 are the desktop's per-app icons — 8 calc, 9 paint, 10 game, 11
+text, 12 sound, 13 sprite, 14 tile, 15 term, 16 gears, 17 globe — drawn by
+number (see the filer's `ICON_*` and `tools/icongen.py`); they have no named
+SDK constant.
 
 ### Font styles, theme colours
 

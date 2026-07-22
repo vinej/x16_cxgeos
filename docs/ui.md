@@ -97,7 +97,10 @@ consumed them, so the app acts only on the rest. With the bar closed,
 DOWN drops the first menu; open, UP/DOWN move the highlight, LEFT/RIGHT
 switch menus, RETURN picks, ESC dismisses. A keyboard pick posts the
 same `EV_MENU` a click would, through the same `mn_finish` -- so an app
-handles selections one way whichever drove them. This is the keyboard
+handles selections one way whichever drove them. The desktop maps **TAB**
+onto this as a toggle: TAB with the bar closed opens it (a synthetic DOWN),
+TAB with a menu open dismisses it (a synthetic ESC), handing focus back to
+the list/icon view. This is the keyboard
 half of the machine the mouse could not reach in one emulator; on
 hardware both drive the same menus.
 
@@ -125,23 +128,36 @@ the handler table is swapped for the engine's own so RETURN can stand in
 for button 0. Both are restored before the call returns, and the pixels
 come back from the banked save-under. Geometry is fixed (400×96, centred;
 72×16 buttons right-aligned) so a blind test can click a known button.
+`cx_dlg_prompt` adds a one-line editor above the buttons (the "new folder"/
+"rename" boxes); its text and caret sit **vertically centred** in the field,
+and the whole toolkit — this editor included — also draws on a mode-2
+`cx_tile_text` overlay for tile games, where the metrics switch to cells.
 
 ## Widgets (Phase 5b, `kernel/ui/widget.asm`, bank 16)
 
 The toolkit draws a widget list and turns clicks on it into `EV_WIDGET`
-events (docs/formats.md). Button, checkbox, radio and horizontal
-scrollbar so far — the click widgets, which need no keyboard focus. Each
-widget's state lives in its own record in the app's memory, which the
-toolkit writes back, so the app never tracks a checkbox's checked-ness
-itself; it just hears `EV_WIDGET(index, value)` and, if it cares, reads
-the record. Everything draws in the live theme's colours, so a theme
+events (docs/formats.md). Button, checkbox, radio, horizontal scrollbar,
+text field, list and the desktop's icon tile. The **radio draws round** —
+a circle (`cx_do_gfx_circle`) with a filled centre dot when selected —
+while the checkbox keeps its square box. Each widget's state lives in its
+own record in the app's memory, which the toolkit writes back, so the app
+never tracks a checkbox's checked-ness itself; it just hears
+`EV_WIDGET(index, value)` and, if it cares, reads the record. Everything draws in the live theme's colours, so a theme
 switch plus `cx_wg_draw` recolours the lot.
 
 `cx_wg_set` pushes one region over the bounding box of all the widgets,
 so the routing is the same region machinery the menus use — the toolkit
-hit-tests the individual widgets inside that box. The text field (a
-caret, selection, keyboard focus) and the list view ride a later pass
-that adds the focus model the click widgets do without.
+hit-tests the individual widgets inside that box. The text field, the list
+and the desktop's icon grid add a **focus model** on top: TAB moves a focus
+frame between widgets, and a `WG_SELECTED` flag bit (`WG_FLAGS` bit 6) makes a
+list install already-focused. In the icon view a **single click selects** (the
+frame follows) and a double-click opens; the **arrow keys walk the grid** —
+left/right within a row, up/down within a column, RETURN opens, and a
+left/right off the row edge falls through so the desktop turns the page. The
+desktop reuses that same `WG_SELECTED` flag to **restore the selection across
+an app launch**: the launched file's index is kept in the resident byte `$800B`
+(`CX_SHELL_SEL`, beside the view-mode byte at `$800A`), so `cx_exit` lands the
+frame back on the app you ran rather than the first icon.
 
 **`WG_HIT` — invisible hit regions.** A hotspot the *app* draws itself: the
 toolkit paints nothing and only routes the mouse. The record's `WG_VAL` picks

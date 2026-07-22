@@ -314,6 +314,11 @@ bitmap_gpcp
 ; under a pixel depends only on the pixel, not the rectangle.
 ; ---------------------------------------------------------------------
 gfx_pattern_rect
+	lda X16_P4                  ; zero width or height: draw nothing
+	ora X16_P5
+	beq bitmap_gpdone
+	lda X16_P6
+	beq bitmap_gpdone
 	lda X16_P0                  ; the column phase: x & 7, fixed for
 	and #7                      ; every row
 	sta gp8_rot
@@ -360,6 +365,7 @@ bitmap_gpout
 	inc X16_P2                  ; the next row
 	dec X16_P6
 	bne bitmap_gprow
+bitmap_gpdone
 	rts
 
 ; ---------------------------------------------------------------------

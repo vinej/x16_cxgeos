@@ -345,7 +345,9 @@ static void cx_pie(unsigned cxx, unsigned cy, unsigned char r,
 }
 
 /* draw a built-in 24x24 icon (id 0-7: up folder app font accessory data
- * image disk) at (x, y). Modes 0 and 1 only. */
+ * image disk; ids 8-17 are the desktop's per-app icons -- calc paint game
+ * text sound sprite tile term gears globe -- drawn by number) at (x, y).
+ * Modes 0 and 1 only. */
 static void cx_icon(unsigned char id, unsigned x, unsigned y) {
     CX__W(0, x); CX__W(2, y);
     cx_call_a(CX_ICON, id);
@@ -554,8 +556,9 @@ static void cx_button_down(unsigned x, unsigned y, unsigned w, unsigned h,
 }
 
 /* a checkbox: a marker box (filled when checked) and a label to its right.
- * Radio buttons share this look in the toolkit -- use it for a radio too,
- * managing the group's exclusivity yourself. */
+ * This immediate-mode helper draws a box; the toolkit's WG_RADIO widget is
+ * round (a circle with a filled centre dot when selected), so use this box
+ * for an ad-hoc radio only and manage the group's exclusivity yourself. */
 static void cx_checkbox(unsigned x, unsigned y, const char *label,
                         unsigned char checked) {
     cx_rect(x, y, CX_BOX, CX_BOX, CX_PAPER);

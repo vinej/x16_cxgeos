@@ -763,6 +763,23 @@ dg_wait
     lda dg_done
     rts
 
+; dg_fld_top -- A (in) = content height; A (out) = the top margin that centres
+; that content in the dgbh-tall field: (dgbh - height)/2 in a pixel field, or a
+; 1-unit inset when the field is only a few cells tall (a text-mode canvas,
+; where dgbh is cells and the pixel arithmetic would underflow).
+dg_fld_top
+    sta dg_th
+    lda cxov_m_dgbh
+    cmp #10
+    bcc @tm
+    sec
+    sbc dg_th
+    lsr
+    rts
+@tm
+    lda #1
+    rts
+
 ; ---------------------------------------------------------------------
 ; dg_field -- the prompt's editor row: interior back to paper, the
 ; buffer's text, and a caret at the pen.
@@ -804,9 +821,10 @@ dg_field
     lda dg_fx+1
     adc #0
     sta X16_P1
-    lda dg_fy
+    lda #8                      ; centre the 8px glyph in a pixel field; a text
+    jsr dg_fld_top              ; field (a few cells tall) keeps the 1-unit inset
     clc
-    adc #1
+    adc dg_fy
     sta X16_P2
     lda dg_fy+1
     adc #0
@@ -821,9 +839,23 @@ dg_field
     bne @nc
     inc X16_P1
 @nc
-    lda dg_fy
+    lda cxov_m_dgbh             ; a pixel caret is 10 tall, centred to bracket
+    cmp #10                     ; the glyph; a text caret fills the field (dgbh-2)
+    bcc @ctext
+    lda #10
+    sta X16_P6                  ; height 10
+    lda #10
+    jsr dg_fld_top              ; A = centred top margin
+    bra @carety
+@ctext
+    lda cxov_m_dgbh             ; text mode: height dgbh-2, one-unit inset
+    sec
+    sbc #2
+    sta X16_P6
+    lda #1
+@carety
     clc
-    adc #1
+    adc dg_fy
     sta X16_P2
     lda dg_fy+1
     adc #0
@@ -831,11 +863,7 @@ dg_field
     lda #1                      ; a one-unit block: a thin bar in pixels,
     sta X16_P4                  ; a full caret cell in text
     stz X16_P5
-    lda cxov_m_dgbh
-    sec
-    sbc #2
-    sta X16_P6
-    stz X16_P7
+    stz X16_P7                  ; X16_P6 (height) set in the branches above
     lda th_frame
     jmp cxov_rect
 
@@ -1007,6 +1035,7 @@ dg_done .byte 0
 dg_i    .byte 0
 dg_t    .byte 0, 0
 dg_t2   .byte 0
+dg_th   .byte 0                 ; dg_fld_top's content-height scratch
 dg_oldh .word 0
 dg_tab  .word 0
 dg_buf  .word 0                 ; the prompt: the caller's buffer...

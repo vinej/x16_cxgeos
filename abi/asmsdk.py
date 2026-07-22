@@ -295,6 +295,9 @@ CONSTS = [
         ("CX_ICON_UP", "0", ""), ("CX_ICON_FOLDER", "1", ""), ("CX_ICON_APP", "2", ""),
         ("CX_ICON_FONT", "3", ""), ("CX_ICON_ACCESSORY", "4", ""), ("CX_ICON_DATA", "5", ""),
         ("CX_ICON_IMAGE", "6", ""), ("CX_ICON_DISK", "7", ""),
+        # ids 8-17 are the desktop's per-app icons (calc, paint, game, text,
+        # sound, sprite, tile, term, gears, globe); cx_icon draws them by
+        # number -- see the filer's ICON_* and tools/icongen.py.
     ]),
     ("font style flags (cxm_font_style)", [
         ("CX_BOLD", "1", ""), ("CX_UNDER", "2", ""),

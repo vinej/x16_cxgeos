@@ -234,7 +234,7 @@ void cx_run(void) {
 #define CX_SPR_COLLIDE     0x812D   /* -> A = the sprite-collision groups seen since the last call (one bit per group, top nibble), Z set if none. Arm with cx_ev_mask bit 2 first */
 
 /* --- icons (a 24x24 bitmap from the built-in sheet) --- */
-#define CX_ICON            0x8130   /* A = icon id (0-7), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it) */
+#define CX_ICON            0x8130   /* A = icon id (0-17), P0/P1 = x, P2/P3 = y -- draw the 24x24 icon at that pixel. Modes 0 and 1 only (tiles/text ignore it) */
 
 /* --- palette (VERA's 256-entry colour table at $1FA00) --- */
 #define CX_PAL_SET         0x8133   /* X = index (0-255), A = low byte (Green<<4|Blue), Y = high byte (Red) -- set one entry */
