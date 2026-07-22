@@ -596,6 +596,10 @@ BUILDERS = [
         ("byte", ["CX_WG_LIST", "0"]), ("word", ["x0", "y0", "w0"]),
         ("byte", ["h0", "0", "count"]), ("addr", ["ptrs"]), ("byte", ["0", "0", "0"]),
     ]),
+    ("wg_list2", ["x0", "y0", "w0", "h0", "count", "ptrs", "sizes"], "two-column list: sizes = a parallel array of size-string pointers, drawn right-aligned (null = no size that row)", [
+        ("byte", ["CX_WG_LIST", "0"]), ("word", ["x0", "y0", "w0"]),
+        ("byte", ["h0", "0", "count"]), ("addr", ["ptrs"]), ("byte", ["0"]), ("addr", ["sizes"]),
+    ]),
     ("wg_icon", ["x0", "y0", "w0", "h0", "id", "label"], "a 24x24 icon; id = CX_ICON_*", [
         ("byte", ["CX_WG_ICON", "0"]), ("word", ["x0", "y0", "w0"]),
         ("byte", ["h0", "id", "0"]), ("addr", ["label"]), ("byte", ["0", "0", "0"]),

@@ -4,6 +4,31 @@ CXRF (Commander X16 Runtime Framework) shipped as **CXGEOS** through v0.9.0 and
 was renamed at v0.10.0. Git tags keep their `vX.Y.Z` names; dates are tag dates.
 Newest release first.
 
+## v0.10.1 — desktop file sizes, longer filenames (2026-07-22)
+
+- **File sizes in the desktop list** — the list view now shows each entry's
+  size (its CMDR-DOS block count) as a right-aligned second column beside the
+  name. `cx_dir_next` surfaces the block count it used to discard, in P2/P3; a
+  new `cxm_wg_list2` builder gives the list widget an optional parallel
+  size-string array, drawn right-aligned. Folders and the "../" row show no
+  size. It costs nothing extra — the count was already in the DOS listing.
+- **Longer filenames** — the desktop's name limit rose from **16 to 34
+  characters**. `cx_dir_next`'s name cap is now 34 (its buffer contract grows
+  to >=35 bytes), and the file browser's name pool and its prompt / DOS-command
+  buffers grew to match. Both browsing/launching and create/rename/copy handle
+  34-char names in list view. (The X16 itself allows up to 255; 34 is the
+  desktop's practical cap — icon-view captions can overflow their cell for the
+  longest names, list view is unaffected.)
+- **`docs/exit-to-basic.md`** — records a known instability found while
+  prototyping "launch a standard X16 program": handing the machine from CXRF to
+  BASIC resets the board ~1 s later, and CXRF's own `cx_exit -> BASIC` fallback
+  does the same. It is NOT the SMC watchdog (there is none). The note keeps the
+  evidence, the dead ends (no KERNAL soft re-init fixes it), and the
+  hardware-reset / boot-chain path that would, so a future fix starts informed.
+- **ABI unchanged (v4, 105 slots).** The `cx_dir_next` change is behaviour-only,
+  so the freeze canary still passes. Green: 59/59 tests, the asmsdk fidelity
+  gate, and every headless boot (SD, cartridge, FAT32, standalone cart).
+
 ## v0.10.0 — CXRF: the rename, and a standalone cartridge (2026-07-21)
 
 - **Renamed CXGEOS → CXRF** (Commander X16 Runtime Framework) across the whole

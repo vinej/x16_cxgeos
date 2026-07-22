@@ -1,6 +1,6 @@
 # CXRF p8sdk Guide — Prog8 for CXRF
 
-**Release 0.10.0** · ABI version 4 · binding: `sdk/include_prog8/cxrf.p8`
+**Release 0.10.1** · ABI version 4 · binding: `sdk/include_prog8/cxrf.p8`
 (block `cx`) · friendly layer: `p8sdk/cxui.p8` (block `ui`)
 
 Prog8 ([Irmen de Jong's structured 6502 language](https://prog8.readthedocs.io))

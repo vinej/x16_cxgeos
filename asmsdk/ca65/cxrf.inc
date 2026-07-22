@@ -869,6 +869,14 @@ CX_EVS_SPRCOL = 4
     .addr (ptrs)
     .byte 0, 0, 0
 .endmacro
+.macro cxm_wg_list2 x0, y0, w0, h0, count, ptrs, sizes  ; two-column list: sizes = a parallel
+    .byte CX_WG_LIST, 0                                 ; array of size-string pointers, drawn
+    .word (x0), (y0), (w0)                              ; right-aligned. A null entry in it shows
+    .byte (h0), 0, (count)                              ; no size for that row. Same 16-byte record
+    .addr (ptrs)                                        ; as cxm_wg_list; the sizes ptr rides the
+    .byte 0                                             ; two pad bytes (WG_SZP), so old kernels
+    .addr (sizes)                                       ; that ignore them just draw one column.
+.endmacro
 .macro cxm_wg_icon x0, y0, w0, h0, id, label          ; a 24x24 icon; id = CX_ICON_*
     .byte CX_WG_ICON, 0
     .word (x0), (y0), (w0)

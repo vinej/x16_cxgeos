@@ -11,10 +11,11 @@
 ;
 ;   cx_dir_open   A/X = the pattern (e.g. "$"), Y = length. Carry set
 ;                 on a DOS error.
-;   cx_dir_next   P0/P1 = a >=17-byte buffer. Fills it with the entry's
-;                 name and returns A = 0 file / 1 directory. Carry set
-;                 means the listing is done. The FIRST entry is the
-;                 volume header, not a file -- the browser shows it as
+;   cx_dir_next   P0/P1 = a >=35-byte buffer. Fills it with the entry's
+;                 name (up to 34 chars + NUL) and returns A = 0 file / 1
+;                 directory, and P2/P3 = the block count (line number).
+;                 Carry set means the listing is done. The FIRST entry is
+;                 the volume header, not a file -- the browser shows it as
 ;                 the drive's name.
 ;   cx_dir_close  let the channel go.
 ;
@@ -99,8 +100,10 @@ dir_next
     ora cx_d_t
     beq @end                    ; a zero pointer ends the listing
 
-    jsr dgetc                   ; the line number = block count, ignored
-    jsr dgetc
+    jsr dgetc                   ; the line number = the entry's block count,
+    sta cx_d_sz                 ; surfaced to the caller in P2/P3 (low then
+    jsr dgetc                   ; high) so the file browser can show a size
+    sta cx_d_sz+1               ; column
 
     ldy #0                      ; copy the quoted name into the buffer
 @findq
@@ -117,7 +120,7 @@ dir_next
     beq @named
     sta (CX_D_BUF),y
     iny
-    cpy #16
+    cpy #34                     ; names up to 34 chars (was 16); buffer >= 35
     bcc @name
 @named
     lda #0
@@ -144,6 +147,10 @@ dir_next
     cmp #0
     bne @drain
 @done
+    lda cx_d_sz                 ; the block count out in P2/P3 (undefined on
+    sta X16_P2                  ; older callers, which simply never read it)
+    lda cx_d_sz+1
+    sta X16_P3
     lda cx_d_type
     clc
     rts
@@ -168,5 +175,7 @@ dgetc
 cx_d_t    .byte 0
 cx_d_type .byte 0
 cx_d_eof  .byte 0
+cx_d_sz   .word 0               ; the current entry's block count (dir listing
+                                ; line number), returned in P2/P3
 
 .segment "CODE"

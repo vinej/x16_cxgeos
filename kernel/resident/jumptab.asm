@@ -100,7 +100,7 @@ cx_jumptab
 
 ; --- the directory -----------------------------------------------
     jmp cx_do_dir_open   ; 43  A/X = a pattern like "$", Y = length; opens the directory channel. Carry set on a DOS error
-    jmp cx_do_dir_next   ; 44  P0/P1 = a >=17-byte buffer; fills the entry's name, A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header
+    jmp cx_do_dir_next   ; 44  P0/P1 = a >=35-byte buffer; fills the entry's name (up to 34 chars + NUL), A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header
     jmp cx_do_dir_close  ; 45  close the directory channel
 
 ; --- the DOS command channel -------------------------------------

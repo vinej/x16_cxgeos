@@ -45,7 +45,8 @@ ICON_GEARS     = 16
 ICON_GLOBE     = 17
 
 MAXFILES  = 96
-NAMEMAX   = 20                  ; bytes reserved per name in the pool
+NAMEMAX   = 36                  ; bytes reserved per name in the pool: up to 34
+                                ; chars (cx_dir_next's cap) + a dir's '/' + NUL
 
 ; the icon-view grid (mode 0, 640x480). CONTENT_Y0 is the first row below
 ; the menu bar and title, cleared and redrawn on a view switch.
@@ -76,6 +77,7 @@ CX_SHELL_SEL = $800B
 ; app zero page ($60-$7F is the app's)
 poolp = $60                     ; the pool write head / a name walker
 iwp   = $62                     ; the icon record write head, (zp),y
+spoolp = $64                    ; the size-string pool write head, (zp),y
 
 .segment "LOADADDR"
     .word $0801
@@ -201,6 +203,10 @@ readdir
     sta poolp
     lda #>pool
     sta poolp+1
+    lda #<spool                 ; ...and so does the size-string pool
+    sta spoolp
+    lda #>spool
+    sta spoolp+1
 
     lda depth                   ; ...after a "../" go-back row, but only
     beq @open                   ; when we are down inside a folder
@@ -218,6 +224,8 @@ readdir
     sta fcount
     lda #ICON_UP                ; the go-back row wears the up arrow
     sta ficon
+    stz fsptrs                  ; ...and shows no size
+    stz fsptrs+1
     lda #<(pool+4)
     sta poolp
     lda #>(pool+4)
@@ -240,6 +248,10 @@ readdir
     jsr cx_dir_next
     bcs @done
     sta ftype                   ; 0 file / 1 dir
+    lda X16_P2                  ; the entry's block count, before the name
+    sta fblocks                 ; processing below can touch the P block
+    lda X16_P3
+    sta fblocks+1
 
     ldy #0                      ; skip the listing's own "." and ".." --
     lda (poolp),y               ; our "../" row is the only go-back
@@ -272,6 +284,9 @@ readdir
     ldx fcount
     sta ficon,x
 
+    jsr store_size              ; fsptrs[count] = the block count (files) or
+                                ; null (folders), for the list's size column
+
     ldy #0                      ; the name's end
 @len
     lda (poolp),y
@@ -299,7 +314,8 @@ readdir
     inc fcount
     lda fcount
     cmp #MAXFILES
-    bcc @loop
+    bcs @done                   ; the store_size body pushed @loop out of a
+    jmp @loop                   ; short branch's reach: invert + jmp back
 @done
     cxm_dir_close
 @none
@@ -308,6 +324,89 @@ readdir
     stz wl_rec + 9
     stz wl_rec + 13
     rts
+
+; ---------------------------------------------------------------------
+; store_size -- fsptrs[fcount] for the row just stored. A folder shows no
+; size (a null pointer); a file gets its block count formatted into spool
+; and the pointer stored. Uses ftype, fblocks and spoolp; preserves poolp.
+; ---------------------------------------------------------------------
+store_size
+    lda fcount                  ; Y = fcount * 2 (the pointer slot)
+    asl
+    tay
+    lda ftype                   ; a directory: no size column
+    beq @file
+    lda #0
+    sta fsptrs,y
+    sta fsptrs+1,y
+    rts
+@file
+    lda spoolp                  ; fsptrs[i] = spoolp, the string fmt_u16 writes
+    sta fsptrs,y
+    lda spoolp+1
+    sta fsptrs+1,y
+    ; fall through to fmt_u16: fblocks -> (spoolp), NUL-term, spoolp advanced
+
+; fmt_u16 -- fblocks (0..65535) as decimal at (spoolp), NUL-terminated;
+; spoolp is advanced past the NUL. Leading zeros suppressed; value 0 -> "0".
+fmt_u16
+    lda fblocks
+    sta fm_val
+    lda fblocks+1
+    sta fm_val+1
+    stz fm_wi                   ; write index into (spoolp)
+    stz fm_lead                 ; 0 = still suppressing leading zeros
+    ldx #0                      ; power index (0..4)
+@digit
+    stz fm_dig
+@sub
+    sec                         ; fm_val -= power[x] while it stays >= 0
+    lda fm_val
+    sbc fm_pw_lo,x
+    tay
+    lda fm_val+1
+    sbc fm_pw_hi,x
+    bcc @emit                   ; went negative: fm_val is the remainder
+    sta fm_val+1
+    sty fm_val
+    inc fm_dig
+    bra @sub
+@emit
+    cpx #4                      ; the ones place always prints (handles 0)
+    beq @put
+    lda fm_dig
+    bne @lead                   ; a non-zero digit stops suppression
+    lda fm_lead
+    beq @skip                   ; still suppressing a leading zero: drop it
+@lead
+    lda #1
+    sta fm_lead
+@put
+    ldy fm_wi
+    lda fm_dig
+    clc
+    adc #'0'
+    sta (spoolp),y
+    inc fm_wi
+@skip
+    inx
+    cpx #5
+    bne @digit
+    ldy fm_wi                   ; NUL-terminate
+    lda #0
+    sta (spoolp),y
+    iny                         ; advance spoolp past the string and its NUL
+    tya
+    clc
+    adc spoolp
+    sta spoolp
+    bcc @done
+    inc spoolp+1
+@done
+    rts
+
+fm_pw_lo .byte $10, $E8, $64, $0A, $01   ; 10000 1000 100 10 1, low bytes
+fm_pw_hi .byte $27, $03, $00, $00, $00   ; ...and high bytes
 
 refresh                         ; the directory again, repainted
     jsr readdir
@@ -1233,7 +1332,7 @@ ask
     sta X16_P0
     lda #>pbuf
     sta X16_P1
-    lda #17                     ; a DOS name: 16 chars and the NUL
+    lda #35                     ; a DOS name: up to 34 chars and the NUL
     sta X16_P2
     pla
     jsr cx_dlg_prompt
@@ -1494,7 +1593,8 @@ m3_items
 widgets
     cxm_wcount widgets, widgets_end
 wl_rec
-    cxm_wg_list 20, 44, 400, 240, 0, fptrs   ; count 0 now; readdir sets it
+    cxm_wg_list2 20, 44, 400, 240, 0, fptrs, fsptrs   ; count 0 now; readdir sets it.
+                                             ; fsptrs = the right-aligned size column
 widgets_end:
 
 dlg_del                         ; keep | delete -- keep is the default
@@ -1601,11 +1701,22 @@ tbuf      .res 17, 0            ; "YYYY-MM-DD HH:MM"
 clkx      .word 0               ; the date's right-aligned x, recomputed each tick
 srcn      .res NAMEMAX, 0       ; the copy's source name, kept across ask
 obuf      .res NAMEMAX, 0       ; the selected name, slash stripped
-pbuf      .res 20, 0            ; what the prompt collects
-qbuf      .res 32, 0            ; the delete question
-cbuf      .res 48, 0            ; the DOS command being built
+pbuf      .res 36, 0            ; what the prompt collects (a 34-char name + NUL)
+qbuf      .res 48, 0            ; the delete question ("delete " + 34 + "?")
+cbuf      .res 80, 0            ; the DOS command ("R:new=old" = 2 names + 3)
 mbuf      .res 64, 0            ; the drive's reply
 fptrs     .res MAXFILES * 2, 0
 ficon     .res MAXFILES, 0        ; the type icon for each listed entry
+fsptrs    .res MAXFILES * 2, 0    ; the size-string pointer for each entry (the
+                                  ; list's right-aligned second column; parallel
+                                  ; to fptrs, null = no size shown)
 iwbuf     .res 1 + MAXICON * 16, 0 ; the icon view's widget list (count + records)
 pool      .res MAXFILES * NAMEMAX, 0
+spool     .res MAXFILES * 6, 0    ; the size strings ("65535" + NUL, up to 6 bytes)
+
+; --- size-column scratch (spoolp is in zero page, above) -------------
+fblocks   .word 0                 ; the current entry's block count (from cx_dir_next)
+fm_val    .word 0                 ; fmt_u16's working value
+fm_dig    .byte 0                 ; ...the digit being emitted
+fm_lead   .byte 0                 ; ...leading-zero suppression flag
+fm_wi     .byte 0                 ; ...the write index into (spoolp)

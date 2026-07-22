@@ -769,6 +769,14 @@ CX_EVS_SPRCOL = 4
     dc.w {6}
     dc.b 0, 0, 0
     ENDM
+    MAC cxm_wg_list2                ; two-column list: sizes = a parallel array of size-string pointers, drawn right-aligned (null = no size that row)
+    dc.b CX_WG_LIST, 0
+    dc.w {1}, {2}, {3}
+    dc.b {4}, 0, {5}
+    dc.w {6}
+    dc.b 0
+    dc.w {7}
+    ENDM
     MAC cxm_wg_icon                ; a 24x24 icon; id = CX_ICON_*
     dc.b CX_WG_ICON, 0
     dc.w {1}, {2}, {3}

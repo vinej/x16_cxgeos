@@ -769,6 +769,14 @@ CX_EVS_SPRCOL = 4
     word \6
     byte 0, 0, 0
     endm
+    macro cxm_wg_list2                ; two-column list: sizes = a parallel array of size-string pointers, drawn right-aligned (null = no size that row)
+    byte CX_WG_LIST, 0
+    word \1, \2, \3
+    byte \4, 0, \5
+    word \6
+    byte 0
+    word \7
+    endm
     macro cxm_wg_icon                ; a 24x24 icon; id = CX_ICON_*
     byte CX_WG_ICON, 0
     word \1, \2, \3

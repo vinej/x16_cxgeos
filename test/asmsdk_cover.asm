@@ -124,6 +124,7 @@ cover_data:
     cxm_wg_scroll 1, 1, 1, 1, 1, 1
     cxm_wg_field 1, 1, 1, 1, 1, 1
     cxm_wg_list 1, 1, 1, 1, 1, 1
+    cxm_wg_list2 1, 1, 1, 1, 1, 1, 1
     cxm_wg_icon 1, 1, 1, 1, 1, 1
     cxm_wg_hit 1, 1, 1, 1, 1, 1
     cxm_wg_hit_poly 1, 1, 1, 1, 1, 1, 1

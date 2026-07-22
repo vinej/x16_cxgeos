@@ -2463,7 +2463,7 @@ test_dir
 @tail  .byte "APP.CXA"
 @count .byte 0
 @found .byte 0
-@nb    .res 17, 0
+@nb    .res 35, 0
 
 ; ---------------------------------------------------------------------
 ; cx_dir_open must MASK interrupts and cx_dir_close restore them: the

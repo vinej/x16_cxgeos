@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CXRF Memory Map — v0.10.0</title>
+<title>CXRF Memory Map — v0.10.1</title>
 <style>
   :root {
     --bg: #ffffff;
@@ -136,10 +136,10 @@
 
   <header class="doc">
     <h1>CXRF Memory Map</h1>
-    <div class="sub"><span class="pill">v0.10.0</span>Commander X16 Runtime Framework — the live ledger of contended address space</div>
+    <div class="sub"><span class="pill">v0.10.1</span>Commander X16 Runtime Framework — the live ledger of contended address space</div>
     <div class="note">Every byte of contended space is accounted for here. The prose ledger is
       <code>docs/memory-map.md</code>; the assembler-enforced source of truth is <code>kernel/resident/banks.inc</code>,
-      <code>kernel/resident/zp.inc</code> and <code>kernel/kernel.cfg</code>. Budget figures are the v0.10.0 build,
+      <code>kernel/resident/zp.inc</code> and <code>kernel/kernel.cfg</code>. Budget figures are the v0.10.1 build,
       read back by <code>tools/mapreport.py</code>.</div>
     <div class="legend">
       <span><span class="dot" style="background:var(--hw)"></span>hardware / fixed</span>
@@ -152,7 +152,7 @@
 
   <!-- ===================== CODE BUDGET ===================== -->
   <section>
-    <h2>Code budget <span class="tag">mapreport.py · v0.10.0</span></h2>
+    <h2>Code budget <span class="tag">mapreport.py · v0.10.1</span></h2>
     <p class="lead">Every code region is a hard ceiling — ld65 fails the link on overflow. Green is comfortable,
       amber is worth a look (&ge;60%), red is tight (&ge;85%). The resident image and the overlay window are the walls to watch.</p>
     <div class="budget">
@@ -161,9 +161,9 @@
       <div class="b-row"><div class="b-name">Jump table <small>$8010–$81A4</small></div><div class="bar"><span class="fill-warn" style="width:78%"></span></div><div class="b-num">105 / 135 slots</div></div>
       <div class="b-row"><div class="b-name">BANK 17 <small>gfx extras</small></div><div class="bar"><span class="fill-warn" style="width:77%"></span></div><div class="b-num">6286 / 8192 · 77%</div></div>
       <div class="b-row"><div class="b-name">BANK 19 <small>extra shapes</small></div><div class="bar"><span class="fill-ok" style="width:59%"></span></div><div class="b-num">4818 / 8192 · 59%</div></div>
-      <div class="b-row"><div class="b-name">BANK 16 <small>widgets</small></div><div class="bar"><span class="fill-ok" style="width:57%"></span></div><div class="b-num">4654 / 8192 · 57%</div></div>
+      <div class="b-row"><div class="b-name">BANK 16 <small>widgets</small></div><div class="bar"><span class="fill-ok" style="width:58%"></span></div><div class="b-num">4810 / 8192 · 58%</div></div>
       <div class="b-row"><div class="b-name">BANK 5 <small>dialogs</small></div><div class="bar"><span class="fill-ok" style="width:42%"></span></div><div class="b-num">3478 / 8192 · 42%</div></div>
-      <div class="b-row"><div class="b-name">BANK 18 <small>fs/aud/spr</small></div><div class="bar"><span class="fill-ok" style="width:27%"></span></div><div class="b-num">2238 / 8192 · 27%</div></div>
+      <div class="b-row"><div class="b-name">BANK 18 <small>fs/aud/spr</small></div><div class="bar"><span class="fill-ok" style="width:28%"></span></div><div class="b-num">2256 / 8192 · 27%</div></div>
       <div class="b-row"><div class="b-name">BANK 3 <small>mode-0 img</small></div><div class="bar"><span class="fill-ok" style="width:25%"></span></div><div class="b-num">2004 / 8192 · 25%</div></div>
       <div class="b-row"><div class="b-name">BANK 2 <small>UI core</small></div><div class="bar"><span class="fill-ok" style="width:22%"></span></div><div class="b-num">1768 / 8192 · 22%</div></div>
       <div class="b-row"><div class="b-name">BANK 4 <small>mode-1 img</small></div><div class="bar"><span class="fill-ok" style="width:19%"></span></div><div class="b-num">1543 / 8192 · 19%</div></div>
@@ -209,7 +209,7 @@
   <section>
     <h2>Banked RAM <span class="addr">$A000–$BFFF window · bank register $00</span> <span class="tag">8 KB / bank</span></h2>
     <p class="lead">The kernel's code banks are two files: <code>CXBANKS.BIN</code> (banks 2–5) and <code>CXBANKS2.BIN</code> (banks 16–19),
-      32 KB each. Data banks sit between; apps sit above <code>CX_APP_BANK_FLOOR = 20</code>. Used/free are the v0.10.0 build.</p>
+      32 KB each. Data banks sit between; apps sit above <code>CX_APP_BANK_FLOOR = 20</code>. Used/free are the v0.10.1 build.</p>
     <table>
       <thead><tr><th style="width:52px">Bank</th><th style="width:150px">Theme</th><th>Segment / owner</th><th class="size" style="width:64px">Used</th><th class="size" style="width:64px">Free</th></tr></thead>
       <tbody>
@@ -223,9 +223,9 @@
         <tr><td class="range">9</td><td>desk accessory</td><td>the open <code>.CXD</code> (<code>cx_da_open</code> loads it at $A000)</td><td class="size">—</td><td class="size">—</td></tr>
         <tr><td class="range">10–13</td><td>clipboard</td><td>typed text / bitmap-rect, up to 32 KB</td><td class="size">—</td><td class="size">—</td></tr>
         <tr><td class="range">14–15</td><td>save-under</td><td>dialog save-unders / DA saved state</td><td class="size">—</td><td class="size">—</td></tr>
-        <tr><td class="range">16</td><td class="owner">widgets</td><td><code>B16CODE</code>: the whole toolkit (code + <code>wg_*</code> state) + <code>wg_paint_t</code>; icon &amp; <code>WG_HIT</code> widgets</td><td class="size">4,654</td><td class="size">3,538</td></tr>
+        <tr><td class="range">16</td><td class="owner">widgets</td><td><code>B16CODE</code>: the whole toolkit (code + <code>wg_*</code> state) + <code>wg_paint_t</code>; icon, <code>WG_HIT</code> &amp; the list size column</td><td class="size">4,810</td><td class="size">3,382</td></tr>
         <tr><td class="range">17</td><td class="owner">graphics extras</td><td><code>B17CODE</code>: base shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects + icon sheet + palette API <strong>(tightest: 77%)</strong></td><td class="size">6,286</td><td class="size">1,906</td></tr>
-        <tr><td class="range">18</td><td class="owner">fs / sys / audio / sprites</td><td><code>B18CODE</code>: dir walk + <code>cx_file_load</code> + <code>cx_vload</code>/<code>cx_bload</code> + DOS channel + font cold half; PSG + YM audio + sprites; clipboard put/get/type orchestration</td><td class="size">2,238</td><td class="size">5,954</td></tr>
+        <tr><td class="range">18</td><td class="owner">fs / sys / audio / sprites</td><td><code>B18CODE</code>: dir walk + <code>cx_file_load</code> + <code>cx_vload</code>/<code>cx_bload</code> + DOS channel + font cold half; PSG + YM audio + sprites; clipboard put/get/type orchestration</td><td class="size">2,256</td><td class="size">5,936</td></tr>
         <tr><td class="range">19</td><td class="owner">extra shapes</td><td><code>B19CODE</code>: the dispatched <code>cx_gfx_shape</code> family — polygon / fpolygon / arc / pie + the sin/cos table</td><td class="size">4,818</td><td class="size">3,374</td></tr>
         <tr><td class="range">20+</td><td class="owner"><span class="dot" style="background:var(--app)"></span>the app's</td><td><code>cx_bload</code> targets (refuses &lt; 20), window backing store, allocations, file buffers. 44 app banks on 512 KB, 236 on 2 MB</td><td class="size">—</td><td class="size">—</td></tr>
       </tbody>
@@ -292,7 +292,7 @@
   </section>
 
   <footer class="doc">
-    CXRF v0.10.0 · generated from <code>docs/memory-map.md</code> and the kernel build (<code>tools/mapreport.py</code>).
+    CXRF v0.10.1 · generated from <code>docs/memory-map.md</code> and the kernel build (<code>tools/mapreport.py</code>).
     Change this map in the same commit as the code that claims or releases a region. Budget figures shift every build — run
     <code>python tools/mapreport.py</code> for today's.
   </footer>

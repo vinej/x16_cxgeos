@@ -83,6 +83,11 @@ WH_RELEASE = %010
 WH_HOVER   = %100
 
 WG_TOP    = 13                  ; list scroll offset (a pad byte)
+WG_SZP    = 14                  ; WG_LIST: optional word ptr (the record's two
+                                ; pad bytes) to a parallel array of size-string
+                                ; pointers -- a right-aligned second column.
+                                ; Zero (every list before cxm_wg_list2) = no
+                                ; size column, so old lists draw unchanged.
 WL_ROWH   = 10                  ; a list row's height
 
 WG_DISABLED = $01               ; flags bit 0
@@ -1073,6 +1078,81 @@ wg_p_list
     ldx X16_T0+1                ; wg_ink is the toolkit's same-bank copy of
     jsr cxov_text              ; mn_ink -- calling mn_ink from bank 16 would
                                ; jump into bank-2 territory and draw garbage
+
+    ; --- optional second column: a right-aligned size string ------------
+    ; WG_SZP (the record's pad bytes) is a parallel array of size-string
+    ; pointers. Zero means no size column -- every list built before
+    ; cxm_wg_list2 leaves it zero, so this whole block is a no-op for them
+    ; (and for the canary). The ink is still this row's, set for the name.
+    lda CX_M_PTR                ; save the record ptr: cxov_measure need not
+    sta wg_szsave               ; preserve it, and the row loop re-reads the
+    lda CX_M_PTR+1              ; record on every pass
+    sta wg_szsave+1
+    ldy #WG_SZP
+    lda (CX_M_PTR),y
+    sta X16_T2
+    ldy #WG_SZP+1
+    lda (CX_M_PTR),y
+    sta X16_T2+1
+    lda X16_T2
+    ora X16_T2+1
+    beq @nosize                 ; no size array on this list
+    lda wg_idx                  ; szstr = array[item]
+    asl
+    tay
+    lda (X16_T2),y
+    sta wg_t2
+    iny
+    lda (X16_T2),y
+    sta wg_t2+1
+    lda wg_t2
+    ora wg_t2+1
+    beq @nosize                 ; a null entry: this row shows no size
+    ldy #WG_X                   ; right edge = x + w (before measure, while
+    lda (CX_M_PTR),y            ; CX_M_PTR is still the record)
+    clc
+    ldy #WG_W
+    adc (CX_M_PTR),y
+    sta wg_t
+    ldy #WG_X+1
+    lda (CX_M_PTR),y
+    ldy #WG_W+1
+    adc (CX_M_PTR),y
+    sta wg_t+1
+    lda wg_t2                   ; measure the size string -> P0/P1 = width
+    ldx wg_t2+1
+    jsr cxov_measure
+    lda wg_szsave               ; CX_M_PTR back for wg_row_y below
+    sta CX_M_PTR
+    lda wg_szsave+1
+    sta CX_M_PTR+1
+    sec                         ; pen x = (x + w) - 4 - width
+    lda wg_t
+    sbc #4
+    sta wg_t
+    lda wg_t+1
+    sbc #0
+    sta wg_t+1
+    sec
+    lda wg_t
+    sbc X16_P0
+    sta X16_P0
+    lda wg_t+1
+    sbc X16_P1
+    sta X16_P1
+    jsr wg_row_y                ; P2/P3 = this row's band top
+    inc X16_P2                  ; +1 into the band, matching the name
+    bne @szyok
+    inc X16_P3
+@szyok
+    lda wg_t2                   ; the size string, at the right-aligned pen
+    ldx wg_t2+1
+    jsr cxov_text
+@nosize
+    lda wg_szsave               ; CX_M_PTR restored for the next row
+    sta CX_M_PTR
+    lda wg_szsave+1
+    sta CX_M_PTR+1
 
     inc wg_row
     jmp @rows                   ; the body is over a page
@@ -2838,6 +2918,7 @@ wg_ch    .byte 0                  ; the character being typed into a field
 wg_row   .byte 0                  ; a list's visible row being drawn
 wg_idx   .byte 0                  ; ...the item it shows
 wg_maxrows .byte 0                ; ...how many rows fit
+wg_szsave .word 0                 ; CX_M_PTR parked across the size-column measure
 wg_evt   .byte 0                  ; the press wg_hit saw: DOWN or DBLCLICK
 
 .segment "CODE"

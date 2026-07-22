@@ -93,7 +93,7 @@ void cx_run(void);
 
 /* --- the directory --- */
 #define CX_DIR_OPEN        0x8091   /* A/X = a pattern like "$", Y = length; opens the directory channel. Carry set on a DOS error */
-#define CX_DIR_NEXT        0x8094   /* P0/P1 = a >=17-byte buffer; fills the entry's name, A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header */
+#define CX_DIR_NEXT        0x8094   /* P0/P1 = a >=35-byte buffer; fills the entry's name (up to 34 chars + NUL), A = 0 file / 1 dir. Carry set = listing done. The first entry is the volume header */
 #define CX_DIR_CLOSE       0x8097   /* close the directory channel */
 
 /* --- the DOS command channel --- */

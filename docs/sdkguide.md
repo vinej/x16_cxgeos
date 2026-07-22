@@ -1,6 +1,6 @@
 # CXRF SDK Guide — the generated ABI header
 
-**Release 0.10.0** · ABI version 4 · 105 slots (append-only; slot 104
+**Release 0.10.1** · ABI version 4 · 105 slots (append-only; slot 104
 `cx_tile_flip` is the newest)
 
 This documents `sdk/include_<compiler>/cxrf.h` (and `.inc`) — the
