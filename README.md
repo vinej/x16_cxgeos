@@ -31,6 +31,7 @@ Package CXRF applications as self-contained executables that run independently o
 Full documentation lives in [docs/](docs/).
 
 **Start here**
+- [docs/memory-map.md](docs/memory-map.md) — the live ledger of contended address space (shareable one-page reference: [HTML](docs/memory-map.html) · [PDF](docs/memory-map.pdf))
 - [docs/devguide.md](docs/devguide.md) — VS Code setup, build a `.CXA` app, deploy to emulator or SD card
 - [docs/sdkguide.md](docs/sdkguide.md) — the generated low-level ABI header (what every app ultimately calls)
 - [docs/graphics-port.md](docs/graphics-port.md) — the pluggable video modes and how the port works
@@ -44,7 +45,6 @@ Full documentation lives in [docs/](docs/).
 - [docs/gameguide.md](docs/gameguide.md) — tile mode: colour depth, tileset placement, VRAM vs bank RAM
 - [docs/ui.md](docs/ui.md) — where widgets/menus/dialogs live, and why
 - [docs/banks.md](docs/banks.md) — kernel code layout; how to add a widget, shape, bank, or ABI slot
-- [docs/memory-map.md](docs/memory-map.md) — the live ledger of contended address space
 - [docs/formats.md](docs/formats.md) — file formats (CXF fonts, assets)
 - [docs/remap.md](docs/remap.md) — the 8bpp-tile VRAM/bank restructure (v0.9.0)
 - [docs/perf.md](docs/perf.md) — Phase 0 spike measurements

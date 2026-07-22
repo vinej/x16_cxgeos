@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CXRF Memory Map — v0.10.0</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #f7f8fa;
+    --panel-2: #eef1f5;
+    --ink: #1b1f24;
+    --muted: #5b6675;
+    --line: #d7dde5;
+    --accent: #2d6cdf;
+    --hw: #8a5cf6;      /* hardware / fixed */
+    --sys: #6b7684;     /* kernal / system */
+    --lib: #0f9d8c;     /* x16lib */
+    --cx: #2d6cdf;      /* cxrf kernel */
+    --app: #d98324;     /* application */
+    --ok: #2fa36b;
+    --warn: #d9a108;
+    --hot: #d64545;
+    --mono: ui-monospace, "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c;
+      --panel: #1b1f26;
+      --panel-2: #222834;
+      --ink: #e6e9ee;
+      --muted: #9aa5b4;
+      --line: #2b323d;
+      --accent: #6aa0ff;
+      --hw: #b79cff;
+      --sys: #9aa5b4;
+      --lib: #3fd0bd;
+      --cx: #6aa0ff;
+      --app: #f0a55a;
+      --ok: #4cc98d;
+      --warn: #f0c33c;
+      --hot: #ff6b6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 28px 60px; }
+
+  header.doc { border-bottom: 2px solid var(--ink); padding-bottom: 16px; margin-bottom: 8px; }
+  header.doc h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header.doc .sub { color: var(--muted); font-size: 13.5px; }
+  header.doc .pill {
+    display: inline-block; font-family: var(--mono); font-size: 12px;
+    background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 5px;
+    vertical-align: 1px; margin-right: 8px;
+  }
+  header.doc .note { margin-top: 10px; color: var(--muted); font-size: 12.5px; }
+
+  h2 {
+    font-size: 17px; margin: 34px 0 6px; padding-top: 6px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  h2 .addr { font-family: var(--mono); font-size: 13px; color: var(--muted); font-weight: 500; }
+  h2 .tag {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px;
+  }
+  .lead { color: var(--muted); font-size: 13px; margin: 2px 0 12px; max-width: 78ch; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 4px 0 6px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); border-bottom: 1.5px solid var(--line); font-weight: 600;
+  }
+  tbody tr:nth-child(even) { background: var(--panel); }
+  td.range, td.size, code, .mono { font-family: var(--mono); }
+  td.range { white-space: nowrap; font-size: 12.5px; }
+  td.size { white-space: nowrap; text-align: right; color: var(--muted); font-size: 12.5px; }
+  code {
+    background: var(--panel-2); padding: 0.5px 4px; border-radius: 3px; font-size: 12px;
+  }
+  .owner { font-weight: 600; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0.5px; }
+
+  /* budget bars */
+  .budget { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 26px; margin: 10px 0 4px; }
+  .b-row { display: grid; grid-template-columns: 132px 1fr 92px; align-items: center; gap: 10px; }
+  .b-name { font-family: var(--mono); font-size: 12px; }
+  .b-name small { color: var(--muted); }
+  .bar { height: 15px; background: var(--panel-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .bar > span { display: block; height: 100%; }
+  .b-num { font-family: var(--mono); font-size: 11.5px; color: var(--muted); text-align: right; white-space: nowrap; }
+  .fill-ok   { background: var(--ok); }
+  .fill-warn { background: var(--warn); }
+  .fill-hot  { background: var(--hot); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); margin: 8px 0 2px; }
+  .legend span { display: inline-flex; align-items: center; }
+
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px; }
+
+  footer.doc { margin-top: 40px; border-top: 1px solid var(--line); padding-top: 12px; color: var(--muted); font-size: 12px; }
+  footer.doc code { font-size: 11.5px; }
+
+  h2 { break-after: avoid; }
+  tr, .b-row { break-inside: avoid; }
+  thead { display: table-header-group; }
+  .budget { break-inside: avoid; }
+  @media print {
+    .wrap { max-width: none; padding: 0; }
+    body { font-size: 11px; line-height: 1.4; }
+    h2 { margin-top: 16px; }
+    th, td { padding: 4px 8px; }
+    a { color: inherit; text-decoration: none; }
+    .cols2 { grid-template-columns: 1fr; }
+  }
+  @page { margin: 14mm 12mm; }
+  @media (max-width: 760px) {
+    .budget, .cols2 { grid-template-columns: 1fr; }
+    .b-row { grid-template-columns: 108px 1fr 78px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="doc">
+    <h1>CXRF Memory Map</h1>
+    <div class="sub"><span class="pill">v0.10.0</span>Commander X16 Runtime Framework — the live ledger of contended address space</div>
+    <div class="note">Every byte of contended space is accounted for here. The prose ledger is
+      <code>docs/memory-map.md</code>; the assembler-enforced source of truth is <code>kernel/resident/banks.inc</code>,
+      <code>kernel/resident/zp.inc</code> and <code>kernel/kernel.cfg</code>. Budget figures are the v0.10.0 build,
+      read back by <code>tools/mapreport.py</code>.</div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--hw)"></span>hardware / fixed</span>
+      <span><span class="dot" style="background:var(--sys)"></span>KERNAL / system</span>
+      <span><span class="dot" style="background:var(--lib)"></span>x16lib</span>
+      <span><span class="dot" style="background:var(--cx)"></span>CXRF kernel</span>
+      <span><span class="dot" style="background:var(--app)"></span>application</span>
+    </div>
+  </header>
+
+  <!-- ===================== CODE BUDGET ===================== -->
+  <section>
+    <h2>Code budget <span class="tag">mapreport.py · v0.10.0</span></h2>
+    <p class="lead">Every code region is a hard ceiling — ld65 fails the link on overflow. Green is comfortable,
+      amber is worth a look (&ge;60%), red is tight (&ge;85%). The resident image and the overlay window are the walls to watch.</p>
+    <div class="budget">
+      <div class="b-row"><div class="b-name">RESIDENT <small>$81A9–$95FF</small></div><div class="bar"><span class="fill-hot" style="width:96%"></span></div><div class="b-num">5013 / 5207 · 96%</div></div>
+      <div class="b-row"><div class="b-name">OVL window <small>$9600–$9EFF</small></div><div class="bar"><span class="fill-hot" style="width:87%"></span></div><div class="b-num">2004 / 2304 · 87%</div></div>
+      <div class="b-row"><div class="b-name">Jump table <small>$8010–$81A4</small></div><div class="bar"><span class="fill-warn" style="width:78%"></span></div><div class="b-num">105 / 135 slots</div></div>
+      <div class="b-row"><div class="b-name">BANK 17 <small>gfx extras</small></div><div class="bar"><span class="fill-warn" style="width:77%"></span></div><div class="b-num">6286 / 8192 · 77%</div></div>
+      <div class="b-row"><div class="b-name">BANK 19 <small>extra shapes</small></div><div class="bar"><span class="fill-ok" style="width:59%"></span></div><div class="b-num">4818 / 8192 · 59%</div></div>
+      <div class="b-row"><div class="b-name">BANK 16 <small>widgets</small></div><div class="bar"><span class="fill-ok" style="width:57%"></span></div><div class="b-num">4654 / 8192 · 57%</div></div>
+      <div class="b-row"><div class="b-name">BANK 5 <small>dialogs</small></div><div class="bar"><span class="fill-ok" style="width:42%"></span></div><div class="b-num">3478 / 8192 · 42%</div></div>
+      <div class="b-row"><div class="b-name">BANK 18 <small>fs/aud/spr</small></div><div class="bar"><span class="fill-ok" style="width:27%"></span></div><div class="b-num">2238 / 8192 · 27%</div></div>
+      <div class="b-row"><div class="b-name">BANK 3 <small>mode-0 img</small></div><div class="bar"><span class="fill-ok" style="width:25%"></span></div><div class="b-num">2004 / 8192 · 25%</div></div>
+      <div class="b-row"><div class="b-name">BANK 2 <small>UI core</small></div><div class="bar"><span class="fill-ok" style="width:22%"></span></div><div class="b-num">1768 / 8192 · 22%</div></div>
+      <div class="b-row"><div class="b-name">BANK 4 <small>mode-1 img</small></div><div class="bar"><span class="fill-ok" style="width:19%"></span></div><div class="b-num">1543 / 8192 · 19%</div></div>
+    </div>
+  </section>
+
+  <!-- ===================== ZERO PAGE ===================== -->
+  <section>
+    <h2>Zero page <span class="addr">$00–$FF</span></h2>
+    <table>
+      <thead><tr><th style="width:96px">Range</th><th style="width:150px">Owner</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="range">$00–$01</td><td class="owner"><span class="dot" style="background:var(--hw)"></span>hardware</td><td><code>RAM_BANK</code> / <code>ROM_BANK</code> registers</td></tr>
+        <tr><td class="range">$02–$21</td><td class="owner"><span class="dot" style="background:var(--sys)"></span>KERNAL r0–r15</td><td>caller-save scratch; never live across a CXRF API call; IRQ callbacks bracket with <code>irq_save_regs</code></td></tr>
+        <tr><td class="range">$22–$31</td><td class="owner"><span class="dot" style="background:var(--lib)"></span>x16lib</td><td><code>X16_P0..P7</code> + <code>X16_T0..T7</code>, fixed as vendored</td></tr>
+        <tr><td class="range">$32–$5F</td><td class="owner"><span class="dot" style="background:var(--cx)"></span>CXRF kernel</td><td>46-byte window (<code>zp.inc</code>). Used $32–$54 (font, event, far-call, menu, dir, clipboard, joystick, icon, vram-streamer); free $55–$5F</td></tr>
+        <tr><td class="range">$60–$7F</td><td class="owner"><span class="dot" style="background:var(--app)"></span>application</td><td>guaranteed untouched by kernel and IRQ</td></tr>
+        <tr><td class="range">$80–$FF</td><td class="owner"><span class="dot" style="background:var(--sys)"></span>KERNAL/BASIC/DOS</td><td>never touch</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ===================== LOW RAM ===================== -->
+  <section>
+    <h2>Low RAM &amp; the kernel image <span class="addr">$0100–$9FFF</span></h2>
+    <table>
+      <thead><tr><th style="width:118px">Range</th><th class="size" style="width:66px">Size</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td class="range">$0100–$01FF</td><td class="size">256</td><td>CPU stack — kernel ≤48 B below caller SP per API call, ≤16 in IRQ</td></tr>
+        <tr><td class="range">$0200–$07FF</td><td class="size">1,536</td><td>KERNAL/DOS — untouched (stock R49 IRQ handler is at $038B; we never go near it). Loader stages CXAP headers at $0400–$041F</td></tr>
+        <tr><td class="range">$0801–$7FFF</td><td class="size">~30 KB</td><td><span class="dot" style="background:var(--app)"></span>application — loaded/reset by the kernel loader; the loader's hard ceiling is $7FFF</td></tr>
+        <tr><td class="range">$8000–$800F</td><td class="size">16</td><td>ABI header — magic <code>CXOS</code>, ABI version word, slot count, init vector, <code>cx_hdr_shell</code>/<code>CX_SHELL_SEL</code> (survive app loads)</td></tr>
+        <tr><td class="range">$8010–$81A4</td><td class="size">405</td><td>jump table — 3-byte JMP slots, append-only, slot <em>n</em> at $8010+n·3 forever. <strong>105 slots used</strong> ($8010–$814A); reserve caps at 135 (30 free)</td></tr>
+        <tr><td class="range">$81A5–$81A8</td><td class="size">4</td><td>build word <code>CX_KBUILD</code> ($0602) — stage-0 checks it against the banked files</td></tr>
+        <tr><td class="range">$81A9–$95FF</td><td class="size">5,207</td><td><span class="dot" style="background:var(--cx)"></span>resident kernel — event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard byte-mover, port manager. <strong>~194 B free (96% full)</strong></td></tr>
+        <tr><td class="range">$9600–$9EFF</td><td class="size">2,304</td><td>graphics port (OVL) — the current engine image, copied from its bank by <code>cx_gfx_mode</code>; or the tile-text port (<code>OV3T</code>) swapped in by <code>cx_tile_text</code></td></tr>
+        <tr><td class="range">$9F00–$9FFF</td><td class="size">256</td><td><span class="dot" style="background:var(--hw)"></span>I/O — VERA, VIA, PSG-through-VERA, etc. Past here is not memory</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ===================== BANKED RAM ===================== -->
+  <section>
+    <h2>Banked RAM <span class="addr">$A000–$BFFF window · bank register $00</span> <span class="tag">8 KB / bank</span></h2>
+    <p class="lead">The kernel's code banks are two files: <code>CXBANKS.BIN</code> (banks 2–5) and <code>CXBANKS2.BIN</code> (banks 16–19),
+      32 KB each. Data banks sit between; apps sit above <code>CX_APP_BANK_FLOOR = 20</code>. Used/free are the v0.10.0 build.</p>
+    <table>
+      <thead><tr><th style="width:52px">Bank</th><th style="width:150px">Theme</th><th>Segment / owner</th><th class="size" style="width:64px">Used</th><th class="size" style="width:64px">Free</th></tr></thead>
+      <tbody>
+        <tr><td class="range">0</td><td>KERNAL</td><td>reserved (KERNAL's)</td><td class="size">—</td><td class="size">—</td></tr>
+        <tr><td class="range">1</td><td>kernel data</td><td>system font ($A000), desktop state, theme, font metrics, event overflow</td><td class="size">—</td><td class="size">—</td></tr>
+        <tr><td class="range">2</td><td class="owner">UI core</td><td><code>B2CODE</code>: menus + theme + DA manager + the <code>b2_table</code> local jump table</td><td class="size">1,768</td><td class="size">6,424</td></tr>
+        <tr><td class="range">3</td><td>mode-0 image</td><td><code>OV0CODE</code> (2bpp GUI engine), copied to the OVL window to run</td><td class="size">2,004</td><td class="size">6,188</td></tr>
+        <tr><td class="range">4</td><td>mode-1 image</td><td><code>OV1CODE</code> (8bpp bitmap engine)</td><td class="size">1,543</td><td class="size">6,649</td></tr>
+        <tr><td class="range">5</td><td class="owner">dialogs</td><td><code>B5CODE</code>: dialog/alert/prompt/panel + the mode-2/3 &amp; tile-text port images (<code>OV2/OV3/OV3TCODE</code>)</td><td class="size">3,478</td><td class="size">4,714</td></tr>
+        <tr><td class="range">6–8</td><td>glyph cache</td><td>pre-shifted 2bpp cache (95 glyphs × 192 B, 42/bank) + CXF sources</td><td class="size">—</td><td class="size">—</td></tr>
+        <tr><td class="range">9</td><td>desk accessory</td><td>the open <code>.CXD</code> (<code>cx_da_open</code> loads it at $A000)</td><td class="size">—</td><td class="size">—</td></tr>
+        <tr><td class="range">10–13</td><td>clipboard</td><td>typed text / bitmap-rect, up to 32 KB</td><td class="size">—</td><td class="size">—</td></tr>
+        <tr><td class="range">14–15</td><td>save-under</td><td>dialog save-unders / DA saved state</td><td class="size">—</td><td class="size">—</td></tr>
+        <tr><td class="range">16</td><td class="owner">widgets</td><td><code>B16CODE</code>: the whole toolkit (code + <code>wg_*</code> state) + <code>wg_paint_t</code>; icon &amp; <code>WG_HIT</code> widgets</td><td class="size">4,654</td><td class="size">3,538</td></tr>
+        <tr><td class="range">17</td><td class="owner">graphics extras</td><td><code>B17CODE</code>: base shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects + icon sheet + palette API <strong>(tightest: 77%)</strong></td><td class="size">6,286</td><td class="size">1,906</td></tr>
+        <tr><td class="range">18</td><td class="owner">fs / sys / audio / sprites</td><td><code>B18CODE</code>: dir walk + <code>cx_file_load</code> + <code>cx_vload</code>/<code>cx_bload</code> + DOS channel + font cold half; PSG + YM audio + sprites; clipboard put/get/type orchestration</td><td class="size">2,238</td><td class="size">5,954</td></tr>
+        <tr><td class="range">19</td><td class="owner">extra shapes</td><td><code>B19CODE</code>: the dispatched <code>cx_gfx_shape</code> family — polygon / fpolygon / arc / pie + the sin/cos table</td><td class="size">4,818</td><td class="size">3,374</td></tr>
+        <tr><td class="range">20+</td><td class="owner"><span class="dot" style="background:var(--app)"></span>the app's</td><td><code>cx_bload</code> targets (refuses &lt; 20), window backing store, allocations, file buffers. 44 app banks on 512 KB, 236 on 2 MB</td><td class="size">—</td><td class="size">—</td></tr>
+      </tbody>
+    </table>
+    <p class="lead">Each of banks 16–19 opens with an 8-byte signature (<code>"CXB"</code>, bank #, <code>CX_KBUILD</code>, code size) at $A000;
+      stage-0 verifies it, so a hand-copied SD card carrying one stale file refuses at boot instead of crashing in a far call.</p>
+  </section>
+
+  <!-- ===================== ROM ===================== -->
+  <section>
+    <h2>ROM <span class="addr">$C000–$FFFF window · bank register $01</span> <span class="tag">16 KB / bank</span></h2>
+    <p class="lead">Banks 0–31 are the stock R49 system ROM — CXRF adds nothing to them (running on stock ROM is the whole premise).
+      The only ROM CXRF emits is the optional cartridge (<code>build.ps1 -Cart</code>): five 16 KB banks loaded at bank 32.</p>
+    <table>
+      <thead><tr><th style="width:96px">ROM bank(s)</th><th style="width:180px">Owner</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td class="range">0–31</td><td class="owner"><span class="dot" style="background:var(--sys)"></span>stock KERNAL ROM</td><td>KERNAL / BASIC / CBDOS / … — untouched; CXRF requires the R49 image</td></tr>
+        <tr><td class="range">32</td><td class="owner">CXRF cartridge</td><td><code>"CX16"</code> signature at $C000, boot stub ($C004), the relocated low-RAM copier, then the resident image + system font as data</td></tr>
+        <tr><td class="range">33–34</td><td class="owner">CXRF cartridge</td><td><code>CXBANKS.BIN</code> (32 KB) → copied to RAM banks 2–5 at boot</td></tr>
+        <tr><td class="range">35–36</td><td class="owner">CXRF cartridge</td><td><code>CXBANKS2.BIN</code> (32 KB) → copied to RAM banks 16–19 at boot</td></tr>
+        <tr><td class="range">37</td><td class="owner">CXRF cartridge <code>-D CART_APP</code></td><td>standalone build only: one app's <code>.CXA</code> baked at $C000, copied to $0801 and run</td></tr>
+      </tbody>
+    </table>
+    <p class="lead">The KERNAL scans bank 32 $C000 for <code>"CX16"</code> and jumps to $C004, so the cart needs no <code>AUTOBOOT.X16</code>
+      and no ROM patch. Banks 32–36 are the default five; bank 37 exists only in the <code>CART_APP</code> standalone build.</p>
+  </section>
+
+  <!-- ===================== VRAM ===================== -->
+  <section>
+    <h2>VRAM <span class="addr">128 KB · $00000–$1FFFF</span> <span class="tag">reinterpreted per mode</span></h2>
+    <p class="lead">The contended graphics resource. The layout below is <strong>mode 0 (desktop)</strong> / <strong>mode 1 (bitmap)</strong>;
+      the hardware regions at the top ($1F9C0+) are fixed and shared by every mode.</p>
+    <div class="cols2">
+    <table>
+      <thead><tr><th style="width:120px">Range</th><th class="size" style="width:60px">Size</th><th>Contents (mode 0 / 1)</th></tr></thead>
+      <tbody>
+        <tr><td class="range">$00000–$12BFF</td><td class="size">76,800</td><td>framebuffer 640×480 @2bpp, 160 B/row</td></tr>
+        <tr><td class="range">$12C00–$12FFF</td><td class="size">1,024</td><td>scratch strip (small save-unders, blit staging)</td></tr>
+        <tr><td class="range">$13000–$130FF</td><td class="size">256</td><td><span class="dot" style="background:var(--sys)"></span>KERNAL mouse pointer image (r49 <code>sprite_addr</code>)</td></tr>
+        <tr><td class="range">$13100–$170FF</td><td class="size">16,384</td><td>menu / drop-down save-under strips (<code>fx_copy</code> restore)</td></tr>
+        <tr><td class="range">$17100–$1DFFF</td><td class="size">28,416</td><td>icon / pattern sheets, extra save-under</td></tr>
+        <tr><td class="range">$1E000–$1EFFF</td><td class="size">4,096</td><td>CXRF sprite images (extra cursors, drag outlines)</td></tr>
+        <tr><td class="range">$1F000–$1F7FF</td><td class="size">2,048</td><td>KERNAL charset — kept for the panic/debug console</td></tr>
+        <tr><td class="range">$1F800–$1F9BF</td><td class="size">448</td><td>x16lib <code>VRAM_FX_SCRATCH</code> = $1F800</td></tr>
+        <tr><td class="range">$1F9C0–$1F9FF</td><td class="size">64</td><td><span class="dot" style="background:var(--hw)"></span>PSG registers (hardware)</td></tr>
+        <tr><td class="range">$1FA00–$1FBFF</td><td class="size">512</td><td><span class="dot" style="background:var(--hw)"></span>palette (hardware)</td></tr>
+        <tr><td class="range">$1FC00–$1FFFF</td><td class="size">1,024</td><td><span class="dot" style="background:var(--hw)"></span>sprite attributes (hardware)</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th style="width:120px">Range</th><th>Contents (mode 2 · tile)</th></tr></thead>
+      <tbody>
+        <tr><td class="range">$00000–$0FFFF</td><td>tileset — up to 64 KB, 1,024 tiles at 8bpp</td></tr>
+        <tr><td class="range">$10000</td><td>layer-0 game map (64×32 × 2 B = 4 KB); mapbase constant at every depth</td></tr>
+        <tr><td class="range">$11000</td><td>layer-1 game map</td></tr>
+        <tr><td class="range">$12000</td><td>text-overlay map (<code>cx_tile_text</code> — menus/widgets/dialogs)</td></tr>
+        <tr><td class="range">$14000</td><td>layer-0 shadow map (<code>cx_tile_dbuf</code>/<code>flip</code> double-buffer)</td></tr>
+        <tr><td class="range">$15000</td><td>layer-1 shadow map</td></tr>
+        <tr><td class="range">$1F000</td><td>KERNAL charset staged by <code>ov2_init</code> (tile-text glyphs)</td></tr>
+        <tr><td colspan="2" style="color:var(--muted); font-size:12px; border-bottom:none; padding-top:10px;">Sprite images &amp; save-under strips are unused in tile mode — the game owns that space. The $1F9C0+ hardware regions are shared with mode 0/1.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <footer class="doc">
+    CXRF v0.10.0 · generated from <code>docs/memory-map.md</code> and the kernel build (<code>tools/mapreport.py</code>).
+    Change this map in the same commit as the code that claims or releases a region. Budget figures shift every build — run
+    <code>python tools/mapreport.py</code> for today's.
+  </footer>
+
+</div>
+</body>
+</html>

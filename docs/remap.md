@@ -95,12 +95,12 @@ natural boundary between the two zones.
 | `$00000–$12BFF` | 75 KB | framebuffer |
 | `$12C00–$12FFF` | 1 KB | blit / scratch strip |
 
-**Mode 1 — bitmap app, 320×240 @2/4/8bpp** (unchanged from today)
+**Mode 1 — bitmap app, 320×240 8bpp** (unchanged from today)
 
 | range | size | contents |
 |---|---|---|
-| `$00000–…` | 19 KB (2bpp) / 37.5 KB (4bpp) / 75 KB (8bpp) | framebuffer |
-| remainder → `$12FFF` | free | 2nd buffer for **double-buffering at ≤4bpp** (2×37.5 KB fits; 8bpp cannot) |
+| `$00000–…` | 75 KB (8bpp) | framebuffer |
+| remainder → `$12FFF` | free |
 
 **Mode 2 — tile game @2/4/8bpp** — *this is the remap*
 

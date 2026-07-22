@@ -1,5 +1,12 @@
 # CXRF memory map — the live ledger
 
+**Release 0.10.0** · budget figures from `tools/mapreport.py` on the v0.10.0 build
+
+> **Shareable one-page reference:** [memory-map.html](memory-map.html) (open in a
+> browser) or [memory-map.pdf](memory-map.pdf). Both are generated from this file
+> and the kernel build; regenerate the PDF with headless Chrome/Edge
+> (`--headless=new --no-pdf-header-footer --print-to-pdf`) after editing the HTML.
+
 Every byte of contended address space is accounted for here. Change this
 file in the same commit as the code that claims or releases a region.
 
@@ -10,7 +17,7 @@ file in the same commit as the code that claims or releases a region.
 | $00–$01 | hardware | RAM_BANK / ROM_BANK registers |
 | $02–$21 | KERNAL r0–r15 | caller-save scratch; never live across a CXRF API call; IRQ callbacks bracket with `irq_save_regs` |
 | $22–$31 | x16lib | `X16_P0..P7` + `X16_T0..T7`, fixed as vendored |
-| $32–$5F | CXRF kernel | allocate only in `kernel/resident/zp.inc` (46 bytes) |
+| $32–$5F | CXRF kernel | 46-byte window; allocate only in `kernel/resident/zp.inc`. Used $32–$54 (font, event, far-call, menu, dir, clipboard, joystick, icon, vram-streamer); free $55–$5F |
 | $60–$7F | application | guaranteed untouched by kernel and IRQ (spikes use it too) |
 | $80–$FF | KERNAL/BASIC/DOS | never touch (Phase 8 may audit and reclaim) |
 
@@ -24,7 +31,7 @@ file in the same commit as the code that claims or releases a region.
 | $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector, `cx_hdr_shell` ($800A) desktop-state byte and `CX_SHELL_SEL` ($800B) the desktop's restored-selection index (both survive app loads) |
 | $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 105 slots used ($8010–$814A), reserve caps at 135 (30 free) |
 | $81A5–$81A8 | build word | `CX_KBUILD` (`banks.inc`), the reserve's tail; stage-0 checks it against the banked files |
-| $81A9–$95FF | resident kernel | ~5.2 KB budget, ~280 B free: event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard byte-mover (its orchestration is bank 18), port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
+| $81A9–$95FF | resident kernel | ~5.2 KB budget (5,207 B), ~194 B free at v0.10.0 (96% full — tight): event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard byte-mover (its orchestration is bank 18), port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
 | $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` — or the tile-text dialog port (`OV3T`) swapped in by `cx_tile_text` ([graphics-port.md](graphics-port.md)) |
 
 ## Banked RAM ($A000–$BFFF window, bank register at $00) — the budget ledger
@@ -32,25 +39,25 @@ file in the same commit as the code that claims or releases a region.
 8 KB per bank. The kernel's code banks are two files: `CXBANKS.BIN`
 (banks 2–5, one KERNAL LOAD) and `CXBANKS2.BIN` (banks 16–19, a second
 LOAD), each 32 KB. Data banks sit between them, apps above. `tools/mapreport.py`
-prints the *used*/*free* below from every kernel build's map — the numbers
-here are the v0.6.0 snapshot; run it for today's.
+prints the *used*/*free* below from every kernel build's map — the byte figures
+here are the **v0.10.0** snapshot; run it for today's. Each code bank is 8,192 B.
 
 | Bank(s) | Theme | Segment / owner | Used | Free (reserve) | Grows when you add… |
 |---|---|---|---|---|---|
 | 0 | KERNAL | reserved | — | — | never (KERNAL's) |
 | 1 | kernel data | system font ($A000), desktop state, theme, font metrics, event overflow | — | — | data, not code |
-| 2 | **UI core** | `B2CODE`: menus + theme + DA manager + the `b2_table` local jump table | ~1.8 KB | ~6.4 KB | a menu/theme/DA feature |
-| 3 | mode-0 image | `OV0CODE` (2bpp GUI engine), copied to the OVL window to run | ~2.2 KB | ~5.9 KB | a bigger mode-0 engine |
-| 4 | mode-1 image | `OV1CODE` (8bpp engine) | ~1.8 KB | ~6.4 KB | a bigger mode-1 engine |
-| 5 | **dialogs** | `B5CODE`: dialog/alert/prompt/panel + the mode-2/3 and tile-text port images (`OV2/OV3/OV3TCODE`) | ~3.4 KB | ~4.8 KB | a dialog feature; a new small overlay image |
+| 2 | **UI core** | `B2CODE`: menus + theme + DA manager + the `b2_table` local jump table | 1,768 B | 6,424 B | a menu/theme/DA feature |
+| 3 | mode-0 image | `OV0CODE` (2bpp GUI engine), copied to the OVL window to run | 2,004 B | 6,188 B | a bigger mode-0 engine |
+| 4 | mode-1 image | `OV1CODE` (8bpp engine) | 1,543 B | 6,649 B | a bigger mode-1 engine |
+| 5 | **dialogs** | `B5CODE`: dialog/alert/prompt/panel + the mode-2/3 and tile-text port images (`OV2/OV3/OV3TCODE`) | 3,478 B | 4,714 B | a dialog feature; a new small overlay image |
 | 6–8 | glyph cache | pre-shifted 2bpp cache (95 glyphs × 192 B, 42/bank) + CXF sources | — | — | a second/larger font (LRU) |
 | 9 | desk accessory | the open `.CXD` (`cx_da_open` loads it at $A000) | — | — | data, not kernel code |
 | 10–13 | clipboard | typed text / bitmap-rect, up to 32 KB | — | — | data |
 | 14–15 | save-under | dialog save-unders / DA saved state | — | — | data |
-| 16 | **widgets** | `B16CODE`: the whole toolkit (code + `wg_*` state) + `wg_paint_t`; includes the icon and `WG_HIT` widgets | ~4.1 KB | ~4.1 KB | **a new widget** — and nowhere else |
-| 17 | **graphics extras** | `B17CODE`: base shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects + the icon sheet + the palette API | ~4.4 KB | ~3.8 KB | **a new base shape** |
-| 18 | **fs / system / audio / sprites** | `B18CODE`: dir walk + `cx_file_load` + `cx_vload`/`cx_bload` + DOS channel + the font cold half (magic/header/cache builder) + `f_magic`; PSG + YM audio (with the carry shims) + hardware sprites (0.8.0); and (0.9.0) the clipboard put/get/type orchestration (its byte-mover stays resident) | ~2.2 KB | ~6.0 KB | an fs/DOS feature; cold system code; audio/sprites |
-| 19 | **extra shapes** | `B19CODE` (0.8.0): the dispatched `cx_gfx_shape` family — polygon / fpolygon / arc / pie + the sin/cos table they need | ~4.1 KB | ~4.1 KB | **a new extra shape** |
+| 16 | **widgets** | `B16CODE`: the whole toolkit (code + `wg_*` state) + `wg_paint_t`; includes the icon and `WG_HIT` widgets | 4,654 B | 3,538 B | **a new widget** — and nowhere else |
+| 17 | **graphics extras** | `B17CODE`: base shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects + the icon sheet + the palette API | 6,286 B | 1,906 B (76% full — the tightest code bank) | **a new base shape** |
+| 18 | **fs / system / audio / sprites** | `B18CODE`: dir walk + `cx_file_load` + `cx_vload`/`cx_bload` + DOS channel + the font cold half (magic/header/cache builder) + `f_magic`; PSG + YM audio (with the carry shims) + hardware sprites (0.8.0); and (0.9.0) the clipboard put/get/type orchestration (its byte-mover stays resident) | 2,238 B | 5,954 B | an fs/DOS feature; cold system code; audio/sprites |
+| 19 | **extra shapes** | `B19CODE` (0.8.0): the dispatched `cx_gfx_shape` family — polygon / fpolygon / arc / pie + the sin/cos table they need | 4,818 B | 3,374 B | **a new extra shape** |
 | 20+ | **the app's** | `cx_bload` targets (refuses < `CX_APP_BANK_FLOOR` = 20), window backing store, allocations, file buffers | — | — | — |
 
 **Each of banks 16–19 opens with an 8-byte signature** (`"CXB"`, bank #,
@@ -62,8 +69,10 @@ pre-1.0 contract change); on 512 KB there are 44 app banks, on 2 MB, 236.
 
 ### Growth policy — where a new feature goes
 
-The banks are themed so a new feature touches exactly one, and each has
-~5–7 KB of reserve so it does not reshuffle anything:
+The banks are themed so a new feature touches exactly one, and most keep
+several KB of reserve so a feature does not reshuffle anything (the
+exception at v0.10.0 is bank 17 — the graphics-extras bank — down to
+~1.9 KB; a big new base shape is the one addition that may need it moved):
 
 - **A new widget** → bank 16, beside the toolkit (its state goes there too).
 - **A new base shape** → bank 17. **A new tile op** → bank 17.
@@ -74,7 +83,8 @@ The banks are themed so a new feature touches exactly one, and each has
 - **A menu / theme / desk-accessory feature** → bank 2.
 - **A new overlay engine image** → bank 3, 4 or 5 storage (they hold ~6 KB
   free each); the image *runs* in the OVL window, which is the tighter
-  limit (2,304 B — the mode-0 image is 2,228, only 76 B of headroom).
+  limit (2,304 B — the largest image, mode-0's `OV0CODE`, is 2,004 at
+  v0.10.0, ~300 B of headroom).
 - **Resident code** (IRQ / event / hot-path only) → the resident image,
   which keeps ~130 B free; `mapreport.py` fails the build under 128 B.
 - **A new ABI slot** → the jump table has 30 free slots (cap 135); see
@@ -105,6 +115,30 @@ the tile engine stages at `$1F000`. Double-buffering (`cx_tile_dbuf` /
 `cx_tile_flip`) uses shadow maps at `$14000`/`$15000`. The game's own maps
 are never touched by the overlay, so lowering it is instant.
 
+## ROM ($C000–$FFFF window, bank register at $01)
+
+The X16 pages a 16 KB ROM bank into `$C000–$FFFF`, selected by `$01`. Banks
+**0–31** are the stock **R49** system ROM (KERNAL, BASIC, CBDOS, …); CXRF adds
+nothing to them — running on stock ROM is the whole premise. The only ROM CXRF
+emits is the optional **cartridge** (`build.ps1 -Cart`, `kernel/boot/cart.cfg`),
+five 16 KB banks written to one `cxrf_cart.bin` that `x16emu -cartbin` loads
+starting at bank 32.
+
+| ROM bank(s) | Owner | Contents |
+|---|---|---|
+| 0–31 | stock KERNAL ROM | KERNAL / BASIC / DOS / … — untouched; CXRF needs the R49 image |
+| 32 | CXRF cartridge | `"CX16"` signature at `$C000`, boot stub (`$C004`), the relocated low-RAM copier, then the resident image + system font as data |
+| 33–34 | CXRF cartridge | `CXBANKS.BIN` (32 KB) → copied to RAM banks 2–5 at boot |
+| 35–36 | CXRF cartridge | `CXBANKS2.BIN` (32 KB) → copied to RAM banks 16–19 at boot |
+| 37 | CXRF cartridge (`-D CART_APP`) | standalone build only: one app's `.CXA` baked at `$C000`, copied to `$0801` and run |
+
+The KERNAL scans bank 32 `$C000` for `"CX16"` and jumps to `$C004` (Programmer's
+Reference: Booting from Cartridges), so the cart needs no `AUTOBOOT.X16` and no
+ROM patch. The boot stub reproduces stage-0 from ROM instead of SD — see
+[The boot chain → Booting from a cartridge](#booting-from-a-cartridge). Banks
+32–36 are the default five; bank 37 exists only in the `CART_APP` standalone
+build (`cart_app.cfg`).
+
 ## VRAM (128KB) — the contended resource
 
 | Range | Size | Contents |
@@ -120,6 +154,23 @@ are never touched by the overlay, so lowering it is instant.
 | $1F9C0–$1F9FF | 64 | PSG registers (hardware) |
 | $1FA00–$1FBFF | 512 | palette (hardware) |
 | $1FC00–$1FFFF | 1,024 | sprite attributes (hardware) |
+
+The table above is the **mode-0 (desktop) / mode-1 (bitmap)** layout. VRAM is
+reinterpreted per video mode; in **mode 2 (tile)** the low VRAM is a tileset and
+tile maps instead of a framebuffer (v0.9.0, [remap.md](remap.md)):
+
+| Range | Contents (mode 2) |
+|---|---|
+| $00000–$0FFFF | tileset — up to 64 KB, 1,024 tiles at 8bpp |
+| $10000 | layer-0 game map (64×32 × 2 B = 4 KB); mapbase constant at every depth |
+| $11000 | layer-1 game map |
+| $12000 | text-overlay map (`cx_tile_text` — menus/widgets/dialogs) |
+| $14000 / $15000 | layer-0 / layer-1 **shadow** maps (`cx_tile_dbuf`/`cx_tile_flip` double-buffer) |
+| $1F000 | KERNAL charset staged by `ov2_init` (the tile-text glyphs; same $1F000 as elsewhere) |
+
+The hardware regions at the top ($1F9C0–$1FFFF: PSG, palette, sprite attrs) are
+fixed and shared by every mode. Sprite images and save-under strips are unused
+in tile mode; the game owns that space.
 
 ## The resident budget, and what it cost to fit — *(pre-restructure history)*
 
