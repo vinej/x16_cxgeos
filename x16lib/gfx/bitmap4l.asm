@@ -27,6 +27,7 @@ GFX4L_STRIDE = 160
 ; ---------------------------------------------------------------------
 ; gfx4l_init -- program 320x240@4bpp on bare VERA registers.
 ; ---------------------------------------------------------------------
+.ifndef X16_BITMAP4L_NO_INIT
 gfx4l_init
     vera_dcsel 0
     lda #$80
@@ -58,6 +59,7 @@ gfx4l_init
     lda #VERA_VIDEO_LAYER0_EN
     tsb VERA_DC_VIDEO
     rts
+.endif
 
 ; ---------------------------------------------------------------------
 ; gfx4l_clear -- fill the whole framebuffer with one colour
@@ -105,10 +107,10 @@ gfx4l_setptr
     lda X16_T3
     sta X16_T1
     stz X16_T2
-    asl
+    asl X16_T0
     rol X16_T1
     rol X16_T2
-    asl
+    asl X16_T0
     rol X16_T1
     rol X16_T2
 
@@ -294,7 +296,14 @@ gfx4l_rect
 @row
     lda X16_P6
     beq @done
-    jsr gfx4l_hline
+    jsr gfx4l_hline             ; advances P0/P1 by the width -- reset it,
+    sec                        ; or every row starts where the last ended
+    lda X16_P0                 ; (a staircase instead of a filled rect)
+    sbc X16_P4
+    sta X16_P0
+    lda X16_P1
+    sbc X16_P5
+    sta X16_P1
     inc X16_P2
     dec X16_P6
     bra @row
@@ -624,11 +633,11 @@ gfx4l_pattern_rect
     ora X16_P5
     bne :+
     rts
-+
+:
     lda X16_P6
     bne :+
     rts
-+
+:
     lda X16_P0
     and #7
     sta gp4l_rot
@@ -744,25 +753,19 @@ gfx4l_line
     stz gl4l_sx+1
 @gl4l_dx_done
 
-    sec
+    sec                         ; dy = -|y1 - y0|, sy = sign (y is 8-bit)
     lda gl4l_y1
     sbc gl4l_y0
-    sta gl4l_ldy
-    lda gl4l_y1+1
-    sbc gl4l_y0+1
-    sta gl4l_ldy+1
     bpl @gl4l_dy_pos
-    sec
-    lda #0
-    sbc gl4l_ldy
+    eor #$FF
+    clc
+    adc #1                      ; absolute value
     sta gl4l_ldy
-    lda #0
-    sbc gl4l_ldy+1
-    sta gl4l_ldy+1
     lda #$FF
     sta gl4l_sy
     bra @gl4l_dy_done
 @gl4l_dy_pos
+    sta gl4l_ldy
     lda #$01
     sta gl4l_sy
 @gl4l_dy_done
@@ -771,8 +774,8 @@ gfx4l_line
     sbc gl4l_ldy
     sta gl4l_dy
     lda #0
-    sbc gl4l_ldy+1
-    sta gl4l_dy+1
+    sbc #0
+    sta gl4l_dy+1               ; gl4l_dy = -|dy|, 16-bit signed
 
     clc
     lda gl4l_dx
@@ -860,6 +863,7 @@ bitmap4l_gl4l_plot
     sta X16_P3
     jmp gfx4l_pset
 
+.ifndef X16_BITMAP4L_MIN
 ; ---------------------------------------------------------------------
 ; gfx4l_char / gfx4l_text
 ; ---------------------------------------------------------------------
@@ -941,14 +945,14 @@ gfx4l_char
 gfx4l_text
     sta bitmap4l_gt4l_lda+1
     stx bitmap4l_gt4l_lda+2
-@gt4l_loop
+gtx4l_gt4l_loop
 bitmap4l_gt4l_lda
     lda $FFFF
-    beq @gt4l_done
+    beq gtx4l_gt4l_done
     bit #%01000000
-    beq @gt4l_code_ok
+    beq gtx4l_gt4l_code_ok
     and #$1F
-@gt4l_code_ok
+gtx4l_gt4l_code_ok
     jsr gfx4l_char
     clc
     lda X16_P0
@@ -958,11 +962,12 @@ bitmap4l_gt4l_lda
     adc #0
     sta X16_P1
     inc bitmap4l_gt4l_lda+1
-    bne @gt4l_loop
+    bne gtx4l_gt4l_loop
     inc bitmap4l_gt4l_lda+2
-    bra @gt4l_loop
-@gt4l_done
+    bra gtx4l_gt4l_loop
+gtx4l_gt4l_done
     rts
+.endif
 
 ; ---------------------------------------------------------------------
 ; Data

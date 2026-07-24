@@ -204,7 +204,7 @@ build); `Terminal → Run Task…` lists the rest. The per-app tasks build
     {
       "label": "CXRF: Run desktop (fsroot)",
       "type": "shell",
-      "command": "& '${workspaceFolder}\\emulator\\x16emu.exe' -rom emulator\\rom.bin -fsroot build\\sdroot -scale 2 -capture",
+      "command": "& '${workspaceFolder}\\emulator\\x16emu.exe' -rom emulator\\rom.bin -fsroot build\\sdroot -scale 2 -bitmap2 -capture",
       "problemMatcher": []
     }
   ]
@@ -380,7 +380,7 @@ can't be run with `-prg` directly — it's launched *by the kernel*.
 Boot the kernel with your SD root and launch the app from the desktop:
 
 ```powershell
-emulator\x16emu.exe -rom emulator\rom.bin -fsroot build\sdroot -scale 2 -capture
+emulator\x16emu.exe -rom emulator\rom.bin -fsroot build\sdroot -scale 2 -bitmap2 -capture
 ```
 
 - `-fsroot build\sdroot` serves that folder as the SD card — fastest
@@ -395,7 +395,7 @@ ideal for a tight edit/run loop on one app:
 
 ```powershell
 python tools\mkcxap.py build\MYAPP.PRG build\sdroot\AUTORUN.CXA --name "My App"
-emulator\x16emu.exe -rom emulator\rom.bin -fsroot build\sdroot -capture
+emulator\x16emu.exe -rom emulator\rom.bin -fsroot build\sdroot -bitmap2 -capture
 ```
 
 Delete `build\sdroot\AUTORUN.CXA` to get the desktop back.
@@ -412,7 +412,7 @@ FAT32-formatted card, or build the single image and write that:
 Boot the emulator from the image exactly like real hardware would:
 
 ```powershell
-emulator\x16emu.exe -rom emulator\rom.bin -sdcard build\cxrf_sd.img -capture
+emulator\x16emu.exe -rom emulator\rom.bin -sdcard build\cxrf_sd.img -bitmap2 -capture
 ```
 
 A real Commander X16 boots the same image off a physical card.
@@ -433,7 +433,7 @@ program on the SD as `AUTORUN.CXA` and the cartridge boots straight into it:
 ```powershell
 python tools\mkcxap.py build\MYAPP.PRG build\sdroot\AUTORUN.CXA --name "My App"
 .\build.ps1 -Cart
-emulator\x16emu.exe -rom emulator\rom.bin -cartbin build\cxrf_cart.bin -fsroot build\sdroot -capture
+emulator\x16emu.exe -rom emulator\rom.bin -cartbin build\cxrf_cart.bin -fsroot build\sdroot -bitmap2 -capture
 ```
 
 **Standalone: bake the app into the cartridge too.** `-App <CXA>` copies your
@@ -443,7 +443,7 @@ single-item deliverable:
 
 ```powershell
 .\build.ps1 -Cart -App build\MYAPP.CXA        # -> build\cxrf_cart_myapp.bin
-emulator\x16emu.exe -rom emulator\rom.bin -cartbin build\cxrf_cart_myapp.bin -capture
+emulator\x16emu.exe -rom emulator\rom.bin -cartbin build\cxrf_cart_myapp.bin -bitmap2 -capture
 ```
 
 `paint.bat` in the repo root is a worked example — it bakes `PAINT.CXA` into a
@@ -484,7 +484,7 @@ The kernel and apps print progress with plain `CHROUT`, so the emulator's
 *seeing* a GUI headlessly, capture a GIF and read a frame:
 
 ```powershell
-emulator\x16emu.exe -rom emulator\rom.bin -fsroot build\sdroot -warp -echo -gif build\run.gif
+emulator\x16emu.exe -rom emulator\rom.bin -fsroot build\sdroot -bitmap2 -warp -echo -gif build\run.gif
 ```
 
 Have your app print a one-line marker on startup (like the samples'

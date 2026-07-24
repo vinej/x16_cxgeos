@@ -155,7 +155,10 @@ function Invoke-Emulator([string[]]$emuArgs, [int]$timeout, [string]$until, [str
     [IO.File]::WriteAllText($stdin, "")
     if (Test-Path $stdout) { Remove-Item $stdout -Force }
 
-    $emuArgs = @('-rom', $rom) + $emuArgs + @('-warp', '-echo')
+    # -bitmap2 enables the VERA_2 second video plane (the MiSTer core's
+    # SDRAM bitmap layer) so mode 4 (CX_MODE_BMPHI, 640x480 4/8bpp) works;
+    # harmless for the other modes, so every invocation gets it by default.
+    $emuArgs = @('-rom', $rom) + $emuArgs + @('-bitmap2', '-warp', '-echo')
     $proc = Start-Process -FilePath $emu -ArgumentList $emuArgs -NoNewWindow -PassThru `
                           -RedirectStandardInput $stdin -RedirectStandardOutput $stdout
 
@@ -256,6 +259,10 @@ function Build-Apps {
             @{ src = "apps\beep\beep.c";     prg = "BEEP";   name = "Beep" },
             @{ src = "apps\sprite\sprite.c"; prg = "SPRITE"; name = "Sprite" },
             @{ src = "apps\gfx8\gfx8.c";     prg = "GFX8";   name = "256 colours" },
+            @{ src = "apps\gfx8hi\gfx8hi.c"; prg = "GFX8HI"; name = "640x480 8bpp" },
+            @{ src = "apps\gfx4\gfx4.c";     prg = "GFX4";   name = "320x240 4bpp" },
+            @{ src = "apps\gfx2\gfx2.c";     prg = "GFX2";   name = "320x240 2bpp" },
+            @{ src = "apps\gfx4hi\gfx4hi.c"; prg = "GFX4HI"; name = "640x480 4bpp" },
             @{ src = "apps\tiles\tiles.c";   prg = "TILES";  name = "Tiles" },
             @{ src = "apps\tiles8\tiles8.c"; prg = "TILES8"; name = "8bpp tiles" },
             @{ src = "apps\tiletext\tiletext.c"; prg = "TILETEXT"; name = "Tile text" },
@@ -514,6 +521,18 @@ function Stage-SdRoot {
     if (Test-Path (Join-Path $build "GFX8.CXA")) {
         Copy-Item (Join-Path $build "GFX8.CXA") $sdroot
     }
+    if (Test-Path (Join-Path $build "GFX8HI.CXA")) {    # the 640x480 8bpp VERA_2 demo
+        Copy-Item (Join-Path $build "GFX8HI.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "GFX4.CXA")) {      # the 320x240 4bpp demo
+        Copy-Item (Join-Path $build "GFX4.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "GFX2.CXA")) {      # the 320x240 2bpp demo
+        Copy-Item (Join-Path $build "GFX2.CXA") $sdroot
+    }
+    if (Test-Path (Join-Path $build "GFX4HI.CXA")) {    # the 640x480 4bpp VERA_2 demo
+        Copy-Item (Join-Path $build "GFX4HI.CXA") $sdroot
+    }
     if (Test-Path (Join-Path $build "TILES.CXA")) {
         Copy-Item (Join-Path $build "TILES.CXA") $sdroot
     }
@@ -668,7 +687,11 @@ if ($Test) {
         @{ cxa = "CALC8.CXA";     mk = "CALC P8 OK" },
         @{ cxa = "UIDEMO.CXA";    mk = "UIDEMO OK" },
         @{ cxa = "TILETEXT.CXA";  mk = "TILETEXT OK" },
-        @{ cxa = "TILES8.CXA";    mk = "TILES8 OK" }
+        @{ cxa = "TILES8.CXA";    mk = "TILES8 OK" },
+        @{ cxa = "GFX8HI.CXA";    mk = "GFX8HI OK" },
+        @{ cxa = "GFX4.CXA";      mk = "GFX4 OK" },
+        @{ cxa = "GFX2.CXA";      mk = "GFX2 OK" },
+        @{ cxa = "GFX4HI.CXA";    mk = "GFX4HI OK" }
     )) {
         if (Test-Path (Join-Path $build $sm.cxa)) {
             $hellos += @{ cxa = $sm.cxa; up = $sm.mk; wait = $sm.mk }
@@ -759,12 +782,17 @@ if ($Apps -or $Image -or $Boot -or $Cart) {
         # -capture: x16emu does not feed the host mouse to the guest
         # without it, so the pointer would sit frozen. Interactive only;
         # the headless smoke never needs it.
+        # -bitmap2 enables the VERA_2 second plane (mode 4: GFX4HI/GFX8HI);
+        # without it those apps enable VERA2_CTRL to no effect and, with the
+        # VERA layers turned off by their engine, the screen goes white. The
+        # headless smoke path (Invoke-Emulator) already passes it; the
+        # interactive boot must too, or launching a mode-4 app white-pages.
         if ($Cart) {
             Write-Host "x16emu (booting the cartridge via -cartbin; -capture for the mouse)"
-            & $emu -rom $rom -cartbin $cartbin -fsroot $sdroot -scale $Scale -capture
+            & $emu -rom $rom -cartbin $cartbin -fsroot $sdroot -scale $Scale -bitmap2 -capture
         } else {
             Write-Host "x16emu (booting the staged root; -capture for the mouse)"
-            & $emu -rom $rom -fsroot $sdroot -scale $Scale -capture
+            & $emu -rom $rom -fsroot $sdroot -scale $Scale -bitmap2 -capture
         }
     }
     exit 0
@@ -779,5 +807,5 @@ if ($Capture) {
 
 if ($Run) {
     Write-Host "x16emu $out"
-    & $emu -rom $rom -prg $out -run -scale $Scale
+    & $emu -rom $rom -prg $out -run -scale $Scale -bitmap2
 }

@@ -4,6 +4,75 @@ CXRF (Commander X16 Runtime Framework) shipped as **CXGEOS** through v0.9.0 and
 was renamed at v0.10.0. Git tags keep their `vX.Y.Z` names; dates are tag dates.
 Newest release first.
 
+## v0.12.0 — four new graphics depths, `cx_gfx_mode` gains a bpp (2026-07-24)
+
+- **`cx_gfx_mode` now takes a bit-depth.** `A` = the mode, **`X` = bpp**
+  (`0`/`2`/`4`/`8`; `0` = the mode's native depth). A mode with more than one
+  depth is more than one engine image behind the same mode number — the depth
+  picks which loads. The slot number and semantics are backward-compatible: an
+  old caller that sets only `A` still lands the native image. C is
+  `cx_mode(mode, bpp)`; the asmsdk macro is `cxm_gfx_mode m, bpp`; Prog8 is
+  `gfx_mode(m, bpp)`.
+- **Mode 1 (320×240) is now three depths.** `X`=8 (256 colours, the existing
+  `OV1`/`bitmap8l`), `X`=4 (16 colours, new `OV4L`/`bitmap4l`), `X`=2 (4 colours,
+  new `OV2L`/`bitmap2l`), all shown fullscreen (2:1). The 4/2bpp images carry
+  the 13 drawing entries and refuse text and the save-under (future work); their
+  colours come from the default VERA palette.
+- **`CX_MODE_BMPHIGH` is the 640×480 umbrella; `CX_MODE_GUI` is gone.** One mode
+  number (0) now spans the whole 640×480 family by depth: **bpp 2** is the
+  4-colour desktop on standard VERA (`OV0` — this is the old `CX_MODE_GUI`,
+  folded in and removed as a separate constant, so `cx_mode(CX_MODE_BMPHIGH, 2)`
+  is the desktop); **bpp 4** (`OV4H`) and **bpp 8** (`OV8H`) light up the VERA_2
+  second plane (the MiSTer core's SDRAM bitmap layer, `$9F60`–`$9F6F`). The
+  VERA_2 depths keep their own framebuffer, registers and palette (`gfx*h_pal_*`,
+  not `cx_pal_set`); the loader turns VERA_2 **off on every image swap**, so
+  switching back to bpp 2 restores the desktop, and each VERA_2 init turns it on.
+  The emulator needs **`-bitmap2`** to show VERA_2 — without it a mode-4/8 app
+  renders fully white; it is now on every `build.ps1` path AND the `run-cart.bat`
+  / `paint.bat` / `launch.bat` launchers (this was the "white page from the
+  desktop" bug — the interactive boot alone had been missing the flag).
+- **Loader restructure.** The engine *image* in the port (`cx_veng`, 0–8) is now
+  decoupled from the *mode* the app selected (`cx_vmode`, 0–3); `cx_eng_index`
+  maps (mode, bpp) → image — mode 0 alone spans three images (bpp 2 = `OV0`,
+  4 = `OV4H`, 8 = `OV8H`). `cx_gfx_info` reports the live depth/stride from the
+  image row, and `cx_mbank`/`cx_msrc`/`cx_minfo` are indexed by image. Runtime-
+  verified: `M1BPP4=4 M1BPP2=2 M4H4=Y M4H8=Y`. Resident free is ~183 B (from
+  327), OVL window unchanged (largest image 2,004 of 2,304); bank 3 stacks
+  `OV0`+`OV4L`+`OV2L` (5,706 B), bank 4 stacks `OV1`+`OV4H`+`OV8H` (4,831 B).
+- **Tiles kept consistent.** `cx_gfx_mode(CX_MODE_TILE, bpp)` records the tile
+  mode's **default depth** — `cx_tile_setup(layer, 0)` adopts it, so
+  `cx_mode(CX_MODE_TILE, 8)` then a `0`-bpp setup is an 8bpp layer. Default stays
+  4bpp, and every existing caller passes an explicit depth, so nothing changes
+  for them. Verified `TILE8=Y TILE4=Y`.
+- **A demo for every new depth** (C, self-verifying, all in the boot smoke under
+  `-bitmap2`): `apps/gfx8hi` (640×480 8bpp), `apps/gfx4hi` (640×480 4bpp),
+  `apps/gfx4` (320×240 4bpp), `apps/gfx2` (320×240 2bpp). Each draws a colour
+  spectrum full width with the port's rect/frame/line/shape calls, then reads a
+  pixel back to prove the depth took the ink (`GFX.. OK`/`FAIL`). The mode-4
+  demos load VERA_2's own palette through `$9F66`–`$9F68` (VERA_2 keeps a
+  separate palette that `cx_pal_set` does not reach); the mode-1 demos use the
+  ordinary VERA palette at `$1FA00`.
+- **Fixed a mode-1 2bpp port bug (CXRF).** `gfx2l` is ABI-native (colour in `A`,
+  16-bit y in P2/P3), but its port vector had the same `sta P3` adapters as
+  `gfx4l` (colour in P3, byte y) — for 2bpp that `sta P3` clobbered y's high
+  byte, so every pixel drew off-screen and read back 0. The ov2l vector is now
+  direct JMPs.
+- **Vendored x16lib re-synced to a clean v0.11.9 snapshot.** Building and
+  visually testing the demos drove out a run of upstream fixes, all **upstreamed
+  into `x16_library`** (in `src_acme`, regenerated to all six variants,
+  ACME/ca65 suites green), so `x16lib/` stays a plain snapshot: the `acme2ca65`
+  lone-label regen bug and the `_MIN`/`_NO_INIT` gates (**v0.11.2**); a
+  `bitmap8h` `hline`/`rect` fill that wrote 64 KB for any span under 256 px wide
+  — correct but thousands of times too slow (**v0.11.3**); `gfx4l_rect` drawing
+  a diagonal staircase because `gfx4l_hline` advances x and the rect never reset
+  it (**v0.11.4**); `gfx4l_setptr` computing the wrong VRAM row address on odd
+  rows — the `y*128` step shifted the accumulator instead of `X16_T0`, so 4bpp
+  low-res rendered as a comb of stripes (**v0.11.7**); `gfx4l_line` reading its
+  8-bit `y` as 16-bit and pulling adjacent variables in as garbage `dy`, so
+  vertical/diagonal `cx_line` and the circle/ellipse outlines drew garbage, and
+  a `gfx4l_text` cheap-local scope break in the converter-generated ports
+  (**v0.11.9**).
+
 ## v0.11.0 — x16lib v0.11.1 vendored, tile/text UI polish (2026-07-23)
 
 - **Vendored x16lib re-synced to v0.11.1.** The whole `x16lib/` tree is a clean

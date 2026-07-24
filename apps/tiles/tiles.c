@@ -29,7 +29,7 @@ int main(void) {
 
     cx_print("TILES UP");
 
-    cx_mode(CX_MODE_TILE);
+    cx_mode(CX_MODE_TILE, 0);
 
     /* tile 0: a checker of colours 11 (dark grey) and 0; tile 1: a
      * brick of colour 8 (orange) with a colour-2 (red) mortar line */

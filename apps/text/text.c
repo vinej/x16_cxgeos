@@ -23,7 +23,7 @@ int main(void) {
 
     cx_print("TEXT UP");
 
-    cx_mode(CX_MODE_TEXT);
+    cx_mode(CX_MODE_TEXT, 0);
 
     cx_clear(6);                         /* a blue screen (white ink)    */
     cx_say("CXRF -- 80x60 text mode", 27, 1);

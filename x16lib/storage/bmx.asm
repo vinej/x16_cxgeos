@@ -417,6 +417,263 @@ bmx_save
     clc
     rts
 
+; ---------------------------------------------------------------------
+; bmx_load_hires -- load a BMX file into the VERA_2 640x480 SDRAM
+;             bitmap (the gfx8h engine). Palette goes to the VERA_2
+;             palette, pixels stream to VERA_2 SDRAM starting at offset 0.
+;   in:  X16_P0/P1 = filename address, X16_P2 = length
+;        X16_P3    = device (usually 8)
+;   out: carry clear on success, set with A = BMX_ERR_* on failure
+;        bmx_width/height/bpp/palstart/palcount/border reflect the file
+;   note: select the hi-res 8bpp mode first (gfx8h_init). Rows land
+;         BMX_HIRES_STRIDE (640) bytes apart from SDRAM offset 0, so a
+;         full-width 640x480x8 image is a plain contiguous load. Unlike
+;         bmx_load (which targets VERA VRAM through DATA0), this streams
+;         into the MiSTer VERA_2 SDRAM address space through VERA2_DATA.
+; ---------------------------------------------------------------------
+BMX_HIRES_STRIDE = 640
+
+bmx_load_hires
+    jsr bmx_open_read
+    bcc @hdr
+    lda #BMX_ERR_IO
+    rts
+@hdr
+    ldx #0                      ; pull in the 16-byte header
+@get_hdr
+    jsr CHRIN
+    sta bmx_hdr,x
+    inx
+    cpx #16
+    bne @get_hdr
+
+    jsr READST                  ; a short/absent header is an I/O error
+    beq @validate
+    lda #BMX_ERR_IO
+    bra @close_err
+@validate
+    lda bmx_hdr
+    cmp #'B'
+    bne @bad_fmt
+    lda bmx_hdr+1
+    cmp #'M'
+    bne @bad_fmt
+    lda bmx_hdr+2
+    cmp #'X'
+    bne @bad_fmt
+    lda bmx_hdr+3
+    cmp #1
+    bne @bad_fmt
+    lda bmx_hdr+14
+    beq @fmt_ok
+    lda #BMX_ERR_PACKED
+    bra @close_err
+@bad_fmt
+    lda #BMX_ERR_FORMAT
+@close_err
+    pha
+    jsr bmx_close_read
+    pla
+    sec
+    rts
+
+@fmt_ok
+    lda bmx_hdr+4               ; publish the header fields
+    sta bmx_bpp
+    lda bmx_hdr+6
+    sta bmx_width
+    lda bmx_hdr+7
+    sta bmx_width+1
+    lda bmx_hdr+8
+    sta bmx_height
+    lda bmx_hdr+9
+    sta bmx_height+1
+    lda bmx_hdr+11
+    sta bmx_palstart
+    lda bmx_hdr+15
+    sta bmx_border
+    lda bmx_hdr+10
+    sta bmx_palcount
+    stz bmx_palcount+1
+    bne @pal_n
+    inc bmx_palcount+1          ; 0 in the file means 256
+@pal_n
+
+    ; --- palette -> the VERA_2 palette (IDX auto-increments) -----------
+    lda bmx_palstart
+    sta VERA2_PAL_IDX
+    lda bmx_palcount            ; entries remaining (16-bit)
+    sta bmx_cnt
+    lda bmx_palcount+1
+    sta bmx_cnt+1
+@pal_loop
+    lda bmx_cnt
+    ora bmx_cnt+1
+    beq @pal_done
+    jsr CHRIN
+    sta VERA2_PAL_LO
+    jsr CHRIN
+    sta VERA2_PAL_HI
+    jsr bmx_dec_cnt
+    bra @pal_loop
+@pal_done
+
+    ; --- skip any gap up to the header's data offset -------------------
+    lda bmx_palcount
+    sta bmx_cnt
+    lda bmx_palcount+1
+    sta bmx_cnt+1
+    asl bmx_cnt
+    rol bmx_cnt+1
+    clc
+    lda bmx_cnt
+    adc #16
+    sta bmx_cnt
+    lda bmx_cnt+1
+    adc #0
+    sta bmx_cnt+1
+    sec                         ; gap = data offset - position
+    lda bmx_hdr+12
+    sbc bmx_cnt
+    sta bmx_cnt
+    lda bmx_hdr+13
+    sbc bmx_cnt+1
+    sta bmx_cnt+1
+    bcc @data
+@skip
+    lda bmx_cnt
+    ora bmx_cnt+1
+    beq @data
+    jsr CHRIN
+    jsr bmx_dec_cnt
+    bra @skip
+
+@data
+    jsr READST
+    cmp #0
+    beq @rows_ahead
+    jmp @io_short
+@rows_ahead
+
+    ; --- pixel rows into VERA_2 SDRAM, BMX_HIRES_STRIDE apart -----------
+    stz bmx_cur                 ; SDRAM byte offset 0
+    stz bmx_cur+1
+    stz bmx_cur+2
+    jsr bmx_row_bytes              ; bmx_row = width >> (3 - depth)
+
+    lda bmx_height
+    sta bmx_rows
+    lda bmx_height+1
+    sta bmx_rows+1
+@row
+    lda bmx_rows
+    ora bmx_rows+1
+    beq @done
+    jsr bmx_point_cur2             ; VERA_2 addr = bmx_cur, INC_1
+
+    lda bmx_row
+    sta bmx_cnt
+    lda bmx_row+1
+    sta bmx_cnt+1
+    jsr bmx_bulk_read2             ; the whole row, MACPTR into VERA2_DATA
+    bcc @row_done
+    jmp @io_short
+@row_done
+    clc                         ; cur += 640 (20-bit)
+    lda bmx_cur
+    adc #<BMX_HIRES_STRIDE
+    sta bmx_cur
+    lda bmx_cur+1
+    adc #>BMX_HIRES_STRIDE
+    sta bmx_cur+1
+    lda bmx_cur+2
+    adc #0
+    sta bmx_cur+2
+    lda bmx_rows
+    bne @dec_rows
+    dec bmx_rows+1
+@dec_rows
+    dec bmx_rows
+
+    lda bmx_rows
+    ora bmx_rows+1
+    beq @done
+    jsr READST
+    cmp #0
+    beq @row
+
+@io_short
+    lda #BMX_ERR_IO
+    jmp @close_err
+
+@done
+    jsr bmx_close_read
+    clc
+    rts
+
+; VERA_2 SDRAM address <- bmx_cur, auto-increment by 1
+bmx_point_cur2
+    lda bmx_cur
+    sta VERA2_ADDR_L
+    lda bmx_cur+1
+    sta VERA2_ADDR_M
+    lda bmx_cur+2
+    and #$0F
+    ora #(VERA2_INC_1 << 4)     ; VERA2_INC_1 code is 0: high nibble stays
+    sta VERA2_ADDR_H
+    rts
+
+; read bmx_cnt bytes from the open channel into VERA2_DATA (the SDRAM
+; port is already aimed). Same MACPTR streaming trick as bmx_bulk_read,
+; but the fixed destination is the VERA_2 data register.
+;   out: carry clear = done; carry set = the stream died mid-read
+bmx_bulk_read2
+@more
+    lda bmx_cnt
+    ora bmx_cnt+1
+    beq @br_ok
+    lda bmx_cnt+1
+    beq @small
+    lda #255
+    bra @ask
+@small
+    lda bmx_cnt
+@ask
+    ldx #<VERA2_DATA
+    ldy #>VERA2_DATA
+    sec                         ; fixed destination: stream into VERA_2
+    jsr MACPTR
+    bcs @fallback
+    txa
+    bne @got
+    tya
+    beq @br_short
+@got
+    stx bmx_t
+    sec
+    lda bmx_cnt
+    sbc bmx_t
+    sta bmx_cnt
+    sty bmx_t
+    lda bmx_cnt+1
+    sbc bmx_t
+    sta bmx_cnt+1
+    bra @more
+@br_ok
+    clc
+    rts
+@br_short
+    sec
+    rts
+@fallback
+    lda bmx_cnt
+    ora bmx_cnt+1
+    beq @br_ok
+    jsr CHRIN
+    sta VERA2_DATA
+    jsr bmx_dec_cnt
+    bra @fallback
+
 ; --- plumbing ---------------------------------------------------------
 
 bmx_open_read

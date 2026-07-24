@@ -89,6 +89,8 @@ X16_USE_IRQ_SPRCOL  = 1         ; sprite-collision capture for cx_spr_collide
 .include "kernel/video/sprite.asm"
 .include "kernel/video/engine0.asm"
 .include "kernel/video/engine1.asm"
+.include "kernel/video/engine_lo.asm"
+.include "kernel/video/engine_hi.asm"
 .include "kernel/video/shapes.asm"
 .include "kernel/video/tiles.asm"
 .include "kernel/video/pal.asm"

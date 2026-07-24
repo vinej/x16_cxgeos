@@ -31,21 +31,30 @@ CX_MODE_TEXT = 3                ; the 80x60 text personality -- named
 ; cx_ov_load copies an engine image from its bank into the port region:
 ; interrupts masked (nothing must draw mid-copy), the caller's bank
 ; restored. Engine n lives in bank CX_OV0_BANK + n.
-CX_MODES    = 4                 ; how many engines ride the banks today
+CX_NMODES   = 4                 ; screen MODES 0-3 (mode 0 = the 640x480 umbrella:
+                                ; bpp 2 std-VERA desktop, 4/8 VERA_2)
 
 .import __OV2CODE_LOAD__        ; modes 2 and 3 share a bank with the
-.import __OV3CODE_LOAD__        ; shapes / text machinery; ld65 says
-.import __OV3TCODE_LOAD__       ; ...and OV3T, the tile-text dialog port
-                                ; where each image landed in it
+.import __OV3CODE_LOAD__        ; shapes / text machinery; ld65 says where
+.import __OV3TCODE_LOAD__       ; each image landed. OV4L / OV2L are the
+.import __OV4LCODE_LOAD__       ; 320x240 4bpp / 2bpp images, stacked after
+.import __OV2LCODE_LOAD__       ; OV0 in bank 3 (engine indices 5 and 6);
+.import __OV4HCODE_LOAD__       ; OV4H / OV8H are the 640x480 VERA_2 images,
+.import __OV8HCODE_LOAD__       ; stacked after OV1 in bank 4 (indices 7, 8)
 
 cx_ov_boot                      ; boot: engine 0 in, mode noted
     stz cx_vmode
+    stz cx_veng
     jsr cx_ov_bounds
     lda #0
     ; falls into cx_ov_load
-cx_ov_load                      ; A = the MODE whose image to pull in
+cx_ov_load                      ; A = the ENGINE-IMAGE INDEX to pull in
     php
     sei
+    sta cx_veng                 ; remember which image rides the port now
+    stz VERA2_CTRL              ; leave any VERA_2 (mode 4) plane OFF; an
+                                ; h-engine's init turns it back on, so every
+                                ; non-mode-4 image restores the VERA display
     tay
     lda RAM_BANK
     pha
@@ -105,23 +114,99 @@ cx_do_ink
     sta cxov_ink                ; a void slot: no carry contract to set
     rts
 
-; --- cx_gfx_mode (slot 76) -- A = the mode; carry set if unknown ------
+; --- cx_gfx_mode (slot 76) -- A = mode, X = bpp; carry set if unknown -
+; The bpp picks WHICH engine image serves a mode that has more than one
+; depth: mode 1 (320x240) is 8/4/2 bpp. X = 0 (or any depth the mode does
+; not offer) means the mode's native depth, so an old caller that sets
+; only A still lands the same image it always did -- the slot is unchanged.
 cx_do_gfx_mode
-    cmp #CX_MODES
+    pha                         ; the mode, for cx_vmode
+    jsr cx_eng_index            ; A = mode, X = bpp -> A = engine index
     bcs @bad
-    cmp cx_vmode
-    beq @done                   ; already there
-    pha
-    jsr cx_ov_load
+    cmp #2                      ; mode 2 (tiles): the depth is per-layer, so
+    bne @nt                     ; there is no single "mode bpp" -- instead X
+    jsr cx_tbpp_set             ; sets the tile DEFAULT depth (cx_tbpp) that
+@nt                             ; cx_tile_setup adopts when its own bpp is 0
+    cmp cx_veng
+    beq @same                   ; that image already rides the port
+    jsr cx_ov_load              ; A = engine index (sets cx_veng)
     pla
     sta cx_vmode
-    jsr cx_ov_bounds
+    jsr cx_ov_bounds            ; canvas w/h from the engine's cx_minfo row
     jsr cxov_init               ; the fresh engine programs VERA
-@done
+    clc
+    rts
+@same
+    pla
+    clc
+    rts
+@bad
+    pla
+    sec
+    rts
+
+; cx_eng_index -- A = mode, X = bpp -> A = engine-image index, carry set
+; if the mode is unknown. Mode 0 (640x480) is an UMBRELLA: 2 bpp (or native)
+; is OV0, the std-VERA desktop; 4 bpp is OV4H and 8 bpp is OV8H, both on the
+; VERA_2 second plane. Mode 1 (320x240) has three (8 bpp = 1, 4 bpp = 5,
+; 2 bpp = 6); modes 2/3 have one image each (index == mode).
+cx_eng_index
+    cmp #1
+    beq @m1
+    cmp #0
+    beq @m0
+    cmp #CX_NMODES
+    bcs @bad
+    clc
+    rts                         ; modes 2/3: image index == mode
+@m0                             ; mode 0: the 640x480 umbrella
+    cpx #4
+    beq @m0_4
+    cpx #8
+    beq @m0_8
+    lda #0                      ; 2 bpp (default/native) -> OV0, std-VERA desktop
+    clc
+    rts
+@m0_4
+    lda #7                      ; 4 bpp -> OV4H (VERA_2)
+    clc
+    rts
+@m0_8
+    lda #8                      ; 8 bpp -> OV8H (VERA_2)
+    clc
+    rts
+@m1
+    cpx #4
+    beq @m1_4
+    cpx #2
+    beq @m1_2
+    lda #1                      ; 8 bpp (native), or any other X
+    clc
+    rts
+@m1_4
+    lda #5
+    clc
+    rts
+@m1_2
+    lda #6
     clc
     rts
 @bad
     sec
+    rts
+
+; cx_tbpp_set -- X = a tile depth (2/4/8) -> cx_tbpp; A preserved, any
+; other X left alone (so cx_gfx_mode(2, 0) keeps the current default)
+cx_tbpp_set
+    cpx #2
+    beq @s
+    cpx #4
+    beq @s
+    cpx #8
+    bne @done
+@s
+    stx cx_tbpp
+@done
     rts
 
 ; The KERNAL's boot LOAD wraps exactly four banks (32KB) before it
@@ -130,9 +215,10 @@ cx_do_gfx_mode
 ; index 0-3 are the modes; index 4 (CX_OV_TILETEXT) is OV3T, the tile-
 ; text dialog port -- not a mode (cx_vmode stays 2), swapped into the port
 ; by cx_tile_text with cx_ov_load, never by cx_do_gfx_mode.
-cx_mbank   .byte 3, 4, 5, 5, 5
-cx_msrc_lo .byte <$A000, <$A000, <__OV2CODE_LOAD__, <__OV3CODE_LOAD__, <__OV3TCODE_LOAD__
-cx_msrc_hi .byte >$A000, >$A000, >__OV2CODE_LOAD__, >__OV3CODE_LOAD__, >__OV3TCODE_LOAD__
+;               0     1     2                3                4                 5                 6                 7                 8
+cx_mbank   .byte 3,    4,    5,               5,               5,                3,                3,                4,                4
+cx_msrc_lo .byte <$A000, <$A000, <__OV2CODE_LOAD__, <__OV3CODE_LOAD__, <__OV3TCODE_LOAD__, <__OV4LCODE_LOAD__, <__OV2LCODE_LOAD__, <__OV4HCODE_LOAD__, <__OV8HCODE_LOAD__
+cx_msrc_hi .byte >$A000, >$A000, >__OV2CODE_LOAD__, >__OV3CODE_LOAD__, >__OV3TCODE_LOAD__, >__OV4LCODE_LOAD__, >__OV2LCODE_LOAD__, >__OV4HCODE_LOAD__, >__OV8HCODE_LOAD__
 
 ; --- the engine image (OV0CODE: run = OVL, load = bank 3) ------------
 .segment "OV0CODE"
@@ -217,8 +303,8 @@ cx_do_ink
 ; per row. The one call that lets client code (cx_pic_*, a screenshot
 ; tool, a future mode) adapt to any engine without knowing its name.
 cx_do_gfx_info
-    lda cx_vmode
-    asl                         ; 8-byte rows in the table
+    lda cx_veng                 ; index by IMAGE, so the row carries the
+    asl                         ; live bpp/stride (8-byte rows in the table)
     asl
     asl
     tax
@@ -230,13 +316,13 @@ cx_do_gfx_info
     iny
     cpy #7
     bne @copy
-    lda cx_vmode
+    lda cx_vmode                ; but report the MODE the app selected
     rts
 
-; cx_ov_bounds -- the current canvas w/h out of the mode table, into
+; cx_ov_bounds -- the current canvas w/h out of the image table, into
 ; the fixed words the shapes module (and anyone) reads
 cx_ov_bounds
-    lda cx_vmode
+    lda cx_veng
     asl
     asl
     asl
@@ -327,31 +413,60 @@ cx_g_da_open     jsr gui_gate
 cx_g_da_close    jsr gui_gate
                  jmp cx_do_da_close
 
-cx_vmode .byte 0                ; the engine in the port right now
+cx_vmode .byte 0                ; the screen MODE the app selected (0-4)
+cx_veng  .byte 0                ; the engine-IMAGE index in the port (0-8);
+                                ; == cx_vmode except the bpp variants
+                                ; (mode 1: 5 = 4bpp, 6 = 2bpp) and OV3T (4)
+cx_tbpp  .byte 4                ; the tile mode's default depth (2/4/8), set
+                                ; by cx_gfx_mode(2, bpp); cx_tile_setup adopts
+                                ; it when its own bpp arg is 0. 4 = the old
+                                ; hardcoded default, so nothing changes unless
+                                ; an app asks for another depth up front
 cx_txtport .byte 0              ; 1 while cx_tile_text has OV3T (the tile-text
                                 ; port) up over mode 2, so menu_gate lets the
                                 ; toolkit draw; 0 = plain tiles, toolkit refused
-cx_cshift .byte 0, 0, 0, 3      ; mouse coord >> this per mode. Mode 1's
+cx_cshift .byte 0, 0, 0, 3, 0   ; mouse coord >> this per mode. Mode 1's
                                 ; mouse is already its 320-wide field (see
                                 ; cx_do_mouse_show), so only text (mode 3,
-                                ; a 640 field of 8px cells) shifts, by 3
+                                ; a 640 field of 8px cells) shifts, by 3;
+                                ; mode 4 is a native 640 field, shift 0
 cx_cur_w .word 640              ; the live canvas, kept current by
 cx_cur_h .word 480              ; cx_ov_bounds (the flat runner keeps
                                 ; the mode-0 defaults)
-cx_minfo                        ; w.w, h.w, bpp, stride.w (+1 pad) per mode
-    .word 640, 480
+cx_minfo                        ; w.w, h.w, bpp, stride.w (+1 pad) per IMAGE
+    .word 640, 480              ; 0 = mode 0: 640x480 2bpp GUI
     .byte 2
     .word 160
     .byte 0
-    .word 320, 240
+    .word 320, 240              ; 1 = mode 1 native: 320x240 8bpp
     .byte 8
     .word 320
     .byte 0
-    .word 320, 240              ; mode 2: tiles -- not a bitmap, so
+    .word 320, 240              ; 2 = mode 2: tiles -- not a bitmap, so
     .byte 0                     ; bpp 0 and no stride; the maps are
     .word 0                     ; the picture (cx_tile_*)
     .byte 0
-    .word 80, 60                ; mode 3: text -- an 80x60 CELL grid,
+    .word 80, 60                ; 3 = mode 3: text -- an 80x60 CELL grid,
     .byte 0                     ; bpp 0; w/h are cells, not pixels
     .word 0
+    .byte 0
+    .word 320, 240              ; 4 = OV3T (tile-text): tiles-like bounds
+    .byte 0
+    .word 0
+    .byte 0
+    .word 320, 240              ; 5 = OV4L: mode 1 at 4bpp
+    .byte 4
+    .word 160
+    .byte 0
+    .word 320, 240              ; 6 = OV2L: mode 1 at 2bpp
+    .byte 2
+    .word 80
+    .byte 0
+    .word 640, 480              ; 7 = OV4H: mode 4 at 4bpp (VERA_2)
+    .byte 4
+    .word 320
+    .byte 0
+    .word 640, 480              ; 8 = OV8H: mode 4 at 8bpp (VERA_2)
+    .byte 8
+    .word 640
     .byte 0

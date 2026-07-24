@@ -31,7 +31,7 @@ main
 @prd
 
     cxm_ev_init
-    cxm_gfx_mode CX_MODE_BMP8
+    cxm_gfx_mode CX_MODE_BMPLOW, 0
     cxm_gfx_clear 6                 ; a blue field (default palette)
     cxm_ink 1                   ; white ink for the widget labels (mode 1's
                                 ; font honours the ink; mode 0's ignores it)
@@ -82,7 +82,7 @@ show_dialog
     cxm_dlg_alert alert             ; modal; the 8bpp save-under puts it back
     rts
 do_exit
-    cxm_gfx_mode CX_MODE_GUI    ; back to the desktop's mode BEFORE leaving, so
+    cxm_gfx_mode CX_MODE_BMPHIGH, 2    ; back to the desktop's mode BEFORE leaving, so
                                 ; the reload never crosses a mode change (which
                                 ; left a stray event landing on the wrong file)
     cxm_exit                    ; the loader restores the system font for the

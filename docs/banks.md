@@ -23,8 +23,10 @@ in [memory-map.md](memory-map.md).
 - **OVL window** (`$9600`–`$9EFF`, 2,304 B): the current graphics engine
   image, copied in from its storage bank by `cx_gfx_mode` — or, over a tile
   game, the tile-text dialog port (`OV3T`), swapped in by `cx_tile_text`.
-- **Code banks 2–5** (`CXBANKS.BIN`, one boot LOAD): 2 UI core, 3/4 mode-0/1
-  images, 5 dialogs + the mode-2/3 and tile-text (`OV3T`) port images.
+- **Code banks 2–5** (`CXBANKS.BIN`, one boot LOAD): 2 UI core; 3 mode-0 +
+  the mode-1 4bpp/2bpp images (`OV4L`/`OV2L`); 4 mode-1 8bpp + the mode-4
+  VERA_2 4/8bpp images (`OV4H`/`OV8H`); 5 dialogs + the mode-2/3 and
+  tile-text (`OV3T`) port images.
 - **Code banks 16–19** (`CXBANKS2.BIN`, a second boot LOAD): 16 widgets, 17
   graphics extras (base shapes/tiles/dirty), 18 fs/system + audio/sprites,
   19 extra shapes (the 0.8.0 polygon/arc/pie family). Each opens with an

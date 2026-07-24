@@ -29,7 +29,7 @@ main
 @prd
 
     cxm_ev_init
-    cxm_gfx_mode CX_MODE_TEXT
+    cxm_gfx_mode CX_MODE_TEXT, 0
     jsr paint
 
     cxm_mouse_show 1
@@ -84,7 +84,7 @@ show_dialog
     cxm_dlg_alert alert             ; modal; its save-under puts the panel back
     rts
 do_exit
-    cxm_gfx_mode CX_MODE_GUI    ; back to the desktop's mode BEFORE leaving, so
+    cxm_gfx_mode CX_MODE_BMPHIGH, 2    ; back to the desktop's mode BEFORE leaving, so
     cxm_exit                    ; the reload never crosses a mode change
 
 handlers                        ; NULL MOVE DOWN UP DBL KEY TIMER MENU WIDGET JOY

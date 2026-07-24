@@ -163,8 +163,8 @@ Printable keys arrive as their ASCII byte; these are the named non-printable one
 
 | name | value | canvas |
 |---|---|---|
-| `cx.MODE_GUI` | 0 | 640×480, 4 colours — the desktop |
-| `cx.MODE_BMP8` | 1 | 320×240, 256 colours |
+| `cx.MODE_BMPHIGH` | 0 | 640×480 — bpp 2 desktop (std VERA), bpp 4/8 VERA_2 |
+| `cx.MODE_BMPLOW` | 1 | 320×240 bitmap; bpp 8/4/2 |
 | `cx.MODE_TILE` | 2 | two tile layers + sprites |
 | `cx.MODE_TEXT` | 3 | 80×60 text |
 

@@ -66,7 +66,7 @@ int main(void) {
     unsigned p;
 
     cx_print("TILES8 UP");
-    cx_mode(CX_MODE_TILE);
+    cx_mode(CX_MODE_TILE, 0);
 
     /* the event system runs the frame counter cx_frames()/hold() read and
      * cx_tile_flip waits on -- start it before either is used. */

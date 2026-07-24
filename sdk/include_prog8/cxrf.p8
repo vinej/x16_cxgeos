@@ -46,10 +46,10 @@ cx {
     &uword    pbw2 = $26
     &uword    pbw3 = $28
 
-    ; --- graphics modes (cxm_gfx_mode) ---
-    const ubyte MODE_GUI = 0    ; 640x480, 4 colours -- the desktop
-    const ubyte MODE_BMP8 = 1    ; 320x240, 256 colours
-    const ubyte MODE_TILE = 2    ; two tile layers + sprites (games)
+    ; --- graphics modes (cxm_gfx_mode m, bpp) ---
+    const ubyte MODE_BMPHIGH = 0    ; 640x480 bitmap: bpp 2 (default) = std-VERA desktop, 4/8 = VERA_2
+    const ubyte MODE_BMPLOW = 1    ; 320x240 bitmap; bpp 8 (default), 4 or 2
+    const ubyte MODE_TILE = 2    ; two tile layers + sprites; bpp 8 or 4 (default)
     const ubyte MODE_TEXT = 3    ; 80x60 text cells, 16 colours
 
     ; --- event types (an event record's byte 0 / P0) ---
@@ -180,7 +180,7 @@ cx {
     extsub $8013 = exit() clobbers(A,X,Y)
     extsub $8016 = gfx_init() clobbers(A,X,Y)
     extsub $8019 = gfx_clear(ubyte col @A) clobbers(A,X,Y)
-    extsub $80f4 = gfx_mode(ubyte m @A) clobbers(A,X,Y) -> bool @Pc
+    extsub $80f4 = gfx_mode(ubyte m @A, ubyte bpp @X) clobbers(A,X,Y) -> bool @Pc
     extsub $80f7 = gfx_info() clobbers(X,Y) -> ubyte @A
     extsub $801c = gfx_pset_a(ubyte col @A) clobbers(A,X,Y)
     sub gfx_pset(uword x0, uword y0, ubyte col) {

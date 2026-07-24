@@ -42,6 +42,7 @@ if not exist "%CART%" (
 
 echo Launching PAINT from the cartridge, ROM banks 32-37 -- no SD card.
 echo The emulator captures the mouse so you can draw.
-"%EMU%" -rom "%ROM%" -cartbin "%CART%" -scale 2 -capture
+rem -bitmap2 enables VERA_2 so any mode-4 app launched here also works.
+"%EMU%" -rom "%ROM%" -cartbin "%CART%" -scale 2 -bitmap2 -capture
 
 endlocal

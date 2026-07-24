@@ -148,7 +148,7 @@ void cx_run(void);
 #define CX_JOY_ENABLE      0x80F1   /* A = a mask of pads (bit n = pad n, 0-3; 0 = off): scan each frame and post EV_JOY (type 9, detail = pad, P2/P3 = buttons, P4/P5 = changed bits) whenever a pad's state changes */
 
 /* --- the graphics port --- */
-#define CX_GFX_MODE        0x80F4   /* A = the mode -> carry set if unknown; swaps the engine and runs its init (VERA is reprogrammed, the screen is the new mode's) */
+#define CX_GFX_MODE        0x80F4   /* A = the mode, X = bpp (0/2/4/8; 0 = the mode's native depth) -> carry set if unknown; swaps the engine and runs its init (VERA is reprogrammed, the screen is the new mode's). Mode 1 (320x240) is 8/4/2 bpp; mode 4 (640x480, VERA_2) is 8/4 bpp; for mode 2 (tiles) X sets the default tile depth cx_tile_setup adopts when its own bpp is 0; X is ignored for modes 0/3 */
 #define CX_GFX_INFO        0x80F7   /* -> A = mode, P0/P1 = width, P2/P3 = height, P4 = bpp, P5/P6 = bytes per row */
 
 /* --- shapes (every mode: they draw through the port itself) --- */

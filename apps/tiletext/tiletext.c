@@ -57,7 +57,7 @@ int main(void) {
 
     cx_print("TILETEXT UP");
 
-    cx_mode(CX_MODE_TILE);
+    cx_mode(CX_MODE_TILE, 0);
 
     /* one 4bpp tile at index 0: a 4x4 blue/white checker, so the world
      * reads as a grid the overlay floats over */

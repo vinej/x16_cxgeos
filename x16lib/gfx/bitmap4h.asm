@@ -564,7 +564,7 @@ gfx4h_pattern_rect
     ora X16_P7
     bne :+
     jmp @done
-+
+:
     lda X16_P2
     sta gp4h_by
     lda X16_P3
@@ -578,7 +578,7 @@ gfx4h_pattern_rect
     ora X16_P7
     bne :+
     jmp @done
-+
+:
     lda gp4h_bx
     sta gp4h_x
     lda gp4h_bx+1
@@ -669,7 +669,7 @@ bitmap4h_blit_common
     lda X16_P5
     bne :+
     jmp @done
-+
+:
     lda g4h_src
     sta X16_PTR3
     lda g4h_src+1

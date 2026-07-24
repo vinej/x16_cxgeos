@@ -16,10 +16,10 @@
 // constants (mirror csdk/cxsdk.h)
 // =====================================================================
 
-// --- graphics modes (cxm_gfx_mode) ---
-.const CX_MODE_GUI = 0        // 640x480, 4 colours -- the desktop
-.const CX_MODE_BMP8 = 1        // 320x240, 256 colours
-.const CX_MODE_TILE = 2        // two tile layers + sprites (games)
+// --- graphics modes (cxm_gfx_mode m, bpp) ---
+.const CX_MODE_BMPHIGH = 0        // 640x480 bitmap: bpp 2 (default) = std-VERA desktop, 4/8 = VERA_2
+.const CX_MODE_BMPLOW = 1        // 320x240 bitmap; bpp 8 (default), 4 or 2
+.const CX_MODE_TILE = 2        // two tile layers + sprites; bpp 8 or 4 (default)
 .const CX_MODE_TEXT = 3        // 80x60 text cells, 16 colours
 
 // --- event types (an event record's byte 0 / P0) ---
@@ -176,7 +176,8 @@
     lda #(col)
     jsr cx_gfx_clear
 }
-.macro cxm_gfx_mode(m) {                // switch mode -> carry set if unknown
+.macro cxm_gfx_mode(m, bpp) {                // mode m at bpp (0/2/4/8; 0 = native) -> carry set if unknown
+    ldx #(bpp)
     lda #(m)
     jsr cx_gfx_mode
 }

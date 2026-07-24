@@ -265,10 +265,10 @@ DIALECTS = {
 # =====================================================================
 # groups of (name, value, comment); a None entry is a blank line
 CONSTS = [
-    ("graphics modes (cxm_gfx_mode)", [
-        ("CX_MODE_GUI", "0", "640x480, 4 colours -- the desktop"),
-        ("CX_MODE_BMP8", "1", "320x240, 256 colours"),
-        ("CX_MODE_TILE", "2", "two tile layers + sprites (games)"),
+    ("graphics modes (cxm_gfx_mode m, bpp)", [
+        ("CX_MODE_BMPHIGH", "0", "640x480 bitmap: bpp 2 (default) = std-VERA desktop, 4/8 = VERA_2"),
+        ("CX_MODE_BMPLOW", "1", "320x240 bitmap; bpp 8 (default), 4 or 2"),
+        ("CX_MODE_TILE", "2", "two tile layers + sprites; bpp 8 or 4 (default)"),
         ("CX_MODE_TEXT", "3", "80x60 text cells, 16 colours"),
     ]),
     ("event types (an event record's byte 0 / P0)", [
@@ -372,7 +372,8 @@ CALLS = [
     # --- screen / graphics (same calls in every mode) ---
     ("gfx_init", [], "= mode GUI, fresh desktop canvas", [], "jsr"),
     ("gfx_clear", ["col"], "fill the canvas with a colour", [("a", None, "col")], "jsr"),
-    ("gfx_mode", ["m"], "switch mode -> carry set if unknown", [("a", None, "m")], "jsr"),
+    ("gfx_mode", ["m", "bpp"], "mode m at bpp (0/2/4/8; 0 = native) -> carry set if unknown",
+     [("x", None, "bpp"), ("a", None, "m")], "jsr"),
     ("gfx_info", [], "-> A=mode, P0/1=w, P2/3=h, P4=bpp, P5/6=stride", [], "jsr"),
     ("gfx_pset", ["x0", "y0", "col"], "",
      [("pw", "P0", "x0"), ("pw", "P2", "y0"), ("a", None, "col")], "jsr"),

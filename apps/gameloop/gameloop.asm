@@ -41,7 +41,7 @@ main
     bra @pr
 @prd
 
-    cxm_gfx_mode CX_MODE_BMP8       ; the game's 256-colour field
+    cxm_gfx_mode CX_MODE_BMPLOW, 0       ; the game's 256-colour field
     cxm_gfx_clear 6                 ; fill with palette entry 6 -- the entry
                                 ; game_irq cycles, so the whole field pulses
     cxm_ink 1                   ; white ink for the labels (mode 1 honours it)

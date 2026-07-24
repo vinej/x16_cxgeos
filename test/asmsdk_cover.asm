@@ -13,7 +13,7 @@ cover_calls:
     cxm_exit
     cxm_gfx_init
     cxm_gfx_clear 1
-    cxm_gfx_mode 1
+    cxm_gfx_mode 1, 1
     cxm_gfx_info
     cxm_gfx_pset 1, 1, 1
     cxm_gfx_read 1, 1
@@ -40,7 +40,7 @@ cover_calls:
     cxm_font_measure 1
     cxm_say 1, 1, 1
     cxm_ink 1
-    cxm_tile_setup 1, 4
+    cxm_tile_setup 1, 1
     cxm_tile_scroll 1, 1, 1
     cxm_tile_cell 1, 1, 1, 1
     cxm_tile_fill 1, 1

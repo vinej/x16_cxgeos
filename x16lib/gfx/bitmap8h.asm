@@ -499,7 +499,7 @@ gfx8h_pattern_rect
     ora X16_P7
     bne :+
     jmp @done
-+
+:
     lda X16_P2
     sta gp8h_by
     lda X16_P3
@@ -513,7 +513,7 @@ gfx8h_pattern_rect
     ora X16_P7
     bne :+
     jmp @done
-+
+:
     lda gp8h_bx
     sta gp8h_x
     lda gp8h_bx+1
@@ -768,10 +768,10 @@ bitmap8h_addr_calc
     rts
 
 bitmap8h_fill_count
-    ldx g8h_n
-    ldy g8h_n+1
-    beq @full
-    iny
+    ldy g8h_n+1                 ; high byte first, so beq tests the LOW byte:
+    ldx g8h_n                  ; a partial low byte needs one extra dey pass,
+    beq @full                  ; a zero low byte does not (testing the high
+    iny                        ; byte made every width < 256 write 64K)
 @full
 @loop
     sta VERA2_DATA

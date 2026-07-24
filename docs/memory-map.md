@@ -31,7 +31,7 @@ file in the same commit as the code that claims or releases a region.
 | $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector, `cx_hdr_shell` ($800A) desktop-state byte and `CX_SHELL_SEL` ($800B) the desktop's restored-selection index (both survive app loads) |
 | $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 105 slots used ($8010–$814A), reserve caps at 135 (30 free) |
 | $81A5–$81A8 | build word | `CX_KBUILD` (`banks.inc`), the reserve's tail; stage-0 checks it against the banked files |
-| $81A9–$95FF | resident kernel | ~5.2 KB budget (5,207 B), ~327 B free at v0.11.0 (96% full — tight): event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard byte-mover (its orchestration is bank 18), port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
+| $81A9–$95FF | resident kernel | ~5.2 KB budget (5,207 B), ~183 B free (96% full — tight): event core + IRQ, font hot path, region routing, far-call trampoline, loader (now the (mode, bpp) → engine-image map + VERA_2-off on swap), clipboard byte-mover (its orchestration is bank 18), port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
 | $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` — or the tile-text dialog port (`OV3T`) swapped in by `cx_tile_text` ([graphics-port.md](graphics-port.md)) |
 
 ## Banked RAM ($A000–$BFFF window, bank register at $00) — the budget ledger
@@ -47,8 +47,8 @@ here are the **v0.11.0** snapshot; run it for today's. Each code bank is 8,192 B
 | 0 | KERNAL | reserved | — | — | never (KERNAL's) |
 | 1 | kernel data | system font ($A000), desktop state, theme, font metrics, event overflow | — | — | data, not code |
 | 2 | **UI core** | `B2CODE`: menus + theme + DA manager + the `b2_table` local jump table | 1,768 B | 6,424 B | a menu/theme/DA feature |
-| 3 | mode-0 image | `OV0CODE` (2bpp GUI engine), copied to the OVL window to run | 2,004 B | 6,188 B | a bigger mode-0 engine |
-| 4 | mode-1 image | `OV1CODE` (8bpp engine) | 1,543 B | 6,649 B | a bigger mode-1 engine |
+| 3 | mode-0 + mode-1 low-bpp images | `OV0CODE` (2bpp GUI) + `OV4LCODE` (mode 1 4bpp) + `OV2LCODE` (mode 1 2bpp), each copied to the OVL window to run | 5,706 B | 2,486 B | a bigger mode-0/1 engine |
+| 4 | mode-1 8bpp + mode-4 VERA_2 images | `OV1CODE` (8bpp) + `OV4HCODE`/`OV8HCODE` (640×480 VERA_2 4/8bpp) | 4,831 B | 3,361 B | a bigger mode-1/4 engine |
 | 5 | **dialogs** | `B5CODE`: dialog/alert/prompt/panel + the mode-2/3 and tile-text port images (`OV2/OV3/OV3TCODE`) | 3,478 B | 4,714 B | a dialog feature; a new small overlay image |
 | 6–8 | glyph cache | pre-shifted 2bpp cache (95 glyphs × 192 B, 42/bank) + CXF sources | — | — | a second/larger font (LRU) |
 | 9 | desk accessory | the open `.CXD` (`cx_da_open` loads it at $A000) | — | — | data, not kernel code |

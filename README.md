@@ -51,10 +51,10 @@ Full documentation lives in [docs/](docs/).
 
 ## Highlights
 
-- **Four video modes** behind one pluggable graphics port (`cx_mode`) — same drawing calls, reinterpreted per canvas:
-  - `CX_MODE_GUI` — 640×480 4-colour desktop
-  - `CX_MODE_BMP8` — 320×240 256-colour bitmap, full primitive set, programmable palette
-  - `CX_MODE_TILE` — two 64×32 VERA tile layers, hardware scrolling (`cx_tile_*`)
+- **Four video modes** behind one pluggable graphics port (`cx_mode(mode, bpp)`) — same drawing calls, reinterpreted per canvas:
+  - `CX_MODE_BMPHIGH` — the **640×480** umbrella: **bpp 2** is the 4-colour desktop on standard VERA; **bpp 4 / 8** (16 / 256 colours) light up the **VERA_2 second plane**, each with its own palette (emulator: needs `-bitmap2`)
+  - `CX_MODE_BMPLOW` — 320×240 bitmap at **8 / 4 / 2 bpp** (256 / 16 / 4 colours), full primitive set, programmable palette
+  - `CX_MODE_TILE` — two 64×32 VERA tile layers, hardware scrolling (`cx_tile_*`); bpp 8 or 4 per layer
   - `CX_MODE_TEXT` — 80×60 text cells "like BASIC": colour fills, PETSCII box frames, ruled lines, mixed-case `cx_say`
 - Sprites, audio, events, joysticks, files, widgets and dialogs work in every mode.
 - **Stock ROM (R49+)** — boots from SD via `AUTOBOOT.X16` or from a **cartridge** (`build.ps1 -Cart`, ROM banks 32–36). No ROM patches.
@@ -132,16 +132,25 @@ Where it lives:
 
 ## Vendored X16_Library  under /x16lib folder
 
-`x16lib/` is a snapshot of `x16_library/src_ca65/` at **v0.11.1**. Update it by
-re-copying the tree and noting the new version here. The kernel opts into
+`x16lib/` is a clean snapshot of `x16_library/src_ca65/` at **v0.11.9**. Update
+it by re-copying the tree and noting the new version here. The kernel opts into
 `X16_SKIP_SHAPES`/`X16_SKIP_MATH` (it places the shape/trig modules in its own
-banks), and the 2bpp/8bpp bitmap engines (`bitmap2h.asm` = `gfx2h_*`,
-`bitmap8l.asm` = `gfx8l_*`) are `.include`d directly into their overlay banks
-rather than through `X16_USE_BITMAP2H`/`X16_USE_BITMAP8L`, so only their VERA /
-VERAFX `_FILL` helpers land in the resident budget. Two upstreamable gates carry
-CXRF's needs: `X16_SKIP_BASE` (shapes.asm, so the base shapes can be `.include`d a
-second time for the extras bank) and `X16_BITMAP8L_NO_INIT` (bitmap8l.asm, so a
-port that programs VERA itself does not drag in `screen_set_mode`).
+banks), and the bitmap engines (`bitmap2h.asm` = `gfx2h_*`, `bitmap8l.asm` =
+`gfx8l_*`, and the newer `bitmap4l`/`bitmap2l`/`bitmap4h`/`bitmap8h`) are
+`.include`d directly into their overlay banks rather than through
+`X16_USE_BITMAP*`, so only their VERA / VERAFX `_FILL` helpers land in the
+resident budget. Several upstreamable gates carry CXRF's needs, all now in
+`x16_library`: `X16_SKIP_BASE` (shapes.asm, so the base shapes can be
+`.include`d a second time for the extras bank), and the `_NO_INIT` / `_MIN`
+gates on `bitmap8l` / `bitmap4l` / `bitmap2l` — so a port that programs VERA
+itself and wants only the core drawing entries does not drag in
+`screen_set_mode` or the 8×8 glyph blitter, and the images fit the 2,304 B
+graphics-port window. (v0.11.2 also fixed an `acme2ca65` lone-label bug those
+newer bitmap modules surfaced; v0.11.7 fixed `gfx4l_setptr` computing the wrong
+VRAM row address on odd rows — 4bpp low-res rendered as a comb of stripes;
+v0.11.9 fixed `gfx4l_line` reading its 8-bit y as 16-bit — vertical/diagonal
+`cx_line` and the circle/ellipse outlines drew garbage.) No local patches: the
+tree is a plain snapshot.
 
 ## License
 

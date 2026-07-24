@@ -66,7 +66,7 @@ int main(void) {
     cx_event ev;
 
     cx_print("TILEDLG UP");
-    cx_mode(CX_MODE_TILE);
+    cx_mode(CX_MODE_TILE, 0);
 
     /* a 4x4 blue/white checker world on layer 0 */
     for (i = 0; i < 32; i++) {

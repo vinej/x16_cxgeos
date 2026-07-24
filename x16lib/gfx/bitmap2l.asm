@@ -42,6 +42,7 @@ GFX2L_STRIDE = 80
 ; caller had them. Palette entries 0-3 get the default ramp. The
 ; framebuffer contents are NOT cleared -- call gfx2l_clear.
 ; ---------------------------------------------------------------------
+.ifndef X16_BITMAP2L_NO_INIT
 gfx2l_init
     vera_dcsel 0
     lda #$80                    ; 1:1 scale -> 1:1 scale
@@ -73,6 +74,7 @@ gfx2l_init
     lda #VERA_VIDEO_LAYER0_EN
     tsb VERA_DC_VIDEO
     rts
+.endif
 
 bitmap2l_defpal
     .byte $FF, $0F, $AA, $0A, $55, $05, $00, $00

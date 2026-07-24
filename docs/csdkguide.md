@@ -170,8 +170,8 @@ The canvas `cx_mode(m)` switches to (and the `mode` field
 
 | constant | value | canvas |
 |---|---|---|
-| `CX_MODE_GUI` | 0 | 640×480, 4 colours — the desktop; the only mode for the CXF fonts and desk accessories (the toolkit runs more widely — see below) |
-| `CX_MODE_BMP8` | 1 | 320×240, 256 colours — for richer bitmaps and `cx_pal_*` custom palettes |
+| `CX_MODE_BMPHIGH` | 0 | 640×480 — **bpp 2** the 4-colour desktop (std VERA), **bpp 4/8** (16/256 colours) the VERA_2 second plane. The desktop (`cx_mode(CX_MODE_BMPHIGH, 2)`) is the only canvas for the CXF fonts and desk accessories (the toolkit runs more widely — see below) |
+| `CX_MODE_BMPLOW` | 1 | 320×240 bitmap, **bpp 8/4/2** (256/16/4 colours) — for richer bitmaps and `cx_pal_*` custom palettes |
 | `CX_MODE_TILE` | 2 | two hardware tile layers + sprites — for games |
 | `CX_MODE_TEXT` | 3 | 80×60 text cells, 16 colours — coordinates become cells, "colour" an attribute |
 
@@ -444,7 +444,7 @@ SDK constant.
 
 | function | purpose |
 |---|---|
-| `cx_icon(id, x, y)`  | draw a built-in 24×24 icon at `(x, y)`; `CX_MODE_GUI`/`CX_MODE_BMP8` only |
+| `cx_icon(id, x, y)`  | draw a built-in 24×24 icon at `(x, y)`; `CX_MODE_BMPHIGH`/`CX_MODE_BMPLOW` only |
 
 ```c
 cx_icon(CX_ICON_FOLDER, 40, 60);           /* paint one icon directly */
@@ -762,9 +762,9 @@ if (ev.type == CX_ET_JOY && (ev.x & CX_J_LEFT)) move_left();
 
 | function | purpose |
 |---|---|
-| `cx_mode(m)` → carry if unknown | switch to `CX_MODE_GUI`/`BMP8`/`TILE`/`TEXT` |
+| `cx_mode(m)` → carry if unknown | switch to `CX_MODE_BMPHIGH`/`BMPLOW`/`TILE`/`TEXT` |
 | `cx_screen_info(&s)` | fill `cx_screen` (mode, w, h, bpp, stride) |
-| `cx_ink(color)`  | text ink for the CURRENT mode (palette index in BMP8, attribute in TEXT) |
+| `cx_ink(color)`  | text ink for the CURRENT mode (palette index in BMPLOW, attribute in TEXT) |
 | `cx_pal_set(index, rgb)`  | set one VERA palette entry (`rgb` = 12-bit `0x0RGB`) |
 | `cx_pal_load(src, first, count)`  | bulk-load `count` (1–128) entries from `src` |
 
@@ -780,7 +780,7 @@ ASCII-classic there, exactly as in text mode). `cx_say` is mode-aware too:
 the CXF font in mode 0, cell text in the others. Sprites, audio, joysticks,
 events, files and the shapes work in every mode; `cx_exit` always restores
 the desktop. `cx_ink` is mode-local (a mode switch resets it to white).
-`cx_pal_*` is handiest in `CX_MODE_BMP8`.
+`cx_pal_*` is handiest in `CX_MODE_BMPLOW`.
 
 ## Shapes  — every bitmap mode
 
@@ -1031,7 +1031,7 @@ Each palette colour is two little-endian bytes: byte0 = `GGGGBBBB`, byte1 =
 - `apps/paint/paint.c` — mouse-drag drawing (`cx_line`/`cx_pset`/`cx_rect`) and
   `cx_pic_save`/`cx_pic_load` persistence.
 - `apps/gfx8/gfx8.c`  -- 256-colour mode: the same drawing calls
-  in `CX_MODE_BMP8`, plus the shapes.
+  in `CX_MODE_BMPLOW`, plus the shapes.
 - `apps/tiles/tiles.c`  -- the tile mode: upload, fill, cells,
   and hardware scrolling by keys, joystick, or drift; SPACE pauses with a
   modal dialog (`cx_tile_text` + `cx_alert`) over the still-visible world.

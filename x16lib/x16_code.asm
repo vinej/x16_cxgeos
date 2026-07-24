@@ -190,6 +190,7 @@
 ;                     gfx8l_line/fx_line's parameter block)
 ;   X16_USE_BUFFERS   rb_init/put/get/count, stk_init/push/pop/depth
 ;   X16_USE_ADPCM     adpcm_init, adpcm_nibble, adpcm_block (IMA 4:1)
+;   X16_USE_WAV       wav_parse_header (RIFF/WAVE header -> PCM format)
 ;   X16_USE_ZX0       zx0_decompress (tighter than the ROM's LZSA2)
 ;   X16_USE_TSC       tsc_decompress (TSCrunch: faster unpack)
 ;   X16_USE_FIXED     umul16, mul88
@@ -197,7 +198,9 @@
 ;                     bcd_subfrom -- packed-BCD (decimal-mode) arithmetic
 ;   X16_USE_COLLIDE   collide8, collide16
 ;   X16_USE_BITS      catnib, hinib, lonib, bit_set/clr/put/test
-;   X16_USE_NUMBER    u16_to_dec, u16_to_hex, dec_to_u16
+;   X16_USE_NUMBER    u16_to_dec, u16_to_hex, dec_to_u16, u8_to_dec,
+;                     u8_to_hex, u8_to_bin, u16_to_bin, s8_to_dec, s16_to_dec
+;   X16_USE_SORT      sort_u8/s8/u16/s16 (memory block), sort_ptr (comparator)
 ;   X16_USE_INT16     i16_add/sub/neg/abs/mul/divmod/divmod_s,
 ;                     i16_cmps/cmpu, i16_shl/shr/asr, i16_sqrt,
 ;                     i16_to_dec/dec_s, +i16_const   (needs NUMBER)
@@ -223,6 +226,7 @@
 ;   X16_USE_STRING_FIND   str_find, str_rfind, str_find_eol, str_contains,
 ;                     str_pattern_match -- searching
 ;   X16_USE_STRING_SLICE  str_left, str_right, str_slice -- substrings
+;   X16_USE_STRING_SORT   str_sort -- sort an array of string pointers
 ;                     (the five string gates are independent; set what you
 ;                      use. Number<->string conversion stays in NUMBER,
 ;                      INT16/INT32, FLOAT, DOUBLE.)
@@ -330,6 +334,9 @@
     .ifndef X16_USE_ADPCM
     X16_USE_ADPCM     = 1
 .endif
+    .ifndef X16_USE_WAV
+    X16_USE_WAV       = 1
+.endif
 .endif
 .ifdef X16_USE_INPUT_DEVICES
     .ifndef X16_USE_INPUT
@@ -431,6 +438,9 @@
     .ifndef X16_USE_DOUBLE
     X16_USE_DOUBLE  = 1
 .endif
+    .ifndef X16_USE_SORT
+    X16_USE_SORT    = 1
+.endif
 .endif
 .ifdef X16_USE_STRINGS
     .ifndef X16_USE_STRING
@@ -447,6 +457,15 @@
 .endif
     .ifndef X16_USE_STRING_SLICE
     X16_USE_STRING_SLICE = 1
+.endif
+    .ifndef X16_USE_STRING_SORT
+    X16_USE_STRING_SORT  = 1
+.endif
+.endif
+; str_sort needs str_compare from the STRING fundamentals.
+.ifdef X16_USE_STRING_SORT
+.ifndef X16_USE_STRING
+X16_USE_STRING = 1
 .endif
 .endif
 .ifdef X16_USE_SYSTEM
@@ -1026,6 +1045,9 @@ X16_USE_SCREEN_ANY = 1
 .ifdef X16_USE_ADPCM
 .include "audio/adpcm.asm"
 .endif
+.ifdef X16_USE_WAV
+.include "audio/wavfile.asm"
+.endif
 .ifdef X16_USE_ZX0
 .include "util/zx0.asm"
 .endif
@@ -1046,6 +1068,9 @@ X16_USE_SCREEN_ANY = 1
 .endif
 .ifdef X16_USE_NUMBER
 .include "util/number.asm"
+.endif
+.ifdef X16_USE_SORT
+.include "util/sort.asm"
 .endif
 .ifdef X16_USE_INT16
 .include "util/int16.asm"
@@ -1073,4 +1098,7 @@ X16_USE_SCREEN_ANY = 1
 .endif
 .ifdef X16_USE_STRING_SLICE
 .include "string/slice.asm"
+.endif
+.ifdef X16_USE_STRING_SORT
+.include "string/strsort.asm"
 .endif

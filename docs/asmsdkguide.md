@@ -44,7 +44,7 @@ python tools\mkcxap.py build\MYAPP.PRG build\MYAPP.CXA --name "My App"
 > **Coordinates & colours.** Positions and sizes are pixels on the 640×480
 > screen. A colour is a palette index **0–3** (2bpp = 4 colours); the RGB
 > behind each index comes from the active theme (`cxm_theme_set`,
-> `cxm_theme_rec`). In `CX_MODE_BMP8` colours are 0–255; in `CX_MODE_TEXT`,
+> `cxm_theme_rec`). In `CX_MODE_BMPLOW` colours are 0–255; in `CX_MODE_TEXT`,
 > cells and attributes.
 
 ## Three tiers, no name clashes
@@ -52,7 +52,7 @@ python tools\mkcxap.py build\MYAPP.PRG build\MYAPP.CXA --name "My App"
 | tier | looks like | is | where from |
 |---|---|---|---|
 | addresses | `cx_gfx_rect` (lower) | the ABI slot address (`= $8028`) | generated, pulled in for you |
-| constants | `CX_MODE_GUI` (UPPER) | the shared enums/flags | this include |
+| constants | `CX_MODE_BMPHIGH` (UPPER) | the shared enums/flags | this include |
 | **macros** | `cxm_gfx_rect` (lower, **m** = macro) | the friendly wrapper | this include |
 
 Naming is **strict 1:1**: for every ABI slot `cx_<name>` there is a macro
@@ -569,7 +569,7 @@ Every app under `apps/` that is `.asm` uses this SDK:
 - `apps/hittest/hittest.asm` — the `cxm_wg_hit` invisible hit regions.
 - `apps/cpanel/cpanel.asm` — a form of fields patched in place at runtime.
 - `apps/tui/tui.asm` / `apps/m1ui/m1ui.asm` — the toolkit in `CX_MODE_TEXT` and
-  `CX_MODE_BMP8`.
+  `CX_MODE_BMPLOW`.
 - `apps/gameloop/gameloop.asm` — a game's own raster IRQ (`cxm_ev_raster`) that
   borrows the events for a modal `cxm_panel`.
 - `apps/filer/filer.asm` — the desktop: directory, list widget, menu routing

@@ -33,7 +33,10 @@ if not exist "%CART%" (
 
 echo Launching CXRF from the cartridge, ROM banks 32-36...
 echo The emulator captures the mouse for the desktop pointer.
-"%EMU%" -rom "%ROM%" -cartbin "%CART%" -fsroot "%SD%" -scale 1 -capture
+rem -bitmap2 enables the VERA_2 second plane; without it the mode-4 apps
+rem (GFX4HI/GFX8HI) render fully white -- their engine turns the VERA
+rem layers off and VERA_2 never comes up. Harmless for every other app.
+"%EMU%" -rom "%ROM%" -cartbin "%CART%" -fsroot "%SD%" -scale 1 -bitmap2 -capture
 
 endlocal
 

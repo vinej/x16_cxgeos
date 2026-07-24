@@ -1,7 +1,7 @@
 /* =====================================================================
  * CXRF :: apps/gfx8/gfx8.c -- the 256-colour mode example (llvm-mos)
  * =====================================================================
- * The graphics port's second personality: cx_mode(CX_MODE_BMP8) swaps
+ * The graphics port's second personality: cx_mode(CX_MODE_BMPLOW) swaps
  * the kernel's engine to 320x240 @ 8bpp, and the SAME csdk drawing
  * calls -- cx_clear, cx_vline, cx_rect, cx_frame, cx_line -- now take
  * colours 0-255. The palette is yours: 256 VERA entries at $1FA00,
@@ -26,7 +26,7 @@ int main(void) {
 
     cx_print("GFX8 UP");
 
-    cx_mode(CX_MODE_BMP8);
+    cx_mode(CX_MODE_BMPLOW, 8);
 
     /* the palette: colour i = band (i>>6): grey / red / green / blue,
      * ramped by the low six bits. VERA entries are GB then 0R. */

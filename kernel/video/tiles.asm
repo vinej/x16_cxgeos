@@ -149,6 +149,14 @@ tile2_setup
     sec
     rts
 @ok
+    cpx #2                      ; an explicit depth (2/4/8) wins; anything
+    beq @havebpp                ; else (0, a stray value) adopts the tile
+    cpx #4                      ; mode's default depth, cx_tbpp -- which
+    beq @havebpp                ; cx_gfx_mode(2, bpp) set, or 4 by default
+    cpx #8
+    beq @havebpp
+    ldx cx_tbpp
+@havebpp
     lda #$12                    ; 64x32 map, 8x8 tiles, default 4bpp
     cpx #2
     bne @cfg2

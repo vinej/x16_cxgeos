@@ -207,27 +207,34 @@ static unsigned cx_version(void)       { return cx_ret16(CX_VERSION); }
  * The same 13 drawing calls work in EVERY graphics mode -- the kernel's
  * port routes them to the current engine. What changes per mode is the
  * canvas (cx_screen_info) and the colour range. The CXF fonts and desk
- * accessories are CX_MODE_GUI-only, but the toolkit (menus, widgets,
- * dialogs, cx_panel) also runs in modes 1 and 3 -- and mode 2 (tiles)
- * while a cx_tile_text overlay is up. cx_exit always restores the desktop. */
-#define CX_MODE_GUI   0          /* 640x480, 4 colours -- the desktop  */
-#define CX_MODE_BMP8  1          /* 320x240, 256 colours               */
-#define CX_MODE_TILE  2          /* two tile layers + sprites (games)  */
-#define CX_MODE_TEXT  3          /* 80x60 text cells, 16 colours       */
+ * accessories are desktop-only (CX_MODE_BMPHIGH at bpp 2), but the toolkit
+ * (menus, widgets, dialogs, cx_panel) also runs in modes 1 and 3 -- and mode 2
+ * (tiles) while a cx_tile_text overlay is up. cx_exit always restores the desktop.
+ *
+ * CX_MODE_BMPHIGH is the 640x480 umbrella: bpp 2 is the std-VERA desktop
+ * (the old CX_MODE_GUI); bpp 4 and 8 are the VERA_2 second plane. */
+#define CX_MODE_BMPHIGH 0        /* 640x480: bpp 2 = desktop, 4/8 = VERA_2 */
+#define CX_MODE_BMPLOW  1        /* 320x240 bitmap; bpp 8/4/2          */
+#define CX_MODE_TILE    2        /* two tile layers + sprites (games)  */
+#define CX_MODE_TEXT    3        /* 80x60 text cells, 16 colours       */
 
-static void cx_gfx_init(void) { cx_call(CX_GFX_INIT); }  /* = mode GUI */
+static void cx_gfx_init(void) { cx_call(CX_GFX_INIT); }  /* = the desktop */
 static void cx_clear(unsigned char color) { cx_call_a(CX_GFX_CLEAR, color); }
 
 /* switch the graphics mode: 0 ok, nonzero unknown. VERA is reprogrammed
  * and the screen shows the new mode's canvas -- draw everything fresh.
- * In CX_MODE_BMP8, pattern/blit calls refuse (carry) and colours are
- * 0-255 (set the palette with cx_pal_set / cx_pal_load, or a whole block
- * with cx_vram_write at 0x1FA00, 2 bytes/entry).
+ * bpp picks the depth for a mode that offers more than one: CX_MODE_BMPHIGH
+ * (640x480) takes 2 (std-VERA desktop), 4 or 8 (VERA_2); CX_MODE_BMPLOW
+ * (320x240) takes 8, 4 or 2; bpp 0 = the mode's native depth, and bpp is
+ * ignored for modes 2/3.
+ * In the bitmap modes, pattern/blit calls refuse (carry) and colours span
+ * the depth (set the palette with cx_pal_set / cx_pal_load, or a whole
+ * block with cx_vram_write at 0x1FA00, 2 bytes/entry).
  * In CX_MODE_TEXT coordinates are cells (0-79 x 0-59): clear/rect fill
  * cells (and set the paper), frame draws a PETSCII box, hline/vline are
  * ruled lines, cx_line rules horizontally or vertically (diagonals
  * refuse), and cx_say prints mixed-case ASCII at (col, row). */
-static char cx_mode(unsigned char m) { cx_call_a(CX_GFX_MODE, m); return cx_c; }
+static char cx_mode(unsigned char m, unsigned char bpp) { cx_call_ax(CX_GFX_MODE, m, bpp); return cx_c; }
 
 typedef struct {
     unsigned char mode;
@@ -299,7 +306,7 @@ static void cx_fellipse(unsigned cxx, unsigned cy, unsigned char rx,
     cx_call_a(CX_GFX_FELLIPSE, color);
 }
 /* the text ink for the CURRENT mode (0.4.0): a palette index in
- * CX_MODE_BMP8, an attribute 0-15 in CX_MODE_TEXT; the GUI's text ink
+ * CX_MODE_BMPLOW, an attribute 0-15 in CX_MODE_TEXT; the desktop's text ink
  * belongs to the theme and ignores it. Mode-local state: every mode
  * switch resets it to white. */
 static void cx_ink(unsigned char color) { cx_call_a(CX_INK, color); }
@@ -378,7 +385,9 @@ static void cx_pal_load(const void *src, unsigned char first,
 #define CX_CELL(idx, pal)  (((unsigned)(idx) & 0x3FF) | ((unsigned)(pal) << 12))
 
 /* configure a layer (0/1) for the mode's ledger at `bpp` (2/4/8 -- 8bpp
- * needs the map remap; anything else is treated as 4bpp) and switch it on */
+ * needs the map remap; bpp 0 adopts the tile mode's default depth, which
+ * cx_mode(CX_MODE_TILE, bpp) sets -- so cx_mode(CX_MODE_TILE, 8) then
+ * cx_tile_setup(0, 0) gives an 8bpp layer) and switch it on */
 static char cx_tile_setup(unsigned char layer, unsigned char bpp) {
     cx_x = bpp;
     cx_call_a(CX_TILE_SETUP, layer);
