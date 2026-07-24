@@ -25,7 +25,7 @@
 .include "x16.asm"
 .include "kernel/resident/zp.inc"
 
-X16_USE_BITMAP2 = 1
+X16_USE_BITMAP2H = 1
 X16_USE_IRQ     = 1
 X16_USE_INPUT   = 1
 X16_USE_NUMBER  = 1
@@ -59,9 +59,9 @@ ROW        = $64
     basic_stub
 
 main
-    jsr gfx2_init
+    jsr gfx2h_init
     lda #0
-    jsr gfx2_clear
+    jsr gfx2h_clear
 
     lda #<pxl8
     ldx #>pxl8
@@ -267,7 +267,7 @@ field_start
     sta X16_P6
     stz X16_P7
     lda #0
-    jsr gfx2_rect
+    jsr gfx2h_rect
 
     lda #<VAL_X
     sta pen
@@ -329,7 +329,7 @@ bump
     sta X16_P6
     stz X16_P7
     lda #0
-    jsr gfx2_rect
+    jsr gfx2h_rect
 
     lda #<CNT_X
     sta pen
@@ -412,7 +412,7 @@ draw_chrome
     sta X16_P6
     stz X16_P7
     lda #2
-    jsr gfx2_rect
+    jsr gfx2h_rect
 
     stz ROW                     ; the labels, one per row
 @label

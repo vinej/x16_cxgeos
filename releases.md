@@ -4,6 +4,51 @@ CXRF (Commander X16 Runtime Framework) shipped as **CXGEOS** through v0.9.0 and
 was renamed at v0.10.0. Git tags keep their `vX.Y.Z` names; dates are tag dates.
 Newest release first.
 
+## v0.11.0 — x16lib v0.11.1 vendored, tile/text UI polish (2026-07-23)
+
+- **Vendored x16lib re-synced to v0.11.1.** The whole `x16lib/` tree is a clean
+  snapshot of the upstream `src_ca65` at v0.11.1: the bitmap modules were renamed
+  and split (`bitmap.asm` → `bitmap8l.asm`, `bitmap2.asm` → `bitmap2h.asm`, with
+  `gfx_*` → `gfx8l_*` and `gfx2_*` → `gfx2h_*`), `X16_USE_ALL` is gone in favour
+  of per-module gates, and many new modules ride along gated-out. Two gates CXRF
+  needs for its split-bank, bare-VERA kernel were **upstreamed into x16_library
+  v0.11.1 first** — `X16_SKIP_BASE` (source `shapes.asm` twice, base + extras in
+  separate banks) and `X16_BITMAP8L_NO_INIT` (omit `gfx8l_init`'s
+  `screen_set_mode`) — so the vendored copy stays a plain snapshot with nothing
+  hand-patched.
+- **~130 B of resident reclaimed — free rose from ~194 B to 327 B.** Dropping the
+  KERNAL console/input shims (SCREEN, INPUT) for inline KERNAL calls, plus finer
+  opt-in x16lib gates — `X16_USE_VERA` split into `_ADDR`/`_FILL`/`_FXPROBE` and
+  `irq_remove` behind `X16_USE_IRQ_REMOVE`, both also upstreamed — let the kernel
+  carry `vera_fill` alone and drop the address setters, FX probe and `irq_remove`
+  it never calls.
+- **Fixed a boot crash into the machine monitor.** `font_set`'s inline far call
+  (`jsr cxb_call` + inline bank/addr) is a *tail* call — `cxb_call` consumes the
+  stub's frame to read its data and returns to the ORIGINAL caller — so the
+  refactored rollback code after it was dead, and its pushed bytes were popped as
+  a return address, BRK-ing to the monitor at boot. Now behind its own 5-byte
+  stub. The flat test runner links `fs_parse` directly and never saw it; only the
+  boot smoke caught it.
+- **Tile/text dialogs: upper-case text no longer renders as graphics.** The
+  mode-2 glyph charset was staged with `CINT` + `CHR$(14)`, but on the X16 the
+  case toggle only sets the editor's mode FLAG — it does not re-upload the VRAM
+  charset — so `$1F000` kept the upper/GRAPHICS set and every `A-Z` in a tile
+  dialog drew as a graphic tile. `ov2_init` now uploads explicitly with
+  `SCREEN_SET_CHARSET(3)`. TILETEXT's self-test gained a charset-glyph assertion
+  so it cannot regress silently.
+- **Cell-mode widget polish** (mode-2 tiles + mode-3 TUI, one shared path): text
+  fields grew a **block caret** (there was none); the focus outline no longer
+  boxes a field (the caret is the cue); the slider's fill is a **solid rectangle**
+  drawn as a colour fill instead of `#` (a glyph rendered differently by the tile
+  and KERNAL ports); and every widget now shares the **dialog's background**
+  instead of a stale or black one — with no stray cyan.
+- **`fontconv.py` gains a `--x16-charset` path** — raw 8x8/1bpp X16 tile fonts to
+  CXF, remapping screen-code order into CXRF's codepoints; a set of `.cxf` fonts
+  is staged for future use.
+- **ABI unchanged (v4, 105 slots).** The freeze canary still passes. Green:
+  62/62 tests, the asmsdk byte-identical fidelity gate, and every headless boot
+  (SD, cartridge, FAT32, standalone cart).
+
 ## v0.10.1 — desktop file sizes, longer filenames (2026-07-22)
 
 - **File sizes in the desktop list** — the list view now shows each entry's

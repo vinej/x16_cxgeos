@@ -4,7 +4,7 @@
 ; =====================================================================
 ; This file EMITS CODE. Source it exactly once (x16_code.asm does).
 ;
-; gfx_line and fx_line are documented as non-clipping. This removes
+; gfx8l_line and fx_line are documented as non-clipping. This removes
 ; that sharp edge: give clip_line a segment in 16-bit SIGNED
 ; coordinates (anywhere within +/-4095) and it either rejects it or
 ; hands back the visible part, already loaded into the line drawers'
@@ -15,7 +15,7 @@
 ;       bcs @offscreen              ; nothing visible
 ;       lda #colour
 ;       sta X16_P6
-;       jsr gfx_line                ; or fx_line
+;       jsr gfx8l_line              ; or fx_line
 ;
 ; The rectangle is inclusive and defaults to the full 320x240 bitmap.
 ; =====================================================================
@@ -68,7 +68,7 @@ clip_set
 ; clip_line -- clip clipl_* against the rectangle
 ;   out: carry set   = entirely outside, draw nothing
 ;        carry clear = clipl_* now hold the visible sub-segment, and
-;                      X16_P0..P5 are loaded for gfx_line / fx_line
+;                      X16_P0..P5 are loaded for gfx8l_line / fx_line
 ; ---------------------------------------------------------------------
 clip_line
 @loop

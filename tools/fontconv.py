@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""fontconv.py -- BDF to CXF, the CXRF font format.
+"""fontconv.py -- BDF or raw X16 charset to CXF, the CXRF font format.
 
     python tools/fontconv.py fonts/pxl8.bdf fonts/pxl8.cxf
+    python tools/fontconv.py --x16-charset font/LIGHTFONT.BIN fonts/light.cxf
     python tools/fontconv.py --selftest
 
 CXF is specified in docs/formats.md. In short: a 16-byte header, one
@@ -14,6 +15,14 @@ Only the mechanical part of BDF is read: the encoding, the advance, the
 bounding box and the bitmap. BDF is a big format and CXRF wants none
 of the rest of it.
 
+The X16 charset path reads the common 8x8, 1bpp tile font format: 256
+glyphs, 8 bytes each, often with a two-byte PRG load address at the
+front. Those fonts are usually in C64/X16 screen-code order (@, A-Z,
+punctuation, digits...), not ASCII order, so the converter remaps the
+printable ASCII range into CXRF's codepoint slots. Lowercase folds to
+uppercase because these downloaded PETSCII-style fonts normally do not
+carry a second mixed-case alphabet in ASCII order.
+
 The one subtlety is vertical placement. A BDF glyph's bitmap is not
 positioned by its top edge but by its bounding box, whose origin sits
 `BBX yoff` rows above the baseline. This walks each glyph's rows down
@@ -22,12 +31,19 @@ descender lands below the baseline instead of at the top of the cell.
 Getting that backwards is silent: the text still draws, one row off.
 """
 import argparse
+import os
 import re
 import sys
+import tempfile
 
 MAGIC = b"CXF1"
 HEADER = 16
 MAX_INK = 8             # a glyph row is one byte
+ASCII_FIRST = 0x20
+ASCII_LAST = 0x7E
+X16_CELL_H = 8
+X16_ASCENT = 7
+X16_SPACE_WIDTH = 3
 
 
 class BdfError(Exception):
@@ -104,6 +120,25 @@ def place(height, ascent, bbx, bitmap):
     return cell
 
 
+def pack_cxf(height, ascent, first, widths, bitmaps, name, spacing):
+    if not 1 <= height <= 16:
+        raise BdfError("height %d out of range 1-16" % height)
+    count = len(widths)
+    if count > 255:
+        raise BdfError("%d glyphs; CXF1 counts them in a byte" % count)
+    if any(w > MAX_INK for w in widths):
+        raise BdfError("CXF1 allows advances up to %d" % MAX_INK)
+
+    nm = name.encode("ascii", "replace")[:6]
+    out = bytearray(MAGIC)
+    out += bytes([height, ascent, first, count, max(widths), spacing])
+    out += nm + b"\0" * (6 - len(nm))
+    assert len(out) == HEADER
+    out += bytes(widths)
+    out += bytes(bitmaps)
+    return bytes(out)
+
+
 def build(text, name, spacing=1, first=None, last=None):
     height, ascent, glyphs = parse_bdf(text)
     if not 1 <= height <= 16:
@@ -131,14 +166,51 @@ def build(text, name, spacing=1, first=None, last=None):
         widths.append(width)
         bitmaps.extend(cell)
 
-    nm = name.encode("ascii", "replace")[:6]
-    out = bytearray(MAGIC)
-    out += bytes([height, ascent, lo, count, max(widths), spacing])
-    out += nm + b"\0" * (6 - len(nm))
-    assert len(out) == HEADER
-    out += bytes(widths)
-    out += bytes(bitmaps)
-    return bytes(out)
+    return pack_cxf(height, ascent, lo, widths, bitmaps, name, spacing)
+
+
+def read_x16_charset(path):
+    """Read 256 8x8 1bpp glyphs, skipping an optional two-byte load word."""
+    with open(path, "rb") as f:
+        blob = f.read()
+    if len(blob) == 2 + 256 * X16_CELL_H:
+        blob = blob[2:]
+    if len(blob) != 256 * X16_CELL_H:
+        raise BdfError("%s is %d bytes; need 2048 bytes of 1bpp 8x8 glyphs"
+                       % (path, len(blob)))
+    return [blob[i:i + X16_CELL_H] for i in range(0, len(blob), X16_CELL_H)]
+
+
+def screen_code_for_ascii(code):
+    """C64/X16 display-code order for the printable ASCII range."""
+    if 0x40 <= code <= 0x5F:
+        return code - 0x40      # @, A-Z, [, \, ], ^, _
+    if 0x60 <= code <= 0x7E:
+        return code - 0x60      # fold lowercase/punctuation to the first set
+    return code                 # space through ?
+
+
+def trim_cell(cell, space_width=X16_SPACE_WIDTH):
+    ink = [c for c in range(MAX_INK)
+           if any(row >> (MAX_INK - 1 - c) & 1 for row in cell)]
+    if not ink:
+        return [0] * X16_CELL_H, space_width
+    left, right = ink[0], ink[-1]
+    return [(row << left) & 0xFF for row in cell], right - left + 1
+
+
+def build_x16_charset(path, name, spacing=1, first=ASCII_FIRST, last=ASCII_LAST,
+                      layout="screen", space_width=X16_SPACE_WIDTH):
+    if first < 0 or last > 255 or first > last:
+        raise BdfError("bad output range %d..%d" % (first, last))
+    cells = read_x16_charset(path)
+    widths, bitmaps = [], []
+    for code in range(first, last + 1):
+        src = code if layout == "ascii" else screen_code_for_ascii(code)
+        rows, width = trim_cell(cells[src], space_width)
+        widths.append(width)
+        bitmaps.extend(rows)
+    return pack_cxf(X16_CELL_H, X16_ASCENT, first, widths, bitmaps, name, spacing)
 
 
 # ---------------------------------------------------------------------
@@ -230,6 +302,30 @@ def selftest():
     check(h[7] == 9, "range spans the hole (32..40)")
     check(h[HEADER + 1] == 0, "the hole's advance is 0")
 
+    raw = bytearray(256 * X16_CELL_H)
+    raw[1 * 8:1 * 8 + 8] = bytes([0x60, 0x90, 0xF0, 0x90, 0x90, 0, 0, 0])
+    raw[33 * 8:33 * 8 + 8] = bytes([0x80, 0x80, 0x80, 0, 0x80, 0, 0, 0])
+    fd, p = tempfile.mkstemp()
+    try:
+        os.write(fd, b"\0\0" + raw)
+        os.close(fd)
+        fd = -1
+        x = build_x16_charset(p, "raw")
+        xw = x[HEADER:HEADER + (ASCII_LAST - ASCII_FIRST + 1)]
+        xb = x[HEADER + len(xw):]
+        aoff = (ord("A") - ASCII_FIRST) * X16_CELL_H
+        loff = (ord("a") - ASCII_FIRST) * X16_CELL_H
+        check(xw[ord("A") - ASCII_FIRST] == 4, "raw charset maps A from screen code 1")
+        check(list(xb[aoff:aoff + 3]) == [0x60, 0x90, 0xF0], "raw charset keeps A bitmap")
+        check(list(xb[loff:loff + 3]) == [0x60, 0x90, 0xF0], "raw charset folds lowercase")
+    finally:
+        if fd != -1:
+            os.close(fd)
+        try:
+            os.remove(p)
+        except OSError:
+            pass
+
     for bad, why in (
         (MINI.replace("DWIDTH 4 0", "DWIDTH 9 0"), "advance past 8 rejected"),
         (MINI.replace("FONT_ASCENT 7\n", ""), "missing ascent rejected"),
@@ -251,6 +347,12 @@ def main():
     ap.add_argument("--name", default=None, help="font name (default: stem)")
     ap.add_argument("--spacing", type=int, default=1,
                     help="pixels after each glyph (default 1)")
+    ap.add_argument("--x16-charset", action="store_true",
+                    help="input is a raw 256-glyph X16/C64 8x8 charset")
+    ap.add_argument("--raw-layout", choices=("screen", "ascii"), default="screen",
+                    help="raw charset glyph order (default: screen)")
+    ap.add_argument("--space-width", type=int, default=X16_SPACE_WIDTH,
+                    help="advance for blank raw glyphs (default 3)")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
 
@@ -260,10 +362,15 @@ def main():
         ap.error("need BDF and CXF paths (or --selftest)")
 
     name = args.name or args.cxf.replace("\\", "/").split("/")[-1].split(".")[0]
-    with open(args.bdf, encoding="latin-1") as f:
-        text = f.read()
     try:
-        blob = build(text, name, spacing=args.spacing)
+        if args.x16_charset:
+            blob = build_x16_charset(args.bdf, name, spacing=args.spacing,
+                                     layout=args.raw_layout,
+                                     space_width=args.space_width)
+        else:
+            with open(args.bdf, encoding="latin-1") as f:
+                text = f.read()
+            blob = build(text, name, spacing=args.spacing)
     except BdfError as e:
         sys.exit("%s: %s" % (args.bdf, e))
     with open(args.cxf, "wb") as f:

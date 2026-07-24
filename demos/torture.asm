@@ -17,7 +17,7 @@
 
 .include "x16.asm"
 
-X16_USE_BITMAP2 = 1
+X16_USE_BITMAP2H = 1
 X16_USE_NUMBER  = 1
 
 STR_PTR  = $60                  ; app zero page
@@ -33,7 +33,7 @@ GCNT     = $68
     basic_stub
 
 main
-    jsr gfx2_init
+    jsr gfx2h_init
 
     lda #<tt_banner
     ldx #>tt_banner
@@ -87,7 +87,7 @@ draw_scene
     lda #<checker
     ldx #>checker
     ldy #%0001                  ; background 0, foreground 1
-    jsr gfx2_pattern_set
+    jsr gfx2h_pattern_set
     stz X16_P0
     stz X16_P1
     stz X16_P2
@@ -100,7 +100,7 @@ draw_scene
     sta X16_P6
     lda #>480
     sta X16_P7
-    jsr gfx2_pattern_rect
+    jsr gfx2h_pattern_rect
 
     ; --- 8 filled rects with black frames, colors cycling ------------
     stz IDX
@@ -109,11 +109,11 @@ draw_scene
     jsr rect_args               ; P0..P7 = (20 + i*76, 20, 60, 40)
     ldx IDX
     lda col_cycle,x             ; color 1,2,3,1,...
-    jsr gfx2_rect
+    jsr gfx2h_rect
     lda IDX
     jsr rect_args
     lda #3
-    jsr gfx2_frame
+    jsr gfx2h_frame
     inc IDX
     lda IDX
     cmp #8
@@ -143,7 +143,7 @@ draw_scene
     sta X16_P7
     lda IDX
     and #3                      ; color 0..3 (0 punches holes: fine)
-    jsr gfx2_line
+    jsr gfx2h_line
     inc IDX
     lda IDX
     cmp #16
@@ -183,7 +183,7 @@ draw_scene
     sta X16_P7
     lda IDX
     and #3                      ; copy / or / and / xor, cycling
-    jsr gfx2_blit
+    jsr gfx2h_blit
     inc IDX
     lda IDX
     cmp #32
@@ -220,7 +220,7 @@ glyph_line                      ; 100 glyphs, x = 0,5,10..495 at y=P2/3
     sta X16_P4
     lda #3                      ; 3 columns
     sta X16_P5
-    jsr gfx2_blitm              ; consumes P0/P1 (x) and P6/P7 (src)
+    jsr gfx2h_blitm              ; consumes P0/P1 (x) and P6/P7 (src)
     lda XCUR
     clc
     adc #5
@@ -331,7 +331,7 @@ star      .word 520,240, 505,317, 461,381, 397,425
           .word 320, 40, 397, 55, 461, 99, 505,163
 
 ; =====================================================================
-; the glyph, pre-shifted to 4 phases in gfx2_blitm's (mask,data)
+; the glyph, pre-shifted to 4 phases in gfx2h_blitm's (mask,data)
 ; column-major pair format: for each of 3 columns, 8 pairs.
 ; =====================================================================
 GR0 = %00111100

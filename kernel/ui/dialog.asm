@@ -150,7 +150,13 @@ dg_prompt
     sta dg_buf
     lda X16_P1
     sta dg_buf+1
-    ldx X16_P2                  ; capacity -> greatest length, capped to
+    lda X16_P2                  ; capacity -> greatest length, capped to
+    bne @capnz                  ; what the field can show
+    stz dg_len                  ; no writable byte, no prompt can run safely
+    sec
+    rts
+@capnz
+    tax
     dex                         ; what the field can show
     cpx #DG_PMAX+1
     bcc @cap
@@ -1012,12 +1018,12 @@ dg_bufzp                        ; CX_M_PTR = the caller's buffer
 dg_table                        ; NULL..DBLCLICK ride the region; keys
     .addr 0, 0, 0, 0, 0         ; come here; TIMER, MENU and WIDGET are
     .addr dg_key                ; nobody's while a dialog is up
-    .addr 0, 0, 0
+    .addr 0, 0, 0, 0            ; JOY ignored
 
 dg_ptable
     .addr 0, 0, 0, 0, 0
     .addr dg_pkey
-    .addr 0, 0, 0
+    .addr 0, 0, 0, 0            ; JOY ignored
 
 ; --- dialog state -------------------------------------------------------
 dg_p    .word 0

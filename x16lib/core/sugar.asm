@@ -22,7 +22,7 @@
 ;
 ;       .include "x16.asm"
 ;       X16_USE_SHAPES_RRECT = 1     ; <- your gates first
-;       X16_USE_BITMAP2      = 1
+;       X16_USE_BITMAP2H     = 1
 ;       .include "core/sugar.asm"     ; <- then the (optional) macros
 ;       ... your program ...
 ;       .include "x16_code.asm"
@@ -96,6 +96,121 @@
     ldx #<(p_count)
     ldy #>(p_count)
     jsr vera_copy
+.endmacro
+.endif
+
+; =====================================================================
+; video/vdc  (VERA display composer)
+; =====================================================================
+; -> A = DC_VIDEO
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_get_video
+    jsr vdc_get_video
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_set_video p_video
+    lda #(p_video)
+    jsr vdc_set_video
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_set_output p_mode
+    lda #(p_mode)
+    jsr vdc_set_output
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_set_layers p_mask
+    lda #(p_mask)
+    jsr vdc_set_layers
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_layer_on p_mask
+    lda #(p_mask)
+    jsr vdc_layer_on
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_layer_off p_mask
+    lda #(p_mask)
+    jsr vdc_layer_off
+.endmacro
+.endif
+; -> A = HSCALE, X = VSCALE
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_get_scale
+    jsr vdc_get_scale
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_set_scale p_hscale, p_vscale
+    lda #(p_hscale)
+    ldx #(p_vscale)
+    jsr vdc_set_scale
+.endmacro
+.endif
+; -> A = border palette index
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_get_border
+    jsr vdc_get_border
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_set_border p_color
+    lda #(p_color)
+    jsr vdc_set_border
+.endmacro
+.endif
+; -> A = HSTART, X = HSTOP, Y = VSTART, r0L = VSTOP
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_get_active_raw
+    jsr vdc_get_active_raw
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_set_active_raw p_hstart, p_hstop, p_vstart, p_vstop
+    lda #(p_hstart)
+    ldx #(p_hstop)
+    ldy #(p_vstart)
+    pha
+    lda #(p_vstop)
+    sta r0L
+    pla
+    jsr vdc_set_active_raw
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_set_active p_hstart, p_hstop, p_vstart, p_vstop
+    lda #<(p_hstart)
+    sta X16_P0
+    lda #>(p_hstart)
+    sta X16_P1
+    lda #<(p_hstop)
+    sta X16_P2
+    lda #>(p_hstop)
+    sta X16_P3
+    lda #<(p_vstart)
+    sta X16_P4
+    lda #>(p_vstart)
+    sta X16_P5
+    lda #<(p_vstop)
+    sta X16_P6
+    lda #>(p_vstop)
+    sta X16_P7
+    jsr vdc_set_active
+.endmacro
+.endif
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_fullscreen
+    jsr vdc_fullscreen
+.endmacro
+.endif
+; -> carry set if valid, A = major, X = minor, Y = build
+.ifdef X16_USE_VERA_DC
+.macro xm_vdc_get_version
+    jsr vdc_get_version
 .endmacro
 .endif
 
@@ -341,21 +456,21 @@
 .endif
 
 ; =====================================================================
-; gfx/bitmap  (320x240 @ 8bpp)
+; gfx/bitmap8l  (320x240 @ 8bpp)
 ; =====================================================================
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_init
-    jsr gfx_init
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_init
+    jsr gfx8l_init
 .endmacro
 .endif
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_clear p_col
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_clear p_col
     lda #(p_col)
-    jsr gfx_clear
+    jsr gfx8l_clear
 .endmacro
 .endif
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_pset p_x, p_y, p_col
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_pset p_x, p_y, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -364,40 +479,23 @@
     sta X16_P2
     lda #(p_col)
     sta X16_P3
-    jsr gfx_pset
+    jsr gfx8l_pset
 .endmacro
 .endif
 ; -> A = colour
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_read p_x, p_y
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_read p_x, p_y
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
     sta X16_P1
     lda #(p_y)
     sta X16_P2
-    jsr gfx_read
+    jsr gfx8l_read
 .endmacro
 .endif
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_hline p_x, p_y, p_len, p_col
-    lda #<(p_x)
-    sta X16_P0
-    lda #>(p_x)
-    sta X16_P1
-    lda #(p_y)
-    sta X16_P2
-    lda #(p_col)
-    sta X16_P3
-    lda #<(p_len)
-    sta X16_P4
-    lda #>(p_len)
-    sta X16_P5
-    jsr gfx_hline
-.endmacro
-.endif
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_vline p_x, p_y, p_len, p_col
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_hline p_x, p_y, p_len, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -410,11 +508,28 @@
     sta X16_P4
     lda #>(p_len)
     sta X16_P5
-    jsr gfx_vline
+    jsr gfx8l_hline
 .endmacro
 .endif
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_rect p_x, p_y, p_w, p_h, p_col
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_vline p_x, p_y, p_len, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    lda #(p_col)
+    sta X16_P3
+    lda #<(p_len)
+    sta X16_P4
+    lda #>(p_len)
+    sta X16_P5
+    jsr gfx8l_vline
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_rect p_x, p_y, p_w, p_h, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -429,11 +544,11 @@
     sta X16_P5
     lda #(p_h)
     sta X16_P6
-    jsr gfx_rect
+    jsr gfx8l_rect
 .endmacro
 .endif
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_frame p_x, p_y, p_w, p_h, p_col
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_frame p_x, p_y, p_w, p_h, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -448,19 +563,19 @@
     sta X16_P5
     lda #(p_h)
     sta X16_P6
-    jsr gfx_frame
+    jsr gfx8l_frame
 .endmacro
 .endif
 ; A/X = the address of an 8x8 1bpp pattern
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_pattern_set p_pat
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_pattern_set p_pat
     lda #<(p_pat)
     ldx #>(p_pat)
-    jsr gfx_pattern_set
+    jsr gfx8l_pattern_set
 .endmacro
 .endif
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_pattern_rect p_x, p_y, p_w, p_h
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_pattern_rect p_x, p_y, p_w, p_h
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -473,11 +588,11 @@
     sta X16_P5
     lda #(p_h)
     sta X16_P6
-    jsr gfx_pattern_rect
+    jsr gfx8l_pattern_rect
 .endmacro
 .endif
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_line p_x0, p_y0, p_x1, p_y1, p_col
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_line p_x0, p_y0, p_x1, p_y1, p_col
     lda #<(p_x0)
     sta X16_P0
     lda #>(p_x0)
@@ -492,11 +607,11 @@
     sta X16_P5
     lda #(p_y1)
     sta X16_P6
-    jsr gfx_line
+    jsr gfx8l_line
 .endmacro
 .endif
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_char p_code, p_x, p_y, p_col
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_char p_code, p_x, p_y, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -506,12 +621,12 @@
     lda #(p_col)
     sta X16_P3
     lda #(p_code)
-    jsr gfx_char
+    jsr gfx8l_char
 .endmacro
 .endif
 ; str = a NUL-terminated string
-.ifdef X16_USE_BITMAP
-.macro xm_gfx_text p_str, p_x, p_y, p_col
+.ifdef X16_USE_BITMAP8L
+.macro xm_gfx8l_text p_str, p_x, p_y, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -522,26 +637,49 @@
     sta X16_P3
     lda #<(p_str)
     ldx #>(p_str)
-    jsr gfx_text
+    jsr gfx8l_text
 .endmacro
 .endif
 
 ; =====================================================================
-; gfx/bitmap2  (640x480 @ 2bpp; colour in A)
+; gfx/bitmap8h  (640x480 @ 8bpp; VERA_2 SDRAM layer)
 ; =====================================================================
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_init
-    jsr gfx2_init
+.ifdef X16_USE_BITMAP8H
+.macro xm_gfx8h_has
+    jsr gfx8h_has
 .endmacro
-.endif
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_clear p_col
+.macro xm_gfx8h_init
+    jsr gfx8h_init
+.endmacro
+.macro xm_gfx8h_off
+    jsr gfx8h_off
+.endmacro
+.macro xm_gfx8h_passthru_on
+    jsr gfx8h_passthru_on
+.endmacro
+.macro xm_gfx8h_passthru_off
+    jsr gfx8h_passthru_off
+.endmacro
+.macro xm_gfx8h_pal_set p_index, p_lo, p_hi
+    ldx #(p_index)
+    lda #(p_lo)
+    ldy #(p_hi)
+    jsr gfx8h_pal_set
+.endmacro
+.macro xm_gfx8h_pal_load p_src, p_first, p_count
+    lda #<(p_src)
+    sta X16_PTR0
+    lda #>(p_src)
+    sta X16_PTR0+1
+    lda #(p_first)
+    ldx #(p_count)
+    jsr gfx8h_pal_load
+.endmacro
+.macro xm_gfx8h_clear p_col
     lda #(p_col)
-    jsr gfx2_clear
+    jsr gfx8h_clear
 .endmacro
-.endif
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_pset p_x, p_y, p_col
+.macro xm_gfx8h_pset p_x, p_y, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -551,12 +689,9 @@
     lda #>(p_y)
     sta X16_P3
     lda #(p_col)
-    jsr gfx2_pset
+    jsr gfx8h_pset
 .endmacro
-.endif
-; -> A = colour, carry set if (x,y) is off screen
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_read p_x, p_y
+.macro xm_gfx8h_read p_x, p_y
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -565,11 +700,9 @@
     sta X16_P2
     lda #>(p_y)
     sta X16_P3
-    jsr gfx2_read
+    jsr gfx8h_read
 .endmacro
-.endif
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_hline p_x, p_y, p_len, p_col
+.macro xm_gfx8h_hline p_x, p_y, p_len, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -583,11 +716,9 @@
     lda #>(p_len)
     sta X16_P5
     lda #(p_col)
-    jsr gfx2_hline
+    jsr gfx8h_hline
 .endmacro
-.endif
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_vline p_x, p_y, p_len, p_col
+.macro xm_gfx8h_vline p_x, p_y, p_len, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -601,11 +732,9 @@
     lda #>(p_len)
     sta X16_P5
     lda #(p_col)
-    jsr gfx2_vline
+    jsr gfx8h_vline
 .endmacro
-.endif
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_rect p_x, p_y, p_w, p_h, p_col
+.macro xm_gfx8h_rect p_x, p_y, p_w, p_h, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -623,11 +752,9 @@
     lda #>(p_h)
     sta X16_P7
     lda #(p_col)
-    jsr gfx2_rect
+    jsr gfx8h_rect
 .endmacro
-.endif
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_frame p_x, p_y, p_w, p_h, p_col
+.macro xm_gfx8h_frame p_x, p_y, p_w, p_h, p_col
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -645,11 +772,9 @@
     lda #>(p_h)
     sta X16_P7
     lda #(p_col)
-    jsr gfx2_frame
+    jsr gfx8h_frame
 .endmacro
-.endif
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_line p_x0, p_y0, p_x1, p_y1, p_col
+.macro xm_gfx8h_line p_x0, p_y0, p_x1, p_y1, p_col
     lda #<(p_x0)
     sta X16_P0
     lda #>(p_x0)
@@ -667,19 +792,18 @@
     lda #>(p_y1)
     sta X16_P7
     lda #(p_col)
-    jsr gfx2_line
+    jsr gfx8h_line
 .endmacro
-.endif
-; A/X = the address of an 8x8 1bpp pattern
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_pattern_set p_pat
+.macro xm_gfx8h_pattern_set p_pat, p_bg, p_fg
+    lda #(p_bg)
+    sta X16_P4
+    lda #(p_fg)
+    sta X16_P5
     lda #<(p_pat)
     ldx #>(p_pat)
-    jsr gfx2_pattern_set
+    jsr gfx8h_pattern_set
 .endmacro
-.endif
-.ifdef X16_USE_BITMAP2
-.macro xm_gfx2_pattern_rect p_x, p_y, p_w, p_h
+.macro xm_gfx8h_pattern_rect p_x, p_y, p_w, p_h
     lda #<(p_x)
     sta X16_P0
     lda #>(p_x)
@@ -696,7 +820,1239 @@
     sta X16_P6
     lda #>(p_h)
     sta X16_P7
-    jsr gfx2_pattern_rect
+    jsr gfx8h_pattern_rect
+.endmacro
+.macro xm_gfx8h_copy p_src, p_dst, p_len
+    lda #<(p_src)
+    sta X16_P0
+    lda #>((p_src) >> 8)
+    sta X16_P1
+    lda #>((p_src) >> 16)
+    sta X16_P2
+    lda #<(p_dst)
+    sta X16_P3
+    lda #>((p_dst) >> 8)
+    sta X16_P4
+    lda #>((p_dst) >> 16)
+    sta X16_P5
+    lda #<(p_len)
+    ldx #>((p_len) >> 8)
+    ldy #>((p_len) >> 16)
+    jsr gfx8h_copy
+.endmacro
+.endif
+
+; =====================================================================
+; gfx/bitmap2h  (640x480 @ 2bpp; colour in A)
+; =====================================================================
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_init
+    jsr gfx2h_init
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_clear p_col
+    lda #(p_col)
+    jsr gfx2h_clear
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_pset p_x, p_y, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #(p_col)
+    jsr gfx2h_pset
+.endmacro
+.endif
+; -> A = colour, carry set if (x,y) is off screen
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_read p_x, p_y
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    jsr gfx2h_read
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_hline p_x, p_y, p_len, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_len)
+    sta X16_P4
+    lda #>(p_len)
+    sta X16_P5
+    lda #(p_col)
+    jsr gfx2h_hline
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_vline p_x, p_y, p_len, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_len)
+    sta X16_P4
+    lda #>(p_len)
+    sta X16_P5
+    lda #(p_col)
+    jsr gfx2h_vline
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_rect p_x, p_y, p_w, p_h, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #<(p_h)
+    sta X16_P6
+    lda #>(p_h)
+    sta X16_P7
+    lda #(p_col)
+    jsr gfx2h_rect
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_frame p_x, p_y, p_w, p_h, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #<(p_h)
+    sta X16_P6
+    lda #>(p_h)
+    sta X16_P7
+    lda #(p_col)
+    jsr gfx2h_frame
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_line p_x0, p_y0, p_x1, p_y1, p_col
+    lda #<(p_x0)
+    sta X16_P0
+    lda #>(p_x0)
+    sta X16_P1
+    lda #<(p_y0)
+    sta X16_P2
+    lda #>(p_y0)
+    sta X16_P3
+    lda #<(p_x1)
+    sta X16_P4
+    lda #>(p_x1)
+    sta X16_P5
+    lda #<(p_y1)
+    sta X16_P6
+    lda #>(p_y1)
+    sta X16_P7
+    lda #(p_col)
+    jsr gfx2h_line
+.endmacro
+.endif
+; A/X = the address of an 8x8 1bpp pattern
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_pattern_set p_pat
+    lda #<(p_pat)
+    ldx #>(p_pat)
+    jsr gfx2h_pattern_set
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2H
+.macro xm_gfx2h_pattern_rect p_x, p_y, p_w, p_h
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #<(p_h)
+    sta X16_P6
+    lda #>(p_h)
+    sta X16_P7
+    jsr gfx2h_pattern_rect
+.endmacro
+.endif
+
+; =====================================================================
+; gfx/bitmap2l  (320x240 @ 2bpp; colour in A)
+; =====================================================================
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_init
+    jsr gfx2l_init
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_clear p_col
+    lda #(p_col)
+    jsr gfx2l_clear
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_pset p_x, p_y, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #(p_col)
+    jsr gfx2l_pset
+.endmacro
+.endif
+; -> A = colour, carry set if (x,y) is off screen
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_read p_x, p_y
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    jsr gfx2l_read
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_hline p_x, p_y, p_len, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_len)
+    sta X16_P4
+    lda #>(p_len)
+    sta X16_P5
+    lda #(p_col)
+    jsr gfx2l_hline
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_vline p_x, p_y, p_len, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_len)
+    sta X16_P4
+    lda #>(p_len)
+    sta X16_P5
+    lda #(p_col)
+    jsr gfx2l_vline
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_rect p_x, p_y, p_w, p_h, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #<(p_h)
+    sta X16_P6
+    lda #>(p_h)
+    sta X16_P7
+    lda #(p_col)
+    jsr gfx2l_rect
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_frame p_x, p_y, p_w, p_h, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #<(p_h)
+    sta X16_P6
+    lda #>(p_h)
+    sta X16_P7
+    lda #(p_col)
+    jsr gfx2l_frame
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_line p_x0, p_y0, p_x1, p_y1, p_col
+    lda #<(p_x0)
+    sta X16_P0
+    lda #>(p_x0)
+    sta X16_P1
+    lda #<(p_y0)
+    sta X16_P2
+    lda #>(p_y0)
+    sta X16_P3
+    lda #<(p_x1)
+    sta X16_P4
+    lda #>(p_x1)
+    sta X16_P5
+    lda #<(p_y1)
+    sta X16_P6
+    lda #>(p_y1)
+    sta X16_P7
+    lda #(p_col)
+    jsr gfx2l_line
+.endmacro
+.endif
+; A/X = the address of an 8x8 1bpp pattern
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_pattern_set p_pat
+    lda #<(p_pat)
+    ldx #>(p_pat)
+    jsr gfx2l_pattern_set
+.endmacro
+.endif
+.ifdef X16_USE_BITMAP2L
+.macro xm_gfx2l_pattern_rect p_x, p_y, p_w, p_h
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #<(p_h)
+    sta X16_P6
+    lda #>(p_h)
+    sta X16_P7
+    jsr gfx2l_pattern_rect
+.endmacro
+.endif
+
+; =====================================================================
+; gfx/bitmap4l  (320x240 @ 4bpp)
+; =====================================================================
+.ifdef X16_USE_BITMAP4L
+.macro xm_gfx4l_init
+    jsr gfx4l_init
+.endmacro
+.macro xm_gfx4l_clear p_col
+    lda #(p_col)
+    jsr gfx4l_clear
+.endmacro
+.macro xm_gfx4l_pset p_x, p_y, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    lda #(p_col)
+    sta X16_P3
+    jsr gfx4l_pset
+.endmacro
+.macro xm_gfx4l_read p_x, p_y
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    jsr gfx4l_read
+.endmacro
+.macro xm_gfx4l_hline p_x, p_y, p_len, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    lda #(p_col)
+    sta X16_P3
+    lda #<(p_len)
+    sta X16_P4
+    lda #>(p_len)
+    sta X16_P5
+    jsr gfx4l_hline
+.endmacro
+.macro xm_gfx4l_vline p_x, p_y, p_len, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    lda #(p_col)
+    sta X16_P3
+    lda #(p_len)
+    sta X16_P4
+    jsr gfx4l_vline
+.endmacro
+.macro xm_gfx4l_rect p_x, p_y, p_w, p_h, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    lda #(p_col)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #(p_h)
+    sta X16_P6
+    jsr gfx4l_rect
+.endmacro
+.macro xm_gfx4l_frame p_x, p_y, p_w, p_h, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    lda #(p_col)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #(p_h)
+    sta X16_P6
+    jsr gfx4l_frame
+.endmacro
+.macro xm_gfx4l_line p_x0, p_y0, p_x1, p_y1, p_col
+    lda #<(p_x0)
+    sta X16_P0
+    lda #>(p_x0)
+    sta X16_P1
+    lda #(p_y0)
+    sta X16_P2
+    lda #<(p_x1)
+    sta X16_P3
+    lda #>(p_x1)
+    sta X16_P4
+    lda #(p_y1)
+    sta X16_P5
+    lda #(p_col)
+    sta X16_P6
+    jsr gfx4l_line
+.endmacro
+.macro xm_gfx4l_pattern_set p_pat, p_bg, p_fg
+    lda #(p_bg)
+    sta X16_P4
+    lda #(p_fg)
+    sta X16_P5
+    lda #<(p_pat)
+    ldx #>(p_pat)
+    jsr gfx4l_pattern_set
+.endmacro
+.macro xm_gfx4l_pattern_rect p_x, p_y, p_w, p_h
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #(p_h)
+    sta X16_P6
+    jsr gfx4l_pattern_rect
+.endmacro
+.macro xm_gfx4l_char p_code, p_x, p_y, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    lda #(p_col)
+    sta X16_P3
+    lda #(p_code)
+    jsr gfx4l_char
+.endmacro
+.macro xm_gfx4l_text p_str, p_x, p_y, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #(p_y)
+    sta X16_P2
+    lda #(p_col)
+    sta X16_P3
+    lda #<(p_str)
+    ldx #>(p_str)
+    jsr gfx4l_text
+.endmacro
+.endif
+
+; =====================================================================
+; gfx/bitmap4h  (640x480 @ 4bpp; VERA_2 SDRAM layer)
+; =====================================================================
+.ifdef X16_USE_BITMAP4H
+.macro xm_gfx4h_has
+    jsr gfx4h_has
+.endmacro
+.macro xm_gfx4h_init
+    jsr gfx4h_init
+.endmacro
+.macro xm_gfx4h_off
+    jsr gfx4h_off
+.endmacro
+.macro xm_gfx4h_passthru_on
+    jsr gfx4h_passthru_on
+.endmacro
+.macro xm_gfx4h_passthru_off
+    jsr gfx4h_passthru_off
+.endmacro
+.macro xm_gfx4h_pal_set p_index, p_lo, p_hi
+    ldx #(p_index)
+    lda #(p_lo)
+    ldy #(p_hi)
+    jsr gfx4h_pal_set
+.endmacro
+.macro xm_gfx4h_pal_load p_src, p_first, p_count
+    lda #<(p_src)
+    sta X16_PTR0
+    lda #>(p_src)
+    sta X16_PTR0+1
+    lda #(p_first)
+    ldx #(p_count)
+    jsr gfx4h_pal_load
+.endmacro
+.macro xm_gfx4h_clear p_col
+    lda #(p_col)
+    jsr gfx4h_clear
+.endmacro
+.macro xm_gfx4h_pset p_x, p_y, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #(p_col)
+    jsr gfx4h_pset
+.endmacro
+.macro xm_gfx4h_read p_x, p_y
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    jsr gfx4h_read
+.endmacro
+.macro xm_gfx4h_hline p_x, p_y, p_len, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_len)
+    sta X16_P4
+    lda #>(p_len)
+    sta X16_P5
+    lda #(p_col)
+    jsr gfx4h_hline
+.endmacro
+.macro xm_gfx4h_vline p_x, p_y, p_len, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_len)
+    sta X16_P4
+    lda #>(p_len)
+    sta X16_P5
+    lda #(p_col)
+    jsr gfx4h_vline
+.endmacro
+.macro xm_gfx4h_rect p_x, p_y, p_w, p_h, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #<(p_h)
+    sta X16_P6
+    lda #>(p_h)
+    sta X16_P7
+    lda #(p_col)
+    jsr gfx4h_rect
+.endmacro
+.macro xm_gfx4h_frame p_x, p_y, p_w, p_h, p_col
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #<(p_h)
+    sta X16_P6
+    lda #>(p_h)
+    sta X16_P7
+    lda #(p_col)
+    jsr gfx4h_frame
+.endmacro
+.macro xm_gfx4h_line p_x0, p_y0, p_x1, p_y1, p_col
+    lda #<(p_x0)
+    sta X16_P0
+    lda #>(p_x0)
+    sta X16_P1
+    lda #<(p_y0)
+    sta X16_P2
+    lda #>(p_y0)
+    sta X16_P3
+    lda #<(p_x1)
+    sta X16_P4
+    lda #>(p_x1)
+    sta X16_P5
+    lda #<(p_y1)
+    sta X16_P6
+    lda #>(p_y1)
+    sta X16_P7
+    lda #(p_col)
+    jsr gfx4h_line
+.endmacro
+.macro xm_gfx4h_pattern_set p_pat, p_bg, p_fg
+    lda #(p_bg)
+    sta X16_P4
+    lda #(p_fg)
+    sta X16_P5
+    lda #<(p_pat)
+    ldx #>(p_pat)
+    jsr gfx4h_pattern_set
+.endmacro
+.macro xm_gfx4h_pattern_rect p_x, p_y, p_w, p_h
+    lda #<(p_x)
+    sta X16_P0
+    lda #>(p_x)
+    sta X16_P1
+    lda #<(p_y)
+    sta X16_P2
+    lda #>(p_y)
+    sta X16_P3
+    lda #<(p_w)
+    sta X16_P4
+    lda #>(p_w)
+    sta X16_P5
+    lda #<(p_h)
+    sta X16_P6
+    lda #>(p_h)
+    sta X16_P7
+    jsr gfx4h_pattern_rect
+.endmacro
+.macro xm_gfx4h_copy p_src, p_dst, p_len
+    lda #<(p_src)
+    sta X16_P0
+    lda #>((p_src) >> 8)
+    sta X16_P1
+    lda #>((p_src) >> 16)
+    sta X16_P2
+    lda #<(p_dst)
+    sta X16_P3
+    lda #>((p_dst) >> 8)
+    sta X16_P4
+    lda #>((p_dst) >> 16)
+    sta X16_P5
+    lda #<(p_len)
+    ldx #>((p_len) >> 8)
+    ldy #>((p_len) >> 16)
+    jsr gfx4h_copy
+.endmacro
+.endif
+
+; =====================================================================
+; gfx/graph  (KERNAL GRAPH API)
+; =====================================================================
+.ifdef X16_USE_GRAPH
+.macro xm_graph_init_default
+    stz r0L
+    stz r0H
+    jsr graph_init
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_init p_driver
+    lda #<(p_driver)
+    sta r0L
+    lda #>(p_driver)
+    sta r0H
+    jsr graph_init
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_clear
+    jsr graph_clear
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_set_window p_x, p_y, p_w, p_h
+    lda #<(p_x)
+    sta r0L
+    lda #>(p_x)
+    sta r0H
+    lda #<(p_y)
+    sta r1L
+    lda #>(p_y)
+    sta r1H
+    lda #<(p_w)
+    sta r2L
+    lda #>(p_w)
+    sta r2H
+    lda #<(p_h)
+    sta r3L
+    lda #>(p_h)
+    sta r3H
+    jsr graph_set_window
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_set_colors p_stroke, p_fill, p_background
+    lda #(p_stroke)
+    ldx #(p_fill)
+    ldy #(p_background)
+    jsr graph_set_colors
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_draw_line p_x1, p_y1, p_x2, p_y2
+    lda #<(p_x1)
+    sta r0L
+    lda #>(p_x1)
+    sta r0H
+    lda #<(p_y1)
+    sta r1L
+    lda #>(p_y1)
+    sta r1H
+    lda #<(p_x2)
+    sta r2L
+    lda #>(p_x2)
+    sta r2H
+    lda #<(p_y2)
+    sta r3L
+    lda #>(p_y2)
+    sta r3H
+    jsr graph_draw_line
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_draw_rect_outline p_x, p_y, p_w, p_h, p_radius
+    lda #<(p_x)
+    sta r0L
+    lda #>(p_x)
+    sta r0H
+    lda #<(p_y)
+    sta r1L
+    lda #>(p_y)
+    sta r1H
+    lda #<(p_w)
+    sta r2L
+    lda #>(p_w)
+    sta r2H
+    lda #<(p_h)
+    sta r3L
+    lda #>(p_h)
+    sta r3H
+    lda #<(p_radius)
+    sta r4L
+    lda #>(p_radius)
+    sta r4H
+    clc
+    jsr graph_draw_rect
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_draw_rect_fill p_x, p_y, p_w, p_h, p_radius
+    lda #<(p_x)
+    sta r0L
+    lda #>(p_x)
+    sta r0H
+    lda #<(p_y)
+    sta r1L
+    lda #>(p_y)
+    sta r1H
+    lda #<(p_w)
+    sta r2L
+    lda #>(p_w)
+    sta r2H
+    lda #<(p_h)
+    sta r3L
+    lda #>(p_h)
+    sta r3H
+    lda #<(p_radius)
+    sta r4L
+    lda #>(p_radius)
+    sta r4H
+    sec
+    jsr graph_draw_rect
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_move_rect p_sx, p_sy, p_tx, p_ty, p_w, p_h
+    lda #<(p_sx)
+    sta r0L
+    lda #>(p_sx)
+    sta r0H
+    lda #<(p_sy)
+    sta r1L
+    lda #>(p_sy)
+    sta r1H
+    lda #<(p_tx)
+    sta r2L
+    lda #>(p_tx)
+    sta r2H
+    lda #<(p_ty)
+    sta r3L
+    lda #>(p_ty)
+    sta r3H
+    lda #<(p_w)
+    sta r4L
+    lda #>(p_w)
+    sta r4H
+    lda #<(p_h)
+    sta r5L
+    lda #>(p_h)
+    sta r5H
+    jsr graph_move_rect
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_draw_oval_outline p_x, p_y, p_w, p_h
+    lda #<(p_x)
+    sta r0L
+    lda #>(p_x)
+    sta r0H
+    lda #<(p_y)
+    sta r1L
+    lda #>(p_y)
+    sta r1H
+    lda #<(p_w)
+    sta r2L
+    lda #>(p_w)
+    sta r2H
+    lda #<(p_h)
+    sta r3L
+    lda #>(p_h)
+    sta r3H
+    clc
+    jsr graph_draw_oval
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_draw_oval_fill p_x, p_y, p_w, p_h
+    lda #<(p_x)
+    sta r0L
+    lda #>(p_x)
+    sta r0H
+    lda #<(p_y)
+    sta r1L
+    lda #>(p_y)
+    sta r1H
+    lda #<(p_w)
+    sta r2L
+    lda #>(p_w)
+    sta r2H
+    lda #<(p_h)
+    sta r3L
+    lda #>(p_h)
+    sta r3H
+    sec
+    jsr graph_draw_oval
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_draw_image p_x, p_y, p_image, p_w, p_h
+    lda #<(p_x)
+    sta r0L
+    lda #>(p_x)
+    sta r0H
+    lda #<(p_y)
+    sta r1L
+    lda #>(p_y)
+    sta r1H
+    lda #<(p_image)
+    sta r2L
+    lda #>(p_image)
+    sta r2H
+    lda #<(p_w)
+    sta r3L
+    lda #>(p_w)
+    sta r3H
+    lda #<(p_h)
+    sta r4L
+    lda #>(p_h)
+    sta r4H
+    jsr graph_draw_image
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_set_font_default
+    stz r0L
+    stz r0H
+    jsr graph_set_font
+.endmacro
+.endif
+.ifdef X16_USE_GRAPH
+.macro xm_graph_set_font p_font
+    lda #<(p_font)
+    sta r0L
+    lda #>(p_font)
+    sta r0H
+    jsr graph_set_font
+.endmacro
+.endif
+; -> printable: C clear, A baseline, X width, Y height; control: C set
+.ifdef X16_USE_GRAPH
+.macro xm_graph_get_char_size p_char, p_style
+    lda #(p_char)
+    ldx #(p_style)
+    jsr graph_get_char_size
+.endmacro
+.endif
+; -> r0/r1 updated, carry set if outside bounds
+.ifdef X16_USE_GRAPH
+.macro xm_graph_put_char p_char, p_x, p_y
+    lda #<(p_x)
+    sta r0L
+    lda #>(p_x)
+    sta r0H
+    lda #<(p_y)
+    sta r1L
+    lda #>(p_y)
+    sta r1H
+    lda #(p_char)
+    jsr graph_put_char
+.endmacro
+.endif
+
+; =====================================================================
+; gfx/console  (KERNAL console API)
+; =====================================================================
+.ifdef X16_USE_CONSOLE
+.macro xm_con_init_fullscreen
+    stz r0L
+    stz r0H
+    stz r1L
+    stz r1H
+    stz r2L
+    stz r2H
+    stz r3L
+    stz r3H
+    jsr con_init
+.endmacro
+.endif
+.ifdef X16_USE_CONSOLE
+.macro xm_con_init p_x, p_y, p_w, p_h
+    lda #<(p_x)
+    sta r0L
+    lda #>(p_x)
+    sta r0H
+    lda #<(p_y)
+    sta r1L
+    lda #>(p_y)
+    sta r1H
+    lda #<(p_w)
+    sta r2L
+    lda #>(p_w)
+    sta r2H
+    lda #<(p_h)
+    sta r3L
+    lda #>(p_h)
+    sta r3H
+    jsr con_init
+.endmacro
+.endif
+.ifdef X16_USE_CONSOLE
+.macro xm_con_set_paging_message p_msg
+    lda #<(p_msg)
+    sta r0L
+    lda #>(p_msg)
+    sta r0H
+    jsr con_set_paging_message
+.endmacro
+.endif
+.ifdef X16_USE_CONSOLE
+.macro xm_con_disable_paging
+    jsr con_disable_paging
+.endmacro
+.endif
+.ifdef X16_USE_CONSOLE
+.macro xm_con_put_char_wrap p_char
+    lda #(p_char)
+    clc
+    jsr con_put_char
+.endmacro
+.endif
+.ifdef X16_USE_CONSOLE
+.macro xm_con_put_char_word p_char
+    lda #(p_char)
+    sec
+    jsr con_put_char
+.endmacro
+.endif
+.ifdef X16_USE_CONSOLE
+.macro xm_con_get_char
+    jsr con_get_char
+.endmacro
+.endif
+.ifdef X16_USE_CONSOLE
+.macro xm_con_put_image p_image, p_w, p_h
+    lda #<(p_image)
+    sta r0L
+    lda #>(p_image)
+    sta r0H
+    lda #<(p_w)
+    sta r1L
+    lda #>(p_w)
+    sta r1H
+    lda #<(p_h)
+    sta r2L
+    lda #>(p_h)
+    sta r2H
+    jsr con_put_image
+.endmacro
+.endif
+
+; =====================================================================
+; gfx/fb  (KERNAL framebuffer API)
+; =====================================================================
+.ifdef X16_USE_FB
+.macro xm_fb_init
+    jsr fb_init
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_get_info
+    jsr fb_get_info
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_set_palette p_data, p_start, p_count
+    lda #<(p_data)
+    sta r0L
+    lda #>(p_data)
+    sta r0H
+    lda #(p_start)
+    ldx #(p_count)
+    jsr fb_set_palette
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_cursor_position p_x, p_y
+    lda #<(p_x)
+    sta r0L
+    lda #>(p_x)
+    sta r0H
+    lda #<(p_y)
+    sta r1L
+    lda #>(p_y)
+    sta r1H
+    jsr fb_cursor_position
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_cursor_next_line
+    jsr fb_cursor_next_line
+.endmacro
+.endif
+; -> A = color
+.ifdef X16_USE_FB
+.macro xm_fb_get_pixel p_x, p_y
+    xm_fb_cursor_position p_x, p_y
+    jsr fb_get_pixel
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_set_pixel p_x, p_y, p_color
+    xm_fb_cursor_position p_x, p_y
+    lda #(p_color)
+    jsr fb_set_pixel
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_get_pixels p_dest, p_count
+    lda #<(p_dest)
+    sta r0L
+    lda #>(p_dest)
+    sta r0H
+    lda #<(p_count)
+    sta r1L
+    lda #>(p_count)
+    sta r1H
+    jsr fb_get_pixels
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_set_pixels p_src, p_count
+    lda #<(p_src)
+    sta r0L
+    lda #>(p_src)
+    sta r0H
+    lda #<(p_count)
+    sta r1L
+    lda #>(p_count)
+    sta r1H
+    jsr fb_set_pixels
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_set_8_pixels p_pattern, p_color
+    lda #(p_pattern)
+    ldx #(p_color)
+    jsr fb_set_8_pixels
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_set_8_pixels_opaque p_mask, p_pattern, p_fg, p_bg
+    lda #<(p_pattern)
+    sta r0L
+    lda #(p_mask)
+    ldx #(p_fg)
+    ldy #(p_bg)
+    jsr fb_set_8_pixels_opaque
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_fill_pixels p_count, p_step, p_color
+    lda #<(p_count)
+    sta r0L
+    lda #>(p_count)
+    sta r0H
+    lda #<(p_step)
+    sta r1L
+    lda #>(p_step)
+    sta r1H
+    lda #(p_color)
+    jsr fb_fill_pixels
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_filter_pixels p_count, p_filter
+    lda #<(p_count)
+    sta r0L
+    lda #>(p_count)
+    sta r0H
+    lda #<(p_filter)
+    sta r1L
+    lda #>(p_filter)
+    sta r1H
+    jsr fb_filter_pixels
+.endmacro
+.endif
+.ifdef X16_USE_FB
+.macro xm_fb_move_pixels p_sx, p_sy, p_tx, p_ty, p_count
+    lda #<(p_sx)
+    sta r0L
+    lda #>(p_sx)
+    sta r0H
+    lda #<(p_sy)
+    sta r1L
+    lda #>(p_sy)
+    sta r1H
+    lda #<(p_tx)
+    sta r2L
+    lda #>(p_tx)
+    sta r2H
+    lda #<(p_ty)
+    sta r3L
+    lda #>(p_ty)
+    sta r3H
+    lda #<(p_count)
+    sta r4L
+    lda #>(p_count)
+    sta r4H
+    jsr fb_move_pixels
 .endmacro
 .endif
 
@@ -1030,6 +2386,209 @@
 .endif
 
 ; =====================================================================
+; gfx/verafx_utils  (low-level VERA FX primitives)
+; =====================================================================
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_off
+    jsr fxu_off
+.endmacro
+.endif
+; -> A = FX_CTRL
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_get_ctrl
+    jsr fxu_get_ctrl
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_set_ctrl p_ctrl
+    lda #(p_ctrl)
+    jsr fxu_set_ctrl
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_ctrl_on p_mask
+    lda #(p_mask)
+    jsr fxu_ctrl_on
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_ctrl_off p_mask
+    lda #(p_mask)
+    jsr fxu_ctrl_off
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_addr1_mode p_mode
+    lda #(p_mode)
+    jsr fxu_addr1_mode
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_write_on
+    jsr fxu_cache_write_on
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_write_off
+    jsr fxu_cache_write_off
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_fill_on
+    jsr fxu_cache_fill_on
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_fill_off
+    jsr fxu_cache_fill_off
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_cycle_on
+    jsr fxu_cache_cycle_on
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_cycle_off
+    jsr fxu_cache_cycle_off
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_transparent_on
+    jsr fxu_transparent_on
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_transparent_off
+    jsr fxu_transparent_off
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_4bit_on
+    jsr fxu_4bit_on
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_4bit_off
+    jsr fxu_4bit_off
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_hop_on
+    jsr fxu_hop_on
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_hop_off
+    jsr fxu_hop_off
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_set_mult p_mult
+    lda #(p_mult)
+    jsr fxu_set_mult
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_set_cache p_b0, p_b1, p_b2, p_b3
+    lda #(p_b0)
+    sta X16_P0
+    lda #(p_b1)
+    sta X16_P1
+    lda #(p_b2)
+    sta X16_P2
+    lda #(p_b3)
+    sta X16_P3
+    jsr fxu_set_cache
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_reset_accum
+    jsr fxu_reset_accum
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_accumulate
+    jsr fxu_accumulate
+.endmacro
+.endif
+; -> A = DATA0 read
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_fill0
+    jsr fxu_cache_fill0
+.endmacro
+.endif
+; -> A = DATA1 read
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_fill1
+    jsr fxu_cache_fill1
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_write0 p_mask
+    lda #(p_mask)
+    jsr fxu_cache_write0
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_cache_write1 p_mask
+    lda #(p_mask)
+    jsr fxu_cache_write1
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_set_incr p_xinc, p_yinc
+    lda #<(p_xinc)
+    sta X16_P0
+    lda #>(p_xinc)
+    sta X16_P1
+    lda #<(p_yinc)
+    sta X16_P2
+    lda #>(p_yinc)
+    sta X16_P3
+    jsr fxu_set_incr
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_set_pos p_xpos, p_ypos
+    lda #<(p_xpos)
+    sta X16_P0
+    lda #>(p_xpos)
+    sta X16_P1
+    lda #<(p_ypos)
+    sta X16_P2
+    lda #>(p_ypos)
+    sta X16_P3
+    jsr fxu_set_pos
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_set_subpos p_xsub, p_ysub
+    lda #(p_xsub)
+    ldx #(p_ysub)
+    jsr fxu_set_subpos
+.endmacro
+.endif
+; -> A = poly fill low, X = high
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_get_poly_fill
+    jsr fxu_get_poly_fill
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_set_tilebase p_value
+    lda #(p_value)
+    jsr fxu_set_tilebase
+.endmacro
+.endif
+.ifdef X16_USE_VERAFX_UTILS
+.macro xm_fxu_set_mapbase p_value
+    lda #(p_value)
+    jsr fxu_set_mapbase
+.endmacro
+.endif
+
+; =====================================================================
 ; system/irq
 ; =====================================================================
 .ifdef X16_USE_IRQ
@@ -1208,6 +2767,506 @@
 .endif
 
 ; =====================================================================
+; audio/rom  (full BANK_AUDIO API)
+; =====================================================================
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_audio_init
+    jsr ar_audio_init
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_playstring_voice p_voice
+    lda #(p_voice)
+    jsr ar_playstring_voice
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_fmplaystring p_str, p_len
+    lda #(p_len)
+    ldx #<(p_str)
+    ldy #>(p_str)
+    jsr ar_fmplaystring
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_fmchordstring p_str, p_len
+    lda #(p_len)
+    ldx #<(p_str)
+    ldy #>(p_str)
+    jsr ar_fmchordstring
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psgplaystring p_str, p_len
+    lda #(p_len)
+    ldx #<(p_str)
+    ldy #>(p_str)
+    jsr ar_psgplaystring
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psgchordstring p_str, p_len
+    lda #(p_len)
+    ldx #<(p_str)
+    ldy #>(p_str)
+    jsr ar_psgchordstring
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_fmfreq p_channel, p_hz
+    lda #(p_channel)
+    ldx #<(p_hz)
+    ldy #>(p_hz)
+    clc
+    jsr ar_fmfreq
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_fmfreq_no_retrigger p_channel, p_hz
+    lda #(p_channel)
+    ldx #<(p_hz)
+    ldy #>(p_hz)
+    sec
+    jsr ar_fmfreq
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_fmnote p_channel, p_note, p_kf
+    lda #(p_channel)
+    ldx #(p_note)
+    ldy #(p_kf)
+    clc
+    jsr ar_fmnote
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_fmnote_no_retrigger p_channel, p_note, p_kf
+    lda #(p_channel)
+    ldx #(p_note)
+    ldy #(p_kf)
+    sec
+    jsr ar_fmnote
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_fmvib p_speed, p_depth
+    lda #(p_speed)
+    ldx #(p_depth)
+    jsr ar_fmvib
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psgfreq p_voice, p_hz
+    lda #(p_voice)
+    ldx #<(p_hz)
+    ldy #>(p_hz)
+    jsr ar_psgfreq
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psgnote p_voice, p_note, p_kf
+    lda #(p_voice)
+    ldx #(p_note)
+    ldy #(p_kf)
+    jsr ar_psgnote
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psgwav p_voice, p_wave
+    lda #(p_voice)
+    ldx #(p_wave)
+    jsr ar_psgwav
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_bas2fm p_note
+    ldx #(p_note)
+    jsr ar_note_bas2fm
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_bas2midi p_note
+    ldx #(p_note)
+    jsr ar_note_bas2midi
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_bas2psg p_note, p_kf
+    ldx #(p_note)
+    ldy #(p_kf)
+    jsr ar_note_bas2psg
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_fm2bas p_kc
+    ldx #(p_kc)
+    jsr ar_note_fm2bas
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_fm2midi p_kc
+    ldx #(p_kc)
+    jsr ar_note_fm2midi
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_fm2psg p_kc, p_kf
+    ldx #(p_kc)
+    ldy #(p_kf)
+    jsr ar_note_fm2psg
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_freq2bas p_hz
+    ldx #<(p_hz)
+    ldy #>(p_hz)
+    jsr ar_note_freq2bas
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_freq2fm p_hz
+    ldx #<(p_hz)
+    ldy #>(p_hz)
+    jsr ar_note_freq2fm
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_freq2midi p_hz
+    ldx #<(p_hz)
+    ldy #>(p_hz)
+    jsr ar_note_freq2midi
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_freq2psg p_hz
+    ldx #<(p_hz)
+    ldy #>(p_hz)
+    jsr ar_note_freq2psg
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_midi2bas p_note
+    lda #(p_note)
+    jsr ar_note_midi2bas
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_midi2fm p_note
+    ldx #(p_note)
+    jsr ar_note_midi2fm
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_midi2psg p_note, p_kf
+    ldx #(p_note)
+    ldy #(p_kf)
+    jsr ar_note_midi2psg
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_psg2bas p_freq
+    ldx #<(p_freq)
+    ldy #>(p_freq)
+    jsr ar_note_psg2bas
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_psg2fm p_freq
+    ldx #<(p_freq)
+    ldy #>(p_freq)
+    jsr ar_note_psg2fm
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_note_psg2midi p_freq
+    ldx #<(p_freq)
+    ldy #>(p_freq)
+    jsr ar_note_psg2midi
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_init
+    jsr ar_psg_init
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_playfreq p_voice, p_freq
+    lda #(p_voice)
+    ldx #<(p_freq)
+    ldy #>(p_freq)
+    jsr ar_psg_playfreq
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_read_raw p_reg
+    ldx #(p_reg)
+    clc
+    jsr ar_psg_read
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_read_cooked p_reg
+    ldx #(p_reg)
+    sec
+    jsr ar_psg_read
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_setatten p_voice, p_atten
+    lda #(p_voice)
+    ldx #(p_atten)
+    jsr ar_psg_setatten
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_setfreq p_voice, p_freq
+    lda #(p_voice)
+    ldx #<(p_freq)
+    ldy #>(p_freq)
+    jsr ar_psg_setfreq
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_setpan p_voice, p_pan
+    lda #(p_voice)
+    ldx #(p_pan)
+    jsr ar_psg_setpan
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_setvol p_voice, p_vol
+    lda #(p_voice)
+    ldx #(p_vol)
+    jsr ar_psg_setvol
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_write p_reg, p_value
+    lda #(p_value)
+    ldx #(p_reg)
+    jsr ar_psg_write
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_write_fast p_reg, p_value
+    lda #(p_value)
+    ldx #(p_reg)
+    jsr ar_psg_write_fast
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_getatten p_voice
+    lda #(p_voice)
+    jsr ar_psg_getatten
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_psg_getpan p_voice
+    lda #(p_voice)
+    jsr ar_psg_getpan
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_init
+    jsr ar_ym_init
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_loaddefpatches
+    jsr ar_ym_loaddefpatches
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_loadpatch_rom p_channel, p_patch
+    lda #(p_channel)
+    ldx #(p_patch)
+    sec
+    jsr ar_ym_loadpatch
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_loadpatchlfn p_channel, p_lfn
+    lda #(p_channel)
+    ldx #(p_lfn)
+    jsr ar_ym_loadpatchlfn
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_playdrum p_channel, p_note
+    lda #(p_channel)
+    ldx #(p_note)
+    jsr ar_ym_playdrum
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_playnote p_channel, p_kc, p_kf
+    lda #(p_channel)
+    ldx #(p_kc)
+    ldy #(p_kf)
+    clc
+    jsr ar_ym_playnote
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_setatten p_channel, p_atten
+    lda #(p_channel)
+    ldx #(p_atten)
+    jsr ar_ym_setatten
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_setdrum p_channel, p_note
+    lda #(p_channel)
+    ldx #(p_note)
+    jsr ar_ym_setdrum
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_setnote p_channel, p_kc, p_kf
+    lda #(p_channel)
+    ldx #(p_kc)
+    ldy #(p_kf)
+    jsr ar_ym_setnote
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_setpan p_channel, p_pan
+    lda #(p_channel)
+    ldx #(p_pan)
+    jsr ar_ym_setpan
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_read_raw p_reg
+    ldx #(p_reg)
+    clc
+    jsr ar_ym_read
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_read_cooked p_reg
+    ldx #(p_reg)
+    sec
+    jsr ar_ym_read
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_release p_channel
+    lda #(p_channel)
+    jsr ar_ym_release
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_trigger p_channel
+    lda #(p_channel)
+    clc
+    jsr ar_ym_trigger
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_trigger_no_retrigger p_channel
+    lda #(p_channel)
+    sec
+    jsr ar_ym_trigger
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_write p_reg, p_value
+    lda #(p_value)
+    ldx #(p_reg)
+    jsr ar_ym_write
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_getatten p_channel
+    lda #(p_channel)
+    jsr ar_ym_getatten
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_getpan p_channel
+    lda #(p_channel)
+    jsr ar_ym_getpan
+.endmacro
+.endif
+.ifdef X16_USE_AUDIO_ROM
+.macro xm_ar_ym_get_chip_type
+    jsr ar_ym_get_chip_type
+.endmacro
+.endif
+
+; =====================================================================
+; audio/zsm  (compact ZSM stream player)
+; =====================================================================
+.ifdef X16_USE_ZSM
+.macro xm_zsm_init p_header
+    lda #<(p_header)
+    sta r0L
+    lda #>(p_header)
+    sta r0H
+    jsr zsm_init
+.endmacro
+.endif
+.ifdef X16_USE_ZSM
+.macro xm_zsm_init_stream p_stream, p_loop
+    lda #<(p_stream)
+    sta r0L
+    lda #>(p_stream)
+    sta r0H
+    lda #<(p_loop)
+    sta r1L
+    lda #>(p_loop)
+    sta r1H
+    jsr zsm_init_stream
+.endmacro
+.endif
+.ifdef X16_USE_ZSM
+.macro xm_zsm_play
+    jsr zsm_play
+.endmacro
+.endif
+.ifdef X16_USE_ZSM
+.macro xm_zsm_stop
+    jsr zsm_stop
+.endmacro
+.endif
+.ifdef X16_USE_ZSM
+.macro xm_zsm_rewind
+    jsr zsm_rewind
+.endmacro
+.endif
+; -> A = low byte, X = high byte
+.ifdef X16_USE_ZSM
+.macro xm_zsm_get_tickrate
+    jsr zsm_get_tickrate
+.endmacro
+.endif
+; -> A = ZSM_FLAG_* bits, carry set if active
+.ifdef X16_USE_ZSM
+.macro xm_zsm_status
+    jsr zsm_status
+.endmacro
+.endif
+; -> A = ZSM_FLAG_* bits, carry set if active
+.ifdef X16_USE_ZSM
+.macro xm_zsm_tick
+    jsr zsm_tick
+.endmacro
+.endif
+; -> carry set if a supported PCM table is present
+.ifdef X16_USE_ZSM_PCM
+.macro xm_zsm_pcm_present
+    jsr zsm_pcm_present
+.endmacro
+.endif
+.ifdef X16_USE_ZSM_PCM
+.macro xm_zsm_pcm_trigger p_instrument
+    lda #(p_instrument)
+    jsr zsm_pcm_trigger
+.endmacro
+.endif
+
+; =====================================================================
 ; audio/pcm
 ; =====================================================================
 .ifdef X16_USE_PCM
@@ -1296,6 +3355,93 @@
     lda #>(p_count)
     sta X16_P5
     jsr adpcm_block
+.endmacro
+.endif
+
+; =====================================================================
+; input/mouse
+; =====================================================================
+.ifdef X16_USE_MOUSE
+.macro xm_mse_config p_cursor, p_width8, p_height8
+    lda #(p_cursor)
+    ldx #(p_width8)
+    ldy #(p_height8)
+    jsr mse_config
+.endmacro
+.endif
+.ifdef X16_USE_MOUSE
+.macro xm_mse_scan
+    jsr mse_scan
+.endmacro
+.endif
+; -> P0/1 = x, P2/3 = y, A = buttons, X = wheel delta
+.ifdef X16_USE_MOUSE
+.macro xm_mse_get
+    jsr mse_get
+.endmacro
+.endif
+; -> sugar_zp/sugar_zp+1 = x, sugar_zp+2/sugar_zp+3 = y, A = buttons, X = wheel delta
+.ifdef X16_USE_MOUSE
+.macro xm_mse_get_to p_zp
+    ldx #(p_zp)
+    jsr mse_get_to
+.endmacro
+.endif
+.ifdef X16_USE_MOUSE
+.macro xm_mse_show p_cursor
+    lda #(p_cursor)
+    jsr mse_show
+.endmacro
+.endif
+.ifdef X16_USE_MOUSE
+.macro xm_mse_show_keep
+    jsr mse_show_keep
+.endmacro
+.endif
+.ifdef X16_USE_MOUSE
+.macro xm_mse_hide
+    jsr mse_hide
+.endmacro
+.endif
+
+; =====================================================================
+; input/keyboard
+; =====================================================================
+.ifdef X16_USE_KEYBOARD
+.macro xm_kbd_scan
+    jsr kbd_scan
+.endmacro
+.endif
+; -> A = next PETSCII key, X = queued key count, Z set when empty
+.ifdef X16_USE_KEYBOARD
+.macro xm_kbd_peek
+    jsr kbd_peek
+.endmacro
+.endif
+.ifdef X16_USE_KEYBOARD
+.macro xm_kbd_put p_key
+    lda #(p_key)
+    jsr kbd_put
+.endmacro
+.endif
+; -> A = KBD_MOD_* bitfield
+.ifdef X16_USE_KEYBOARD
+.macro xm_kbd_get_modifiers
+    jsr kbd_get_modifiers
+.endmacro
+.endif
+; -> A = layout index, X/Y = current NUL-terminated layout string
+.ifdef X16_USE_KEYBOARD
+.macro xm_kbd_get_keymap
+    jsr kbd_get_keymap
+.endmacro
+.endif
+; -> carry clear on success, carry set on unknown layout
+.ifdef X16_USE_KEYBOARD
+.macro xm_kbd_set_keymap p_name
+    ldx #<(p_name)
+    ldy #>(p_name)
+    jsr kbd_set_keymap
 .endmacro
 .endif
 
@@ -1490,6 +3636,248 @@
     lda #>(p_dst)
     sta X16_P3
     jsr mem_decompress
+.endmacro
+.endif
+
+; =====================================================================
+; storage/iec
+; =====================================================================
+.ifdef X16_USE_IEC
+.macro xm_iec_listen p_device
+    lda #(p_device)
+    jsr iec_listen
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_talk p_device
+    lda #(p_device)
+    jsr iec_talk
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_second p_command
+    lda #(p_command)
+    jsr iec_second
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_tksa p_command
+    lda #(p_command)
+    jsr iec_tksa
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_ciout p_byte
+    lda #(p_byte)
+    jsr iec_ciout
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_acptr
+    jsr iec_acptr
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_unlisten
+    jsr iec_unlisten
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_untalk
+    jsr iec_untalk
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_set_timeout p_control
+    lda #(p_control)
+    jsr iec_set_timeout
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_readst
+    jsr iec_readst
+.endmacro
+.endif
+; -> X/Y = bytes read, carry set when unsupported/error
+.ifdef X16_USE_IEC
+.macro xm_iec_macptr p_dest, p_count
+    lda #(p_count)
+    ldx #<(p_dest)
+    ldy #>(p_dest)
+    jsr iec_macptr
+.endmacro
+.endif
+; -> X/Y = bytes written, carry set when unsupported/error
+.ifdef X16_USE_IEC
+.macro xm_iec_mciout p_src, p_count
+    lda #(p_count)
+    ldx #<(p_src)
+    ldy #>(p_src)
+    jsr iec_mciout
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_open_channel p_device, p_secondary
+    lda #(p_device)
+    ldy #(p_secondary)
+    jsr iec_open_channel
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_data_channel p_device, p_secondary
+    lda #(p_device)
+    ldy #(p_secondary)
+    jsr iec_data_channel
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_talk_channel p_device, p_secondary
+    lda #(p_device)
+    ldy #(p_secondary)
+    jsr iec_talk_channel
+.endmacro
+.endif
+.ifdef X16_USE_IEC
+.macro xm_iec_close_channel p_device, p_secondary
+    lda #(p_device)
+    ldy #(p_secondary)
+    jsr iec_close_channel
+.endmacro
+.endif
+
+; =====================================================================
+; storage/fileio
+; =====================================================================
+.ifdef X16_USE_FILEIO
+.macro xm_fio_set_lfs p_logical, p_device, p_secondary
+    lda #(p_logical)
+    ldx #(p_device)
+    ldy #(p_secondary)
+    jsr fio_set_lfs
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_set_name p_name, p_len
+    lda #(p_len)
+    ldx #<(p_name)
+    ldy #>(p_name)
+    jsr fio_set_name
+.endmacro
+.endif
+; -> carry set = KERNAL open error
+.ifdef X16_USE_FILEIO
+.macro xm_fio_open_named p_name, p_len, p_logical, p_device, p_secondary
+    lda #<(p_name)
+    sta X16_P0
+    lda #>(p_name)
+    sta X16_P1
+    lda #(p_len)
+    sta X16_P2
+    lda #(p_logical)
+    sta X16_P3
+    lda #(p_device)
+    sta X16_P4
+    lda #(p_secondary)
+    sta X16_P5
+    jsr fio_open_named
+.endmacro
+.endif
+; -> carry set = OPEN or CHKIN error
+.ifdef X16_USE_FILEIO
+.macro xm_fio_open_read p_name, p_len, p_logical, p_device, p_secondary
+    lda #<(p_name)
+    sta X16_P0
+    lda #>(p_name)
+    sta X16_P1
+    lda #(p_len)
+    sta X16_P2
+    lda #(p_logical)
+    sta X16_P3
+    lda #(p_device)
+    sta X16_P4
+    lda #(p_secondary)
+    sta X16_P5
+    jsr fio_open_read
+.endmacro
+.endif
+; -> carry set = OPEN or CHKOUT error
+.ifdef X16_USE_FILEIO
+.macro xm_fio_open_write p_name, p_len, p_logical, p_device, p_secondary
+    lda #<(p_name)
+    sta X16_P0
+    lda #>(p_name)
+    sta X16_P1
+    lda #(p_len)
+    sta X16_P2
+    lda #(p_logical)
+    sta X16_P3
+    lda #(p_device)
+    sta X16_P4
+    lda #(p_secondary)
+    sta X16_P5
+    jsr fio_open_write
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_close p_logical
+    lda #(p_logical)
+    jsr fio_close
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_close_named p_logical
+    lda #(p_logical)
+    sta X16_P3
+    jsr fio_close_named
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_chkin p_logical
+    ldx #(p_logical)
+    jsr fio_chkin
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_chkout p_logical
+    ldx #(p_logical)
+    jsr fio_chkout
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_clrchn
+    jsr fio_clrchn
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_chrin
+    jsr fio_chrin
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_chrout p_byte
+    lda #(p_byte)
+    jsr fio_chrout
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_readst
+    jsr fio_readst
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_getin
+    jsr fio_getin
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_close_all
+    jsr fio_close_all
+.endmacro
+.endif
+.ifdef X16_USE_FILEIO
+.macro xm_fio_close_device p_device
+    lda #(p_device)
+    jsr fio_close_device
 .endmacro
 .endif
 
@@ -2150,6 +4538,248 @@
     lda #>(p_dst)
     sta X16_P3
     jsr tsc_decompress
+.endmacro
+.endif
+
+; =====================================================================
+; system/clock
+; =====================================================================
+; -> A/X/Y = 24-bit 60 Hz timer, low to high
+.ifdef X16_USE_CLOCK
+.macro xm_clock_get_timer
+    jsr clock_get_timer
+.endmacro
+.endif
+.ifdef X16_USE_CLOCK
+.macro xm_clock_set_timer p_ticks
+    lda #<(p_ticks)
+    ldx #>((p_ticks) >> 8)
+    ldy #>((p_ticks) >> 16)
+    jsr clock_set_timer
+.endmacro
+.endif
+.ifdef X16_USE_CLOCK
+.macro xm_clock_update
+    jsr clock_update
+.endmacro
+.endif
+; -> r0..r3 = year/month/day/hour/min/sec/jiffy/weekday
+.ifdef X16_USE_CLOCK
+.macro xm_clock_get_date_time
+    jsr clock_get_date_time
+.endmacro
+.endif
+; sugar_year1900 is the KERNAL byte value: full year minus 1900.
+.ifdef X16_USE_CLOCK
+.macro xm_clock_set_date_time_raw p_year1900, p_month, p_day, p_hours, p_minutes, p_seconds, p_jiffies, p_weekday
+    lda #<(p_year1900)
+    sta r0L
+    lda #<(p_month)
+    sta r0H
+    lda #<(p_day)
+    sta r1L
+    lda #<(p_hours)
+    sta r1H
+    lda #<(p_minutes)
+    sta r2L
+    lda #<(p_seconds)
+    sta r2H
+    lda #<(p_jiffies)
+    sta r3L
+    lda #<(p_weekday)
+    sta r3H
+    jsr clock_set_date_time
+.endmacro
+.endif
+; Friendly form: sugar_year is the full year, e.g. 2026; jiffies are set to 0.
+.ifdef X16_USE_CLOCK
+.macro xm_clock_set_date_time p_year, p_month, p_day, p_hours, p_minutes, p_seconds, p_weekday
+    lda #<((p_year) - 1900)
+    sta r0L
+    lda #<(p_month)
+    sta r0H
+    lda #<(p_day)
+    sta r1L
+    lda #<(p_hours)
+    sta r1H
+    lda #<(p_minutes)
+    sta r2L
+    lda #<(p_seconds)
+    sta r2H
+    stz r3L
+    lda #<(p_weekday)
+    sta r3H
+    jsr clock_set_date_time
+.endmacro
+.endif
+
+; =====================================================================
+; comms/i2c
+; =====================================================================
+; -> A = value, carry set on NAK/error
+.ifdef X16_USE_I2C
+.macro xm_i2c_read_byte p_device, p_offset
+    ldx #(p_device)
+    ldy #(p_offset)
+    jsr i2c_read_byte
+.endmacro
+.endif
+; -> carry set on NAK/error
+.ifdef X16_USE_I2C
+.macro xm_i2c_write_byte p_value, p_device, p_offset
+    lda #(p_value)
+    ldx #(p_device)
+    ldy #(p_offset)
+    jsr i2c_write_byte
+.endmacro
+.endif
+; -> carry set on NAK/error
+.ifdef X16_USE_I2C
+.macro xm_i2c_batch_read p_device, p_buffer, p_count
+    lda #<(p_buffer)
+    sta r0
+    lda #>(p_buffer)
+    sta r0+1
+    lda #<(p_count)
+    sta r1
+    lda #>(p_count)
+    sta r1+1
+    ldx #(p_device)
+    clc
+    jsr i2c_batch_read
+.endmacro
+.endif
+; -> carry set on NAK/error; reads repeatedly into the same address
+.ifdef X16_USE_I2C
+.macro xm_i2c_batch_read_fixed p_device, p_buffer, p_count
+    lda #<(p_buffer)
+    sta r0
+    lda #>(p_buffer)
+    sta r0+1
+    lda #<(p_count)
+    sta r1
+    lda #>(p_count)
+    sta r1+1
+    ldx #(p_device)
+    sec
+    jsr i2c_batch_read
+.endmacro
+.endif
+; -> r2 = bytes written, carry set on NAK/error
+.ifdef X16_USE_I2C
+.macro xm_i2c_batch_write p_device, p_buffer, p_count
+    lda #<(p_buffer)
+    sta r0
+    lda #>(p_buffer)
+    sta r0+1
+    lda #<(p_count)
+    sta r1
+    lda #>(p_count)
+    sta r1+1
+    ldx #(p_device)
+    jsr i2c_batch_write
+.endmacro
+.endif
+
+; =====================================================================
+; comms/spi  (VERA SPI controller)
+; =====================================================================
+; -> A = VERA_SPI_* control/status bits
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_get_ctrl
+    jsr spi_get_ctrl
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_set_ctrl p_ctrl
+    lda #(p_ctrl)
+    jsr spi_set_ctrl
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_select
+    jsr spi_select
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_deselect
+    jsr spi_deselect
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_slow
+    jsr spi_slow
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_fast
+    jsr spi_fast
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_autotx_on
+    jsr spi_autotx_on
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_autotx_off
+    jsr spi_autotx_off
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_wait
+    jsr spi_wait
+.endmacro
+.endif
+; -> A = received byte
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_transfer p_byte
+    lda #(p_byte)
+    jsr spi_transfer
+.endmacro
+.endif
+; -> A = received byte
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_read
+    jsr spi_read
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_write p_byte
+    lda #(p_byte)
+    jsr spi_write
+.endmacro
+.endif
+; -> A = received byte; starts the next Auto-TX transfer
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_autotx_read
+    jsr spi_autotx_read
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_read_bytes p_buffer, p_count
+    lda #<(p_buffer)
+    sta r0L
+    lda #>(p_buffer)
+    sta r0H
+    lda #<(p_count)
+    sta r1L
+    lda #>(p_count)
+    sta r1H
+    jsr spi_read_bytes
+.endmacro
+.endif
+.ifdef X16_USE_VERA_SPI
+.macro xm_spi_write_bytes p_buffer, p_count
+    lda #<(p_buffer)
+    sta r0L
+    lda #>(p_buffer)
+    sta r0H
+    lda #<(p_count)
+    sta r1L
+    lda #>(p_count)
+    sta r1H
+    jsr spi_write_bytes
 .endmacro
 .endif
 

@@ -14,7 +14,7 @@
 ; next redraw, which is the app's business.
 ; =====================================================================
 
-; the live theme, defaults matching gfx2_init's own palette
+; the live theme, defaults matching gfx2h_init's own palette
 cx_theme
 th_pal    .byte $FF, $0F        ; 0: white -- the paper
           .byte $AA, $0A        ; 1: light gray -- the highlight

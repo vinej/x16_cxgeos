@@ -7,7 +7,7 @@
 ; identically -- the same test suite proves it.
 ;
 ;       .include "x16.asm"
-;       X16_USE_VERA = 1            ; pick modules (or X16_USE_ALL = 1)
+;       X16_USE_VERA = 1            ; pick modules or a section gate
 ;       ...your code...
 ;       .include "x16_code.asm"     ; library routines land here
 ;

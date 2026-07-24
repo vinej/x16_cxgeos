@@ -76,6 +76,7 @@ da_load
     jsr SETLFS
     lda RAM_BANK
     sta da_bnk
+    sei
     lda #CX_DA_BANK
     sta RAM_BANK
     lda #0                      ; load, not verify
@@ -92,18 +93,20 @@ da_load
     bpl @magic
     lda da_bnk
     sta RAM_BANK
+    cli
     clc
     rts
 @bad
     lda da_bnk
     sta RAM_BANK
+    cli
     sec
     rts
 
 da_table                        ; the swap: keys are the DA's; mouse
     .addr 0, 0, 0, 0, 0         ; rides the region; the rest, nobody's
     .addr da_vec
-    .addr 0, 0, 0
+    .addr 0, 0, 0, 0            ; TIMER/MENU/WIDGET/JOY ignored
 
 da_magic .byte "CXDA"
 da_t     .byte 0, 0

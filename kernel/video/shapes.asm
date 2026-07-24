@@ -17,7 +17,7 @@
 ; ONE dispatched slot: cx_gfx_shape -- X = kind, A = colour, geometry in
 ; the P block. shape_dispatch, a 65C02 `jmp (tbl,X)`, routes to the right
 ; routine, so the whole extra family costs just 6 resident bytes. The
-; SKIP_BASE guard lets x16lib's shapes.asm be .included twice -- the base
+; X16_SKIP_BASE guard lets x16lib's shapes.asm be .included twice -- the base
 ; (bank 17) and the extras (bank 19) -- without a duplicate symbol.
 ; =====================================================================
 
@@ -65,14 +65,14 @@ cx_do_gfx_shape
     .byte CX_SHPX_BANK
     .addr shape_dispatch
 
-; --- base shapes: bank 17 (SKIP_BASE off, no extras) ---
+; --- base shapes: bank 17 (X16_SKIP_BASE off, no extras) ---
 .segment "B17CODE"
 .include "gfx/shapes.asm"
 .segment "CODE"
 
 ; --- extra shapes + the sin/cos table + the dispatcher: bank 19 ---
 .segment "B19CODE"
-SKIP_BASE           = 1         ; the base shapes already live in bank 17
+X16_SKIP_BASE       = 1         ; the base shapes already live in bank 17
 X16_USE_SHP_LINE    = 1         ; arc/pie join their samples with shp_line
 X16_USE_SHAPES_POLY = 1
 X16_USE_SHAPES_ARC  = 1

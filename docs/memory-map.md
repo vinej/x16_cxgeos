@@ -1,6 +1,6 @@
 # CXRF memory map — the live ledger
 
-**Release 0.10.1** · budget figures from `tools/mapreport.py` on the v0.10.1 build
+**Release 0.11.0** · budget figures from `tools/mapreport.py` on the v0.11.0 build
 
 > **Shareable one-page reference:** [memory-map.html](memory-map.html) (open in a
 > browser) or [memory-map.pdf](memory-map.pdf). Both are generated from this file
@@ -31,7 +31,7 @@ file in the same commit as the code that claims or releases a region.
 | $8000–$800F | ABI header | magic `CXOS`, ABI version word, slot count, init vector, `cx_hdr_shell` ($800A) desktop-state byte and `CX_SHELL_SEL` ($800B) the desktop's restored-selection index (both survive app loads) |
 | $8010–$81A4 | jump table | 3-byte JMP slots, append-only, slot *n* at $8010+n·3 forever; 105 slots used ($8010–$814A), reserve caps at 135 (30 free) |
 | $81A5–$81A8 | build word | `CX_KBUILD` (`banks.inc`), the reserve's tail; stage-0 checks it against the banked files |
-| $81A9–$95FF | resident kernel | ~5.2 KB budget (5,207 B), ~194 B free at v0.10.1 (96% full — tight): event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard byte-mover (its orchestration is bank 18), port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
+| $81A9–$95FF | resident kernel | ~5.2 KB budget (5,207 B), ~327 B free at v0.11.0 (96% full — tight): event core + IRQ, font hot path, region routing, far-call trampoline, loader, clipboard byte-mover (its orchestration is bank 18), port manager. `kernel.cfg` (ld65) fails on overflow; `mapreport.py` fails under 128 B free |
 | $9600–$9EFF | graphics port (OVL) | 2,304-byte window; the current engine image, copied from its bank by `cx_gfx_mode` — or the tile-text dialog port (`OV3T`) swapped in by `cx_tile_text` ([graphics-port.md](graphics-port.md)) |
 
 ## Banked RAM ($A000–$BFFF window, bank register at $00) — the budget ledger
@@ -40,7 +40,7 @@ file in the same commit as the code that claims or releases a region.
 (banks 2–5, one KERNAL LOAD) and `CXBANKS2.BIN` (banks 16–19, a second
 LOAD), each 32 KB. Data banks sit between them, apps above. `tools/mapreport.py`
 prints the *used*/*free* below from every kernel build's map — the byte figures
-here are the **v0.10.1** snapshot; run it for today's. Each code bank is 8,192 B.
+here are the **v0.11.0** snapshot; run it for today's. Each code bank is 8,192 B.
 
 | Bank(s) | Theme | Segment / owner | Used | Free (reserve) | Grows when you add… |
 |---|---|---|---|---|---|
@@ -54,7 +54,7 @@ here are the **v0.10.1** snapshot; run it for today's. Each code bank is 8,192 B
 | 9 | desk accessory | the open `.CXD` (`cx_da_open` loads it at $A000) | — | — | data, not kernel code |
 | 10–13 | clipboard | typed text / bitmap-rect, up to 32 KB | — | — | data |
 | 14–15 | save-under | dialog save-unders / DA saved state | — | — | data |
-| 16 | **widgets** | `B16CODE`: the whole toolkit (code + `wg_*` state) + `wg_paint_t`; includes the icon, `WG_HIT`, and the list's right-aligned size column (v0.10.1) | 4,810 B | 3,382 B | **a new widget** — and nowhere else |
+| 16 | **widgets** | `B16CODE`: the whole toolkit (code + `wg_*` state) + `wg_paint_t`; includes the icon, `WG_HIT`, and the list's right-aligned size column (v0.10.1) | 4,959 B | 3,233 B | **a new widget** — and nowhere else |
 | 17 | **graphics extras** | `B17CODE`: base shapes (circle/disc/ellipse/flood) + tile machinery + dirty rects + the icon sheet + the palette API | 6,286 B | 1,906 B (76% full — the tightest code bank) | **a new base shape** |
 | 18 | **fs / system / audio / sprites** | `B18CODE`: dir walk + `cx_file_load` + `cx_vload`/`cx_bload` + DOS channel + the font cold half (magic/header/cache builder) + `f_magic`; PSG + YM audio (with the carry shims) + hardware sprites (0.8.0); and (0.9.0) the clipboard put/get/type orchestration (its byte-mover stays resident) | 2,256 B | 5,936 B | an fs/DOS feature; cold system code; audio/sprites |
 | 19 | **extra shapes** | `B19CODE` (0.8.0): the dispatched `cx_gfx_shape` family — polygon / fpolygon / arc / pie + the sin/cos table they need | 4,818 B | 3,374 B | **a new extra shape** |
@@ -71,7 +71,7 @@ pre-1.0 contract change); on 512 KB there are 44 app banks, on 2 MB, 236.
 
 The banks are themed so a new feature touches exactly one, and most keep
 several KB of reserve so a feature does not reshuffle anything (the
-exception at v0.10.1 is bank 17 — the graphics-extras bank — down to
+exception at v0.11.0 is bank 17 — the graphics-extras bank — down to
 ~1.9 KB; a big new base shape is the one addition that may need it moved):
 
 - **A new widget** → bank 16, beside the toolkit (its state goes there too).
@@ -84,7 +84,7 @@ exception at v0.10.1 is bank 17 — the graphics-extras bank — down to
 - **A new overlay engine image** → bank 3, 4 or 5 storage (they hold ~6 KB
   free each); the image *runs* in the OVL window, which is the tighter
   limit (2,304 B — the largest image, mode-0's `OV0CODE`, is 2,004 at
-  v0.10.1, ~300 B of headroom).
+  v0.11.0, ~300 B of headroom).
 - **Resident code** (IRQ / event / hot-path only) → the resident image,
   which keeps ~130 B free; `mapreport.py` fails the build under 128 B.
 - **A new ABI slot** → the jump table has 30 free slots (cap 135); see

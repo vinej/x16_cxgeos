@@ -139,14 +139,14 @@ ring_size
     rts
 
 ; ---------------------------------------------------------------------
-; ring_free -- out: A = low, X = high  (bytes free = RING_CAP - fill)
+; ring_free -- out: A = low, X = high  (usable bytes free)
 ; ---------------------------------------------------------------------
 ring_free
     sec
-    lda #<RING_CAP
+    lda #<(RING_CAP-1)
     sbc ring_fill
     pha
-    lda #>RING_CAP
+    lda #>(RING_CAP-1)
     sbc ring_fill+1
     tax
     pla

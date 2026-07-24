@@ -38,9 +38,9 @@ cx_init
     jsr font_sys                ; the system font at CX_SYSFONT_BANK:$A000
     bcs @nofont
 
-    jsr gfx2_init
+    jsr gfx2h_init
     lda #0
-    jsr gfx2_clear
+    jsr gfx2h_clear
     clc
     rts
 @nofont
@@ -91,7 +91,7 @@ cx_do_version
 ; cx_do_mouse_show -- A = $FF for the arrow, or a cursor sprite number.
 ;
 ; Turns VERA sprite output ON before handing off to the KERNAL mouse
-; driver. The pointer is sprite 0, and our screen setup (gfx2_init)
+; driver. The pointer is sprite 0, and our screen setup (gfx2h_init)
 ; programs the bitmap layer but never enables the sprite plane -- so
 ; without this the KERNAL configures a pointer that cannot be seen.
 ; `tsb` is idempotent, so calling show twice costs nothing.
@@ -142,7 +142,7 @@ mouse_cfg
 
 cx_do_exit
     jsr ev_stop
-    jsr mouse_hide
+    jsr cx_do_mouse_hide
     vera_addrsel 0
     lda #$80
     clc

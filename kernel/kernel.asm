@@ -35,25 +35,27 @@
 ; loader that will want LOAD does not exist yet, and font.asm writes
 ; RAM_BANK itself rather than going through BANK. Add them back when
 ; something calls them, not before.
-; NOT X16_USE_BITMAP2: the 2bpp engine no longer lives in the resident
+; NOT X16_USE_BITMAP2H: the 2bpp engine no longer lives in the resident
 ; image -- kernel/video/engine0.asm compiles it into the bank-3 overlay
 ; image behind the graphics port (kernel/video/ovl.inc). Its resident
 ; helpers stay gated in:
-; The fine gates (x16_library 0.6.1) take each module's core and leave out
-; the parts CXRF never calls: VERA_CORE drops vera_copy, IRQ_CORE drops
-; vsync_wait, INPUT_CORE drops key_wait/key_peek, SCREEN_CORE drops
-; get_mode/border/get_cursor/charset/puts. IRQ_SPRCOL is the collision
-; CAPTURE (the handler accumulate + irq_sprcol_mask) that cx_spr_collide
-; reads -- CXRF enables VERA_IEN and polls the mask itself, so it skips
-; the IRQ_SPRCOL_API (install/remove/sprite_collisions/callback).
-X16_USE_VERA_CORE   = 1         ; vera_fill (engine clears), not vera_copy
+; The per-module gates (x16lib v0.11.1) take only what CXRF calls.
+; VERA_FILL is vera_fill alone -- the engine clears -- and leaves out the
+; address setters (VERA_ADDR), the FX probe (VERA_FXPROBE) and vera_copy
+; (VERA_COPY), none of which the resident touches. INPUT stays off because
+; the handful of KERNAL input calls are inlined, and SCREEN stays off
+; because the KERNAL console shims now live in the overlay code that uses
+; them. IRQ_CORE is the install + scanline hook + frame counter (ev_init
+; passes scanline 0 in P0/P1); it no longer pulls irq_remove (IRQ_REMOVE),
+; because the event hook is permanent, and VSYNC is left off. IRQ_SPRCOL is
+; the collision CAPTURE (handler accumulate + irq_sprcol_mask) that
+; cx_spr_collide reads -- CXRF enables VERA_IEN and polls the mask itself,
+; so it skips the IRQ_SPRCOL_API.
+X16_USE_VERA_FILL   = 1         ; vera_fill alone (engine clears)
 X16_USE_VERAFX_FILL = 1         ; fx_fill (engine rects)
 X16_USE_VERAFX_COPY = 1         ; menu save-under: fx_copy moves the rows
-X16_USE_IRQ_CORE    = 1         ; the event system's raster hook, no vsync
+X16_USE_IRQ_CORE    = 1         ; raster hook, no vsync, no irq_remove
 X16_USE_IRQ_SPRCOL  = 1         ; sprite-collision capture for cx_spr_collide
-X16_USE_INPUT_CORE  = 1         ; mouse/joystick/key_get, no key_wait/peek
-X16_USE_SCREEN_CORE = 1         ; mode 3 (text) draws through the KERNAL
-                                ; console; 8bpp gfx_init needs screen_set_mode
 
 .include "kernel/video/ovl.inc"
 

@@ -91,9 +91,9 @@ ov3_refuse
 ov3_init
     php
     sei
-    jsr screen_reset            ; CINT: default 80x60 text, layers and all
+    jsr t_reset                 ; CINT: default 80x60 text, layers and all
     lda #$0E                    ; the CHR$(14) control code: the editor
-    jsr screen_chrout           ; leaves ISO (the X16 default) for PETSCII
+    jsr t_chrout                ; leaves ISO (the X16 default) for PETSCII
                                 ; upper/lower -- flag AND charset, the
                                 ; exact switch BASIC uses
     lda #6                      ; CINT leaves white-on-blue: that is the
@@ -105,15 +105,19 @@ ov3_init
 ; t_fill -- A = colour: white ink on that paper, for the space fills
 ; (the paper is what shows). Remembers the paper for later ink drawing.
 t_fill
-    sta t_bg
-    tax
-    lda #1                      ; foreground = white
-    jmp screen_color
+    cmp #0                      ; th_paper is index 0, which is WHITE in the
+    bne @op                     ; mode-0 palette but BLACK as a raw KERNAL
+    lda #6                      ; colour -- so 0 means "the dialog paper",
+@op                             ; opaque blue, the same substitution the
+    sta t_bg                    ; mode-2 tile port makes (t3t_setfill). Keeps
+    tax                         ; the widget background matching the dialog,
+    lda #1                      ; not a black hole on the blue screen.
+    jmp t_color
 
 ; t_ink -- A = colour: that ink on the current paper, for glyph drawing
 t_ink
     ldx t_bg
-    jmp screen_color
+    jmp t_color
 
 ; t_run -- print t_cnt copies of t_chr at the cursor; t_cnt = 0 prints none
 t_run
@@ -121,7 +125,7 @@ t_run
     beq @done
 @go
     lda t_chr
-    jsr screen_chrout
+    jsr t_chrout
     dec t_cnt
     bne @go
 @done
@@ -132,7 +136,7 @@ ov3_clear
     php
     sei
     jsr t_fill
-    jsr screen_cls
+    jsr t_cls
     plp
     clc
     rts
@@ -144,7 +148,7 @@ ov3_hline
     jsr t_ink
     ldx X16_P2                  ; row
     ldy X16_P0                  ; col
-    jsr screen_locate
+    jsr t_locate
     lda X16_P4                  ; len
     sta t_cnt
     lda #T_HB
@@ -176,9 +180,9 @@ t_col
 @row
     ldx t_row
     ldy X16_P0
-    jsr screen_locate
+    jsr t_locate
     lda t_chr
-    jsr screen_chrout
+    jsr t_chrout
     inc t_row
     dec t_h
     bne @row
@@ -199,7 +203,7 @@ ov3_rect
 @row
     ldx t_row
     ldy X16_P0
-    jsr screen_locate
+    jsr t_locate
     lda X16_P4                  ; w spaces
     sta t_cnt
     lda #' '
@@ -230,12 +234,12 @@ ov3_frame
 
     ldx X16_P2                  ; the top edge: corner, bars, corner
     ldy X16_P0
-    jsr screen_locate
+    jsr t_locate
     lda #T_TL
-    jsr screen_chrout
+    jsr t_chrout
     jsr t_bars                  ; w - 2 horizontal bars
     lda #T_TR
-    jsr screen_chrout
+    jsr t_chrout
 
     lda X16_P2                  ; the bottom edge: row + h - 1
     clc
@@ -244,12 +248,12 @@ ov3_frame
     sbc #1
     tax
     ldy X16_P0
-    jsr screen_locate
+    jsr t_locate
     lda #T_BL
-    jsr screen_chrout
+    jsr t_chrout
     jsr t_bars
     lda #T_BR
-    jsr screen_chrout
+    jsr t_chrout
 
     lda X16_P6                  ; the sides: rows row+1 .. row+h-2
     sec
@@ -262,9 +266,9 @@ ov3_frame
 @side
     ldx t_row
     ldy X16_P0
-    jsr screen_locate
+    jsr t_locate
     lda #T_VB
-    jsr screen_chrout
+    jsr t_chrout
     ldx t_row
     lda X16_P0                  ; col + w - 1
     clc
@@ -272,9 +276,9 @@ ov3_frame
     sec
     sbc #1
     tay
-    jsr screen_locate
+    jsr t_locate
     lda #T_VB
-    jsr screen_chrout
+    jsr t_chrout
     inc t_row
     dec t_h
     bne @side
@@ -296,7 +300,7 @@ ov3_frame
 @thin_h                         ; h <= 1 (w >= 2): one ruled row
     ldx X16_P2
     ldy X16_P0
-    jsr screen_locate
+    jsr t_locate
     lda X16_P4
     sta t_cnt
     lda #T_HB
@@ -352,7 +356,7 @@ ov3_line
     jsr t_ink
     ldx X16_P2
     ldy X16_P0
-    jsr screen_locate
+    jsr t_locate
     lda X16_P4
     sta t_cnt
     lda #T_HB
@@ -400,7 +404,7 @@ ov3_say
     jsr t_ink
     ldx X16_P2                  ; row
     ldy X16_P0                  ; col
-    jsr screen_locate
+    jsr t_locate
     lda t_sl                    ; NOW the zp walker screen_puts used: only
     sta X16_TPTR0               ; screen_chrout runs from here on, and the
     lda t_sh                    ; KERNAL does not know the library's zp
@@ -429,7 +433,7 @@ ov3_say
     ora #$80                    ; ASCII A-Z -> PETSCII $C1-$DA
 @out
     phy
-    jsr screen_chrout
+    jsr t_chrout
     ply
     iny
     bne @ch
@@ -477,6 +481,11 @@ ov3_rsave
 ov3_rrest
     ldx #1                      ; RAM -> VRAM
 ov3_sr
+    lda X16_P2
+    bne @rows
+    clc
+    rts
+@rows
     php
     sei
     stx t_dir
@@ -544,6 +553,38 @@ t_sh  .byte 0
 t_dir   .byte 0
 t_vm    .byte 0
 t_obank .byte 0
+
+t_reset
+    vera_addrsel 0
+    jmp CINT
+
+t_cls
+    vera_addrsel 0
+    lda #PETSCII_CLS
+    jmp CHROUT
+
+t_chrout
+    pha
+    vera_addrsel 0
+    pla
+    jmp CHROUT
+
+t_color
+    and #$0F
+    sta X16_T0
+    txa
+    and #$0F
+    asl
+    asl
+    asl
+    asl
+    ora X16_T0
+    sta KERNAL_COLOR
+    rts
+
+t_locate
+    clc
+    jmp PLOT
 
 .segment "CODE"
 

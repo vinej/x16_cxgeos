@@ -13,7 +13,7 @@
 .include "x16.asm"
 .include "kernel/resident/zp.inc"
 
-X16_USE_BITMAP2 = 1
+X16_USE_BITMAP2H = 1
 X16_USE_NUMBER  = 1
 
 STR_PTR  = $60                  ; app zero page
@@ -29,9 +29,9 @@ WORD_P   = $68
     basic_stub
 
 main
-    jsr gfx2_init
+    jsr gfx2h_init
     lda #0                      ; white paper
-    jsr gfx2_clear
+    jsr gfx2h_clear
 
     lda #<sp_banner
     ldx #>sp_banner

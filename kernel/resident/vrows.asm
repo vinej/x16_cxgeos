@@ -26,6 +26,12 @@ vrows_restore
     ldy #1
 vr_go
     sty vr_dir
+    tax
+    lda X16_P2
+    bne @rows
+    rts
+@rows
+    txa
     ldx RAM_BANK                ; the caller's bank comes back at the end
     phx
     sta RAM_BANK

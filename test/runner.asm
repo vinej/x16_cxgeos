@@ -18,7 +18,7 @@
 .include "kernel/resident/zp.inc"
 .include "kernel/resident/banks.inc"
 
-X16_USE_BITMAP2 = 1             ; pulls in VERA and VERAFX_FILL
+X16_USE_BITMAP2H = 1            ; pulls in VERA and VERAFX_FILL
 X16_USE_VERAFX_COPY = 1         ; the menu engine's save-under
 X16_USE_IRQ     = 1             ; the event system's raster hook
 X16_USE_INPUT   = 1             ; ...and its mouse and keyboard
@@ -44,9 +44,9 @@ FB_LAST  = 480 * FB_STRIDE - 1
 main
     jsr t_init
 
-    jsr test_gfx2_init
+    jsr test_gfx2h_init
     jsr test_fb_roundtrip
-    jsr test_gfx2_draws
+    jsr test_gfx2h_draws
 
     jsr test_dr_add
     jsr test_dr_merge
@@ -55,6 +55,7 @@ main
     jsr test_dr_full
 
     jsr test_font_set
+    jsr test_font_bad
     jsr test_font_cache
     jsr test_font_measure
     jsr test_font_draw
@@ -74,11 +75,13 @@ main
     jsr test_ev_mask
     jsr test_spr_collide
     jsr test_ev_borrow
+    jsr test_ev_modal_tables
 
     jsr test_abi_header
     jsr test_abi_table
     jsr test_abi_call
     jsr test_menu_active
+    jsr test_dlg_prompt_zero
 
     jsr test_rg_stack
     jsr test_rg_route
@@ -708,8 +711,8 @@ test_dr_full
 ; ---------------------------------------------------------------------
 ; GFX2_INIT -- the vendored module programs the CXRF screen mode
 ; ---------------------------------------------------------------------
-test_gfx2_init
-    jsr gfx2_init
+test_gfx2h_init
+    jsr gfx2h_init
     ldy #1                      ; presume failure
     lda VERA_L0_CONFIG
     cmp #(VERA_LAYER_BITMAP | VERA_LAYER_BPP_2)
@@ -781,9 +784,9 @@ test_fb_roundtrip
 ; GFX2_DRAWS -- clear + a rect land the right bytes where the OS
 ; expects them (library correctness is runner2's job upstream)
 ; ---------------------------------------------------------------------
-test_gfx2_draws
+test_gfx2h_draws
     lda #0
-    jsr gfx2_clear              ; colour 0 -> byte $00 everywhere
+    jsr gfx2h_clear              ; colour 0 -> byte $00 everywhere
 
     lda #4                      ; x=4 y=200 w=8 h=1, colour 3
     sta X16_P0
@@ -798,7 +801,7 @@ test_gfx2_draws
     sta X16_P6
     stz X16_P7
     lda #3
-    jsr gfx2_rect
+    jsr gfx2h_rect
 
     vera_addr 1, ROW200B1, VERA_INC_1
     lda VERA_DATA1
@@ -855,6 +858,48 @@ test_font_set
     ldy #>@name
     jmp t_result
 @name .byte "FONT_SET", 0
+
+; FONT_BAD: rejecting a candidate must leave the previous live font
+; pointer intact. The bad magic path used to return carry but leave
+; CX_F_CXF/f_bank aimed at the rejected buffer, so the next measure read
+; widths from garbage.
+test_font_bad
+    lda #<pxl8
+    ldx #>pxl8
+    jsr font_set
+    lda #<@str
+    ldx #>@str
+    jsr font_measure
+    lda X16_P0
+    sta @w0
+    lda X16_P1
+    sta @w0+1
+
+    lda #<@badfont
+    ldx #>@badfont
+    jsr font_set
+    ldy #1
+    bcc @report                ; bad magic must be refused
+
+    lda #<@str
+    ldx #>@str
+    jsr font_measure
+    lda X16_P0
+    cmp @w0
+    bne @report
+    lda X16_P1
+    cmp @w0+1
+    bne @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "FONT_BAD", 0
+@str .byte "Wig.", 0
+@w0 .word 0
+@badfont .byte "NOPE", 8, 7, 32, 95, 8, 1, 0, 0, 0, 0, 0, 0
 
 ; FONT_CACHE: 'i' row 0 is $C0 -- pixels 0 and 1. At phase 0 that is
 ; coverage $F0 in column 0 and nothing in columns 1-2; at phase 1 the
@@ -1726,6 +1771,8 @@ test_ev_borrow
     cmp #>ev_irq
     bne @report
 
+    jsr ev_init                 ; a second init must keep the displaced
+    ldy #5                      ; game handler saved, not save ev_irq itself
     jsr ev_suspend              ; cx_ev_stop: the game's handler is back
     ldy #3
     lda irq_line_vec
@@ -1753,6 +1800,49 @@ test_ev_borrow
 @name .byte "EV_BORROW", 0
 t_game_irq                      ; a stand-in game handler; never runs here
     rts
+
+; EV_TABLES: the kernel's own modal handler tables must track EV_COUNT.
+; EV_JOY is the last slot; a 9-vector table jumps into the data that
+; follows it.
+test_ev_modal_tables
+    jsr ev_init
+
+    lda #<da_table
+    ldx #>da_table
+    jsr ev_handlers
+    jsr @joy
+    bne @bad
+
+    lda #<dg_table
+    ldx #>dg_table
+    jsr ev_handlers
+    jsr @joy
+    bne @bad
+
+    lda #<dg_ptable
+    ldx #>dg_ptable
+    jsr ev_handlers
+    jsr @joy
+    bne @bad
+
+    ldy #0
+    bra @report
+@bad
+    ldy #1
+@report
+    jsr ev_stop
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@joy
+    lda #EV_JOY
+    ldx #0
+    ldy #0
+    jsr ev_fill
+    jsr ev_dispatch
+    jmp ev_count
+@name .byte "EV_TABLES", 0
 
 
 ; =====================================================================
@@ -1834,6 +1924,29 @@ test_menu_active
     ldy #>@name
     jmp t_result
 @name .byte "MENU_ACTIVE", 0
+
+; DLG_P0: a zero-capacity prompt buffer cannot be edited safely, so the
+; prompt refuses before drawing or entering its modal loop.
+test_dlg_prompt_zero
+    lda #<@buf
+    sta X16_P0
+    lda #>@buf
+    sta X16_P1
+    stz X16_P2
+    lda #<@msg
+    ldx #>@msg
+    jsr dg_prompt
+    ldy #1
+    bcc @report
+    ldy #0
+@report
+    tya
+    ldx #<@name
+    ldy #>@name
+    jmp t_result
+@name .byte "DLG_P0", 0
+@msg .byte "x", 0
+@buf .byte 0
 
 ; ABI_TABLE: every slot is a JMP ($4C), three bytes apart, to somewhere
 ; that is not zero. A slot whose impl went missing would be caught by
@@ -2205,7 +2318,7 @@ test_vrows
     sta X16_P2
     stz X16_P3
     lda #3
-    jsr gfx2_pset
+    jsr gfx2h_pset
     lda #<300
     sta X16_P0
     lda #>300
@@ -2215,7 +2328,7 @@ test_vrows
     lda #>286
     sta X16_P3
     lda #2
-    jsr gfx2_pset
+    jsr gfx2h_pset
 
     lda #<192                   ; 96 rows: crosses into bank 9
     sta X16_P0
@@ -2233,7 +2346,7 @@ test_vrows
     sta X16_P2
     stz X16_P3
     lda #0
-    jsr gfx2_pset
+    jsr gfx2h_pset
     lda #<300
     sta X16_P0
     lda #>300
@@ -2243,7 +2356,7 @@ test_vrows
     lda #>286
     sta X16_P3
     lda #0
-    jsr gfx2_pset
+    jsr gfx2h_pset
 
     lda #<192                   ; restore both from the banks
     sta X16_P0
@@ -2261,7 +2374,7 @@ test_vrows
     lda #<192
     sta X16_P2
     stz X16_P3
-    jsr gfx2_read
+    jsr gfx2h_read
     cmp #3
     bne @report
     lda #<300                   ; the far witness (past the wrap): 2
@@ -2272,8 +2385,24 @@ test_vrows
     sta X16_P2
     lda #>286
     sta X16_P3
-    jsr gfx2_read
+    jsr gfx2h_read
     cmp #2
+    bne @report
+
+    lda RAM_BANK                ; zero rows: return without mapping the
+    sta @bank                   ; save bank or walking a wrapped counter
+    stz X16_P0
+    stz X16_P1
+    stz X16_P2
+    lda #8
+    jsr vrows_save
+    lda RAM_BANK
+    cmp @bank
+    bne @report
+    lda #8
+    jsr vrows_restore
+    lda RAM_BANK
+    cmp @bank
     bne @report
     ldy #0
 @report
@@ -2282,6 +2411,7 @@ test_vrows
     ldy #>@name
     jmp t_result
 @name .byte "VROWS", 0
+@bank .byte 0
 
 ; MOUSE: cx_mouse_show(1) must configure VERA sprite 0 as the KERNAL
 ; pointer -- image at $13000, 16x16, in front of the layers -- and turn

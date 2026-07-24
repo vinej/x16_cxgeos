@@ -8,12 +8,12 @@
 ; The shapes are ENGINE-AGNOSTIC and live here ONCE, not per engine:
 ; they draw through three entry symbols and read the canvas bounds
 ; through two, all overridable BEFORE this file is sourced. Left alone
-; they bind to the 2bpp module (bitmap2). Any engine with the same call
+; they bind to the 2bpp high-res module (bitmap2h). Any engine with the same call
 ; shapes can sit behind them:
-;   - bitmap2 (2bpp): the default, no work.
-;   - bitmap (8bpp): predefine SHP_PSET / SHP_HLINE to small shims that
-;     move the colour from A into X16_P3 (where gfx_pset wants it), then
-;     jmp gfx_pset / gfx_hline; SHP_READ = gfx_read; SHP_W/H = 320/240.
+;   - bitmap2h (2bpp): the default, no work.
+;   - bitmap8l (8bpp): predefine SHP_PSET / SHP_HLINE to small shims that
+;     move the colour from A into X16_P3 (where gfx8l_pset wants it), then
+;     jmp gfx8l_pset / gfx8l_hline; SHP_READ = gfx8l_read; SHP_W/H = 320/240.
 ;   - CXRF points them at its graphics port and gets every mode at once.
 ;
 ;   SHP_PSET   pset:  P0/P1 = x, P2/P3 = y, A = colour (must clip)
@@ -49,9 +49,9 @@
 ; shapes_efl routes each plot through shapes_eplot to the octant points (outline)
 ; or the spans (fill).
 ; ---------------------------------------------------------------------
-; CXRF: SKIP_BASE lets this file be .included a 2nd time for the extra
+; CXRF: X16_SKIP_BASE lets this file be !source'd a 2nd time for the extra
 ; shapes only (base + defaults in bank 17, extras in bank 19). Upstream-safe.
-.ifndef SKIP_BASE
+.ifndef X16_SKIP_BASE
 shape_circle
 	sta shapes_col
 	stz shapes_efl                    ; outline: the octant point pairs
@@ -808,8 +808,6 @@ shapes_stk
     .res FLOOD_MAX * 4, 0
 
 ; ---------------------------------------------------------------------
-.endif   ; SKIP_BASE (base shapes)
-
 ; shape_polygon / shape_fpolygon -- regular convex polygons (X16_USE_SHAPES_POLY)
 ; ---------------------------------------------------------------------
 ; A regular N-gon: N vertices evenly spaced on a circle of radius r about
@@ -833,6 +831,8 @@ shapes_stk
 ; label, so two routines could not each own an @loop), and the work is cut
 ; into small routines so no branch reaches past its 127-byte range.
 ; ---------------------------------------------------------------------
+.endif
+
 .ifdef X16_USE_SHAPES_POLY
 
 POLY_MAX = 24                   ; vertices; the buffers below are 2 bytes each
@@ -1057,7 +1057,7 @@ shapes_pg_ojok
 	rts
 
 ; 16-bit Bresenham from (lx0,ly0) to (lx1,ly1), plotting through SHP_PSET
-; (the gfx2_line algorithm, engine-agnostic and clipping via the binding)
+; (the gfx2h_line algorithm, engine-agnostic and clipping via the binding)
 shapes_poly_line
 	sec                         ; dx = |x1 - x0|, sx = direction
 	lda poly_lx1
@@ -1612,7 +1612,7 @@ poly_prod  .res 4, 0
 ; shp_line -- shared 16-bit Bresenham (X16_USE_SHP_LINE)
 ; ---------------------------------------------------------------------
 ; The curve shapes (arc, bezier) sample a handful of points and join
-; them; this is the join. It is the same engine-agnostic gfx2_line walk
+; them; this is the join. It is the same engine-agnostic gfx2h_line walk
 ; the polygon carries privately (shapes_poly_line), lifted out so arc and
 ; bezier share ONE copy behind their own gate. A program that wants only
 ; the polygon still pays nothing for this; one that wants an arc pays for
@@ -3305,24 +3305,24 @@ bez_r    .word 0
 
 .endif
 
-.ifndef SKIP_BASE
 ; --- the default binding: the 2bpp module ------------------------------
 ; (evaluated here, at the END, so an overrider defines its symbols
 ; before sourcing the file and these !ifdefs stay quiet)
 ; The default-bound words are emitted UNCONDITIONALLY -- data inside an
 ; !ifndef would appear in pass 1 and vanish in pass 2 (the symbol exists
 ; by then), shifting every later address into a phase error.
+.ifndef X16_SKIP_BASE
 shp_wdef .word 640
 shp_hdef .word 480
 
 .ifndef SHP_PSET
-SHP_PSET  = gfx2_pset
+SHP_PSET  = gfx2h_pset
 .endif
 .ifndef SHP_READ
-SHP_READ  = gfx2_read
+SHP_READ  = gfx2h_read
 .endif
 .ifndef SHP_HLINE
-SHP_HLINE = gfx2_hline
+SHP_HLINE = gfx2h_hline
 .endif
 .ifndef SHP_W
 SHP_W     = shp_wdef
@@ -3330,6 +3330,6 @@ SHP_W     = shp_wdef
 .ifndef SHP_H
 SHP_H     = shp_hdef
 .endif
+.endif
 
 ; (end zone)
-.endif   ; SKIP_BASE (default bindings)

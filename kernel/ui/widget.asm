@@ -1044,7 +1044,7 @@ wg_p_list
     jsr cxov_rect
 
     ; the item's string at x0+4, row_y+1
-    ldy #WG_LBL                 ; reload the array pointer: gfx2_rect above
+    ldy #WG_LBL                 ; reload the array pointer: gfx2h_rect above
     lda (CX_M_PTR),y            ; is a library call and T-registers do not
     sta X16_T2                  ; survive one (this is what drew garbage)
     ldy #WG_LBL+1
@@ -1479,6 +1479,27 @@ wg_paint_t
     bne @shown
     rts
 @shown
+    ; Every widget clears its own cells to the dialog paper FIRST. Two
+    ; reasons: they then all share one background instead of whatever a
+    ; prior focus highlight (the field caret) left in the port's paper
+    ; state, and a redraw leaves no ghost of a longer previous label.
+    lda wg_xv
+    sta X16_P0
+    lda wg_xv+1
+    sta X16_P1
+    lda wg_yv
+    sta X16_P2
+    lda wg_yv+1
+    sta X16_P3
+    lda wg_wv
+    sta X16_P4
+    stz X16_P5
+    ldy #WG_H
+    lda (CX_M_PTR),y
+    sta X16_P6
+    stz X16_P7
+    lda th_paper
+    jsr cxov_rect
     jsr wg_t_pos                ; P0/P1 = x, P2/P3 = y
     lda wg_typv
     cmp #WG_CHECK
@@ -1555,7 +1576,39 @@ wg_t_field                      ; [ text ]
     lda #<wg_s_lbrk
     ldx #>wg_s_lbrk
     jsr cxov_text
-    jsr wg_t_label
+    jsr wg_t_label              ; P0 = the pen just past the text, P2/P3 = y
+    lda wg_focus                ; a block caret only while this field is the
+    cmp wg_i                    ; focused widget -- the cell twin of wg_p_field's
+    bne @close                  ; pixel caret, so an editable field shows where
+                                ; the next character lands
+    ; "]" one cell to the RIGHT, then the caret block at the pen -- the caret
+    ; LAST, because cxov_rect leaves its colour as the port's paper and the
+    ; "]" must still sit on the field's paper.
+    lda X16_P0
+    sta wg_ch                   ; the caret column
+    clc
+    adc #1
+    sta X16_P0                  ; the "]" shifts right to make room
+    stz X16_P1
+    lda #<wg_s_rbrk
+    ldx #>wg_s_rbrk
+    jsr cxov_text
+    lda wg_ch                   ; a 1x1 cell in the highlight colour = the
+    sta X16_P0                  ; caret. NOT the frame colour: that is cyan as
+    stz X16_P1                  ; a raw KERNAL colour and read as a jarring bar
+    lda wg_yv                   ; over the field; the highlight is the subtler
+    sta X16_P2                  ; "you are here" cue the rest of the toolkit uses
+    lda wg_yv+1
+    sta X16_P3
+    lda #1
+    sta X16_P4
+    stz X16_P5
+    lda #1
+    sta X16_P6
+    stz X16_P7
+    lda th_hi
+    jmp cxov_rect
+@close
     lda #<wg_s_rbrk
     ldx #>wg_s_rbrk
     jmp cxov_text
@@ -1678,27 +1731,49 @@ wg_t_scroll
     bra @dloop
 @qdone
     stx wg_filled
-    stz wg_barx                 ; walk the inner cells
+    stz wg_barx                 ; the whole inner track, drawn as dashes
 @cell
     lda wg_barx
     cmp wg_inner
     bcs @endbar
-    cmp wg_filled
-    bcc @on
     lda #<wg_s_dot
     ldx #>wg_s_dot
-    bra @put
-@on
-    lda #<wg_s_fill
-    ldx #>wg_s_fill
-@put
     jsr cxov_text
     inc wg_barx
     bra @cell
 @endbar
-    lda #<wg_s_rbrk
+    lda #<wg_s_rbrk             ; the "]"
     ldx #>wg_s_rbrk
-    jmp cxov_text
+    jsr cxov_text
+    ; ...then the FILLED portion as a solid rectangle over the first
+    ; wg_filled cells. A colour fill, not a glyph: the tile port and the
+    ; KERNAL port render the same byte differently (PETSCII $A0 is a solid
+    ; block as a tile but a blank space through CHROUT), so only a rect is
+    ; a filled rectangle in BOTH. Drawn LAST -- cxov_rect leaves its colour
+    ; as the port's paper, and the dashes/bracket must stay on the widget's.
+    lda wg_filled
+    beq @sdone
+    lda wg_xv
+    clc
+    adc #1                      ; inner start, past the "["
+    sta X16_P0
+    lda wg_xv+1
+    adc #0
+    sta X16_P1
+    lda wg_yv
+    sta X16_P2
+    lda wg_yv+1
+    sta X16_P3
+    lda wg_filled
+    sta X16_P4
+    stz X16_P5
+    lda #1
+    sta X16_P6
+    stz X16_P7
+    lda th_hi                   ; the filled bar in the highlight colour
+    jmp cxov_rect
+@sdone
+    rts
 
 wg_t_pos                        ; P0/P1 = x, P2/P3 = y (from the locals)
     lda wg_xv
@@ -1722,8 +1797,8 @@ wg_s_con  .byte "[X] ", 0
 wg_s_coff .byte "[ ] ", 0
 wg_s_ron  .byte "(*) ", 0
 wg_s_roff .byte "( ) ", 0
-wg_s_fill .byte "#", 0
-wg_s_dot  .byte "-", 0
+wg_s_dot  .byte "-", 0          ; the slider's empty track; the filled part is
+                                ; a colour rect (wg_t_scroll), not a glyph
 wg_lblv .word 0
 wg_valv .byte 0
 wg_typv .byte 0
@@ -2680,9 +2755,15 @@ wg_refocus_frame
 ; the widget's box in the highlight colour; clearing repaints the box
 ; over a paper margin. wg_i / CX_M_PTR must be the widget.
 wg_draw_frame
+    ldy #WG_TYPE                 ; a field shows focus with its caret, so it
+    lda (CX_M_PTR),y            ; skips the highlight frame -- the caret alone
+    cmp #WG_FIELD               ; is the "you are editing here" cue, and the
+    beq @nofield                ; frame around it just reads as clutter
     jsr wg_frame_box
     lda th_hi
     jmp cxov_frame
+@nofield
+    rts
 wg_clr_frame
     jsr wg_frame_box            ; a paper margin, then the widget back
     lda th_paper

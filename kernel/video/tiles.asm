@@ -96,9 +96,19 @@ ov2_init                        ; 320x240, both layers off until asked
     ; KERNAL screen calls cannot corrupt banked code.
     php
     sei
-    jsr screen_reset            ; CINT: the ROM charset lands at $1F000
-    lda #$0E                    ; CHR$(14): PETSCII upper/lower
-    jsr screen_chrout
+    vera_addrsel 0
+    jsr CINT                    ; CINT: the editor up, its ROM charset at $1F000
+    vera_addrsel 0              ; ADDRSEL first: the macro clobbers A, and A is
+    lda #3                      ; the charset number below.
+    jsr SCREEN_SET_CHARSET      ; charset 3 = PETSCII upper/lower, uploaded to
+                                ; $1F000 in SCREEN-CODE order: a-z at $01-$1A,
+                                ; A-Z at $41-$5A -- exactly what ov3t_say and the
+                                ; T3_* box glyphs read. CHR$(14) alone will NOT
+                                ; do this: on the X16 the case toggle only sets
+                                ; the editor's mode FLAG, it does not re-upload
+                                ; the VRAM charset, so $1F000 kept CINT's upper/
+                                ; GRAPHICS set and ov3t_say's upper-case A-Z
+                                ; ($41-$5A) landed on graphic tiles.
     plp
 
     vera_dcsel 0

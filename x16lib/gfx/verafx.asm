@@ -487,8 +487,8 @@ fx_affine_span
 ;        X16_P3/P4 = x1, X16_P5 = y1
 ;        X16_P6    = colour
 ;
-; Same arguments and endpoints as gfx_line, drawn by the FX helper.
-; Assumes the 320x240@8bpp framebuffer at VRAM $00000 (gfx_init's
+; Same arguments and endpoints as gfx8l_line, drawn by the FX helper.
+; Assumes the 320x240@8bpp framebuffer at VRAM $00000 (gfx8l_init's
 ; mode). Does NOT clip; keep both endpoints on screen. Probe
 ; vera_has_fx before relying on any fx_* routine.
 .endif

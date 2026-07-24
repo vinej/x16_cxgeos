@@ -103,19 +103,19 @@ cxov_m_dgfldy  = CX_OVL + 17*3 + 17  ; prompt field y, below the box top
 
 .else                           ; the runner: no overlay, direct engine
 
-cxov_init    = gfx2_init
-cxov_clear   = gfx2_clear
-cxov_pset    = gfx2_pset
-cxov_read    = gfx2_read
-cxov_hline   = gfx2_hline
-cxov_vline   = gfx2_vline
-cxov_rect    = gfx2_rect
-cxov_frame   = gfx2_frame
-cxov_line    = gfx2_line
-cxov_pattern = gfx2_pattern_set
-cxov_patrect = gfx2_pattern_rect
-cxov_blit    = gfx2_blit
-cxov_blitm   = gfx2_blitm
+cxov_init    = gfx2h_init
+cxov_clear   = gfx2h_clear
+cxov_pset    = gfx2h_pset
+cxov_read    = gfx2h_read
+cxov_hline   = gfx2h_hline
+cxov_vline   = gfx2h_vline
+cxov_rect    = gfx2h_rect
+cxov_frame   = gfx2h_frame
+cxov_line    = gfx2h_line
+cxov_pattern = gfx2h_pattern_set
+cxov_patrect = gfx2h_pattern_rect
+cxov_blit    = gfx2h_blit
+cxov_blitm   = gfx2h_blitm
 cxov_text    = font_draw        ; the runner is always mode 0: the font
 cxov_measure = font_measure
 cxov_rsave   = vrows_save       ; mode 0's rows save/restore IS vrows

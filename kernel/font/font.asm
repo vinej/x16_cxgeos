@@ -2,14 +2,14 @@
 ; =====================================================================
 ; CXRF :: kernel/font/font.asm -- the font engine
 ; =====================================================================
-; Proportional text on the 640x480 2bpp screen, at gfx2_blitm's speed.
+; Proportional text on the 640x480 2bpp screen, at gfx2h_blitm's speed.
 ;
 ; A CXF (docs/formats.md) stores each glyph as 1bpp rows, 8 pixels wide,
 ; with a per-glyph advance that is usually narrower. Drawing that
 ; directly would mean expanding and shifting every glyph on every draw.
 ; font_cache does it once instead: every glyph becomes 2bpp, pre-shifted
 ; to all four pixel phases, in exactly the (mask, data) pair layout
-; gfx2_blitm consumes -- so drawing a glyph is a blit and nothing else.
+; gfx2h_blitm consumes -- so drawing a glyph is a blit and nothing else.
 ;
 ; The cache lives in banked RAM, not VRAM: blitm reads its source with
 ; (X16_PTR3),y -- CPU RAM. See docs/memory-map.md.
@@ -41,7 +41,7 @@
 ; Text is drawn transparently: only the ink lands, and whatever was
 ; under the glyph shows through. To erase what was there, fill the box
 ; first -- font_measure gives the width, f_height the height, and
-; gfx2_rect does it in one call. The engine does not do that for you
+; gfx2h_rect does it in one call. The engine does not do that for you
 ; because a per-glyph opaque fill costs more than one rect for the line.
 ;
 ; STYLES. Bold is a double strike: the glyph is blitted again one pixel
@@ -92,20 +92,46 @@ CXF_WIDTHS    = 16
 ; unchanged.
 ; ---------------------------------------------------------------------
 font_set
-    sta CX_F_CXF
+    pha                         ; the live pointer and bank, kept for the
+    lda CX_F_CXF                ; rollback: a refused CXF must not leave
+    sta f_save                  ; CX_F_CXF aimed at a file fs_parse just
+    lda CX_F_CXF+1              ; rejected
+    sta f_save+1
+    lda f_bank
+    sta f_save+2
+    pla
+    sta CX_F_CXF                ; A/X = the candidate, exactly as passed
     stx CX_F_CXF+1
     lda RAM_BANK                ; where the font lives, captured BEFORE the
     sta f_bank                  ; far call flips RAM_BANK to bank 18
-    lda #1                      ; the loader restores the system font on the
-    sta f_dirty                 ; next launch, so this one does not leak
+    lda #1                      ; a failed adopt rolls the live pointer back;
+    sta f_dirty                 ; at worst the next launch refreshes it again
 .ifndef CX_NO_OVERLAY
-    jsr cxb_call                ; carry (bad magic) survives cxb_call
-    .byte CX_FS_BANK
-    .addr fs_parse
+    jsr f_parse_far             ; carry (bad magic) survives cxb_call
 .else
     jsr fs_parse                ; the flat runner links it in CODE
 .endif
+    bcc @done
+    lda f_save                  ; refused: the old font goes back, so the
+    sta CX_F_CXF                ; caller's next draw still has a font
+    lda f_save+1
+    sta CX_F_CXF+1
+    lda f_save+2
+    sta f_bank
+    sec
+@done
     rts
+
+.ifndef CX_NO_OVERLAY
+; cxb_call consumes the stub's frame to read the inline data and returns
+; to whoever called the STUB (kernel/resident/farcall.asm) -- so an
+; inline `jsr cxb_call` is a TAIL call, and font_set would never see the
+; refusal. Its own five-byte stub is what buys the return.
+f_parse_far
+    jsr cxb_call
+    .byte CX_FS_BANK
+    .addr fs_parse
+.endif
 
 ; ---------------------------------------------------------------------
 ; f_peek -- A = CXF byte Y, read under the font's bank and the caller's
@@ -389,7 +415,7 @@ font_draw
     sbc f_ux+1
     sta X16_P5
     lda #3
-    jsr gfx2_hline
+    jsr gfx2h_hline
 @nounder
 
     lda CX_F_PEN                ; hand the pen back
@@ -434,7 +460,7 @@ f_blit_at
     sta X16_P6
     lda CX_F_SRC+1
     sta X16_P7
-    jmp gfx2_blitm
+    jmp gfx2h_blitm
 
 ; ---------------------------------------------------------------------
 ; f_columns -- how many byte columns glyph f_gi covers at f_phase:
@@ -474,6 +500,7 @@ f_style   .byte 0               ; FONT_BOLD | FONT_UNDER
 
 f_bank    .byte 0               ; where the CXF lives, from font_set
 f_dirty   .byte 0               ; an app changed the font -> loader resets it
+f_save    .res 3, 0             ; font_set's rollback: CX_F_CXF lo/hi, f_bank
 f_cbank   .byte 0               ; the cache bank of the glyph in hand
 f_sbank   .byte 0               ; the bank the STRING is read under (the
                                 ; caller's) -- restored before every char,

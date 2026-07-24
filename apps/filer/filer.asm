@@ -95,7 +95,7 @@ main
 @go
     cxm_gfx_init
 
-    ; The disk work goes FIRST, before the screen is cleared. gfx2_init
+    ; The disk work goes FIRST, before the screen is cleared. gfx2h_init
     ; leaves the framebuffer alone, so the outgoing app's picture stays up
     ; through the directory read; then the clear and the whole desktop are
     ; painted in one burst instead of a bare screen sitting through the I/O

@@ -1,6 +1,6 @@
 # CXRF csdk Guide — the friendly C wrapper
 
-**Release 0.10.1** · header: `csdk/cxsdk.h`
+**Release 0.11.0** · header: `csdk/cxsdk.h`
 
 The csdk turns the low-level [ABI](sdkguide.md) into clean, named `cx_*`
 functions, a typed event record, the shared constants, immediate-mode widget

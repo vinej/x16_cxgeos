@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CXRF Memory Map — v0.10.1</title>
+<title>CXRF Memory Map — v0.11.0</title>
 <style>
   :root {
     --bg: #ffffff;
@@ -136,10 +136,10 @@
 
   <header class="doc">
     <h1>CXRF Memory Map</h1>
-    <div class="sub"><span class="pill">v0.10.1</span>Commander X16 Runtime Framework — the live ledger of contended address space</div>
+    <div class="sub"><span class="pill">v0.11.0</span>Commander X16 Runtime Framework — the live ledger of contended address space</div>
     <div class="note">Every byte of contended space is accounted for here. The prose ledger is
       <code>docs/memory-map.md</code>; the assembler-enforced source of truth is <code>kernel/resident/banks.inc</code>,
-      <code>kernel/resident/zp.inc</code> and <code>kernel/kernel.cfg</code>. Budget figures are the v0.10.1 build,
+      <code>kernel/resident/zp.inc</code> and <code>kernel/kernel.cfg</code>. Budget figures are the v0.11.0 build,
       read back by <code>tools/mapreport.py</code>.</div>
     <div class="legend">
       <span><span class="dot" style="background:var(--hw)"></span>hardware / fixed</span>
@@ -152,7 +152,7 @@
 
   <!-- ===================== CODE BUDGET ===================== -->
   <section>
-    <h2>Code budget <span class="tag">mapreport.py · v0.10.1</span></h2>
+    <h2>Code budget <span class="tag">mapreport.py · v0.11.0</span></h2>
     <p class="lead">Every code region is a hard ceiling — ld65 fails the link on overflow. Green is comfortable,
       amber is worth a look (&ge;60%), red is tight (&ge;85%). The resident image and the overlay window are the walls to watch.</p>
     <div class="budget">
@@ -209,7 +209,7 @@
   <section>
     <h2>Banked RAM <span class="addr">$A000–$BFFF window · bank register $00</span> <span class="tag">8 KB / bank</span></h2>
     <p class="lead">The kernel's code banks are two files: <code>CXBANKS.BIN</code> (banks 2–5) and <code>CXBANKS2.BIN</code> (banks 16–19),
-      32 KB each. Data banks sit between; apps sit above <code>CX_APP_BANK_FLOOR = 20</code>. Used/free are the v0.10.1 build.</p>
+      32 KB each. Data banks sit between; apps sit above <code>CX_APP_BANK_FLOOR = 20</code>. Used/free are the v0.11.0 build.</p>
     <table>
       <thead><tr><th style="width:52px">Bank</th><th style="width:150px">Theme</th><th>Segment / owner</th><th class="size" style="width:64px">Used</th><th class="size" style="width:64px">Free</th></tr></thead>
       <tbody>
@@ -292,7 +292,7 @@
   </section>
 
   <footer class="doc">
-    CXRF v0.10.1 · generated from <code>docs/memory-map.md</code> and the kernel build (<code>tools/mapreport.py</code>).
+    CXRF v0.11.0 · generated from <code>docs/memory-map.md</code> and the kernel build (<code>tools/mapreport.py</code>).
     Change this map in the same commit as the code that claims or releases a region. Budget figures shift every build — run
     <code>python tools/mapreport.py</code> for today's.
   </footer>

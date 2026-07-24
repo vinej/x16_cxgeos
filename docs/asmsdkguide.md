@@ -1,6 +1,6 @@
 # CXRF asmsdk Guide — the friendly ca65 macros
 
-**Release 0.10.1** · ABI version 4 · 105 slots · include: `asmsdk/ca65/cxrf.inc`
+**Release 0.11.0** · ABI version 4 · 105 slots · include: `asmsdk/ca65/cxrf.inc`
 
 The asmsdk is to assembly what [csdk](csdkguide.md) is to C: named one-line
 **macros** over the raw jump-table equates, plus the shared constants and

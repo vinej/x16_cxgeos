@@ -4,11 +4,11 @@
 ; =====================================================================
 ; The second engine image behind the graphics port: the fixed vector,
 ; thin argument adapters, and x16lib's 8bpp bitmap module, compiled to
-; RUN at the overlay but STORED in bank 4 (OV1CODE). cx_gfx_mode(1)
+; RUN at the overlay but STORED in bank 4 (OV1CODE). cx_gfx8l_mode(1)
 ; copies it in and runs its init.
 ;
 ; The adapters exist because the ABI and the module disagree about
-; registers: the ABI says colour in A and 16-bit y; bitmap.asm wants
+; registers: the ABI says colour in A and 16-bit y; bitmap8l.asm wants
 ; colour in P3 and a byte y (240 rows fit one). y's high byte is
 ; ignored -- at 320x240 it is zero for every on-screen point.
 ;
@@ -17,33 +17,34 @@
 ; blit widths in pixels, blitm's $00 a colour key). Text stays the
 ; toolkit's, and the toolkit is mode-0-only by contract.
 ;
-; bitmap.asm's extras (circle, disc, flood, charset text) are gated out
-; (X16_BITMAP_MIN): unreachable through today's 13 entries, and they
+; bitmap8l.asm's extras (circle, disc, flood, charset text) are gated out
+; (X16_BITMAP8L_MIN): unreachable through today's 13 entries, and they
 ; would not fit the port region. The slots that expose them one day can
 ; grow the region then.
 ; =====================================================================
 
 .ifndef CX_NO_OVERLAY
 
-X16_BITMAP_MIN = 1              ; no 8x8 glyph blitter: text is the CXF
+X16_BITMAP8L_MIN = 1            ; no 8x8 glyph blitter: text is the CXF
                                ; proportional font, rendered by ov1_ctext
+X16_BITMAP8L_NO_INIT = 1        ; ov1_init programs VERA directly
 
 .segment "OV1CODE"
 
 ov1_vector                      ; the port's entry vector, slot order
     jmp ov1_init
-    jmp gfx_clear               ; A = colour: the module's own shape
+    jmp gfx8l_clear               ; A = colour: the module's own shape
     jmp ov1_pset
-    jmp gfx_read                ; the module's own read (no clip here)
+    jmp gfx8l_read                ; the module's own read (no clip here)
     jmp ov1_hline
     jmp ov1_vline
     jmp ov1_rect
     jmp ov1_frame
     jmp ov1_line
-    jmp gfx_pattern_set         ; pattern: mode 1 takes bg/fg in P4/P5
-    jmp gfx_pattern_rect        ; (full 0-255; Y's packed pair only
-    jmp gfx_blit                ; holds 2-bit colours). blit width is in
-    jmp gfx_blitm               ; PIXELS; blitm's $00 is transparent
+    jmp gfx8l_pattern_set         ; pattern: mode 1 takes bg/fg in P4/P5
+    jmp gfx8l_pattern_rect        ; (full 0-255; Y's packed pair only
+    jmp gfx8l_blit                ; holds 2-bit colours). blit width is in
+    jmp gfx8l_blitm               ; PIXELS; blitm's $00 is transparent
     jmp ov1_text                ; text: the CXF proportional font
     jmp ov1_measure             ; measure: the CXF advance widths
     jmp ov1_rsave               ; rsave/rrest: 8bpp framebuffer rows <->
@@ -61,8 +62,8 @@ ov1_vector                      ; the port's entry vector, slot order
 .assert ov1_vector = CX_OVL, error, "OV1CODE must start at CX_OVL -- kernel.cfg and ovl.inc disagree"
 
 ; --- init: program VERA for 320x240 bitmap, 8bpp, layer 0 -------------
-; The module's own gfx_init goes through the KERNAL screen editor; the
-; port programs VERA directly, exactly as gfx2_init does for mode 0.
+; The module's own gfx8l_init goes through the KERNAL screen editor; the
+; port programs VERA directly, exactly as gfx2h_init does for mode 0.
 ;
 ; The CHARSET first: mode 1's text draws 8x8 glyphs from VRAM $1F000 in
 ; SCREEN-CODE order, but what sits there depends on history -- ISO after
@@ -77,9 +78,11 @@ ov1_vector                      ; the port's entry vector, slot order
 ov1_init
     php
     sei
-    jsr screen_reset            ; CINT: the ROM charset lands at $1F000
+    vera_addrsel 0
+    jsr CINT                    ; CINT: the ROM charset lands at $1F000
     lda #$0E                    ; CHR$(14): the PETSCII upper/lower set
-    jsr screen_chrout           ; (screen-code order, like mode 3)
+    vera_addrsel 0
+    jsr CHROUT                  ; (screen-code order, like mode 3)
     plp
 
     vera_dcsel 0
@@ -346,19 +349,19 @@ ov1_off  .word 0
 
 ov1_pset                        ; colour A -> P3 (y's dead high byte)
     sta X16_P3
-    jmp gfx_pset
+    jmp gfx8l_pset
 ov1_hline
     sta X16_P3
-    jmp gfx_hline
+    jmp gfx8l_hline
 ov1_vline
     sta X16_P3
-    jmp gfx_vline
+    jmp gfx8l_vline
 ov1_rect
     sta X16_P3
-    jmp gfx_rect
+    jmp gfx8l_rect
 ov1_frame
     sta X16_P3
-    jmp gfx_frame
+    jmp gfx8l_frame
 
 ov1_line                        ; ABI x1 P4/P5, y1 P6, colour A -> the
     pha                         ; module's x1 P3/P4, y1 P5, colour P6.
@@ -370,12 +373,9 @@ ov1_line                        ; ABI x1 P4/P5, y1 P6, colour A -> the
     sta X16_P5
     pla
     sta X16_P6
-    jmp gfx_line
+    jmp gfx8l_line
 
-; gfx_init's `jmp screen_set_mode` resolves to the real KERNAL console
-; now that X16_USE_SCREEN is on (mode 3 needs it too); the port never
-; calls gfx_init anyway -- ov1_init programs VERA directly.
-.include "gfx/bitmap.asm"
+.include "gfx/bitmap8l.asm"
 
 .segment "CODE"
 

@@ -132,11 +132,16 @@ Where it lives:
 
 ## Vendored X16_Library  under /x16lib folder
 
-`x16lib/` is a snapshot of `x16_library/src_ca65/` at **v0.10.0**. Update it by
+`x16lib/` is a snapshot of `x16_library/src_ca65/` at **v0.11.1**. Update it by
 re-copying the tree and noting the new version here. The kernel opts into
 `X16_SKIP_SHAPES`/`X16_SKIP_MATH` (it places the shape/trig modules in its own
-banks) and gates `X16_USE_BITMAP2` (VERAFX `_FILL` only, worth 2,162 bytes of
-the resident budget — why the image fits).
+banks), and the 2bpp/8bpp bitmap engines (`bitmap2h.asm` = `gfx2h_*`,
+`bitmap8l.asm` = `gfx8l_*`) are `.include`d directly into their overlay banks
+rather than through `X16_USE_BITMAP2H`/`X16_USE_BITMAP8L`, so only their VERA /
+VERAFX `_FILL` helpers land in the resident budget. Two upstreamable gates carry
+CXRF's needs: `X16_SKIP_BASE` (shapes.asm, so the base shapes can be `.include`d a
+second time for the extras bank) and `X16_BITMAP8L_NO_INIT` (bitmap8l.asm, so a
+port that programs VERA itself does not drag in `screen_set_mode`).
 
 ## License
 

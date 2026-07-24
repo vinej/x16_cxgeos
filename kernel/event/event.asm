@@ -32,7 +32,7 @@
 ; pointer lag through a queue of stale positions.
 ;
 ;   ev_init      install the hook, clear the queue. Needs mouse_show
-;                and gfx2_init done first.
+;                and gfx2h_init done first.
 ;   ev_stop      uninstall
 ;   ev_count     out: A = records waiting
 ;   ev_get       out: X16_P0..P7 = the oldest record; carry set if none
@@ -43,7 +43,7 @@
 ;   ev_timer     in:  A = frames between EV_TIMERs (0 = off)
 ;   ev_frames    out: A = the frame counter
 ;
-; IRQ discipline: the handler calls mouse_get, which uses the library's
+; IRQ discipline: the handler calls MOUSE_GET, which uses the library's
 ; parameter block, so it brackets itself with irq_save_regs. Anything
 ; added here that calls into x16lib stays inside that bracket.
 ; =====================================================================
@@ -149,6 +149,14 @@ ev_init
     ; then calls cx_ev_init to borrow CXRF's events for a dialog; the
     ; single line slot below is about to be ours, so save theirs and let
     ; cx_ev_stop hand it back (kernel/event/event.asm ev_suspend).
+    lda irq_line_vec            ; a second cx_ev_init must not save our
+                                ; own sampler as the displaced handler
+    cmp #<ev_irq
+    bne @save_line
+    lda irq_line_vec+1
+    cmp #>ev_irq
+    beq @install
+@save_line
     lda irq_line_vec
     sta ev_saved_line
     lda irq_line_vec+1
@@ -156,6 +164,7 @@ ev_init
     lda irq_line_armed
     sta ev_saved_armed
 
+@install
     stz X16_P0                  ; scanline 0
     stz X16_P1
     lda #<ev_irq
@@ -519,7 +528,7 @@ ev_irq
     and #EVS_MOUSE|EVS_KEYS
     ora ev_joy_en
     beq @light
-    jsr irq_save_regs           ; mouse_get uses the parameter block
+    jsr irq_save_regs           ; MOUSE_GET uses the parameter block
     lda ev_mask
     and #EVS_MOUSE
     beq @nomouse
@@ -548,7 +557,8 @@ ev_do_mouse
                                ; scans on the VSYNC flag, which is clear
                                ; then -- so without this the pointer is
                                ; configured but frozen.
-    jsr mouse_get               ; P0/P1 = x, P2/P3 = y, A = buttons
+    ldx #X16_P0
+    jsr MOUSE_GET               ; P0/P1 = x, P2/P3 = y, A = buttons
     sta ev_btn_now
 
     ; The pointer is always in 640x480 space (MOUSE_CONFIG 80x60), but a
@@ -741,7 +751,7 @@ ev_joy_enable
 ; low (B Y SELECT START UP DOWN LEFT RIGHT), X = buttons high (A X L R
 ; in bits 7:4), active high; carry set if the pad is absent.
 cx_do_joy_get
-    jsr joy_get                 ; A/X = raw active-low, Y = $FF absent
+    jsr JOYSTICK_GET            ; A/X = raw active-low, Y = $FF absent
     eor #$FF
     pha
     txa
@@ -756,7 +766,7 @@ ev_do_joy
     bne @scan
     rts
 @scan
-    jsr joy_scan                ; fresh state; no KERNAL-IRQ assumption
+    jsr JOYSTICK_SCAN           ; fresh state; no KERNAL-IRQ assumption
     stz CX_J_I
 @pad
     ldx CX_J_I

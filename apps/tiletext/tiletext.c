@@ -128,6 +128,14 @@ int main(void) {
     if (vread(0x11000UL + 5 * 2 + 1) != hud_before) ok = 0;
     if (alert_ret != 0)       ok = 0;      /* the modal alert ran and RETURN
                                             * picked button 0 */
+    /* the $1F000 charset must be PETSCII upper/lower (screen-code order), the
+     * set ov3t_say and the T3_* box glyphs assume: screen code $41 = 'A', not
+     * a graphic. ov2_init loads it with SCREEN_SET_CHARSET(3); CHR$(14) alone
+     * leaves upper/GRAPHICS there and every upper-case letter draws as a tile
+     * graphic. Check the 'A' glyph's first two rows -- $18,$3C for the letter,
+     * something filled/other for a graphic. */
+    if (vread(0x1F000UL + 0x41 * 8) != 0x18) ok = 0;
+    if (vread(0x1F000UL + 0x41 * 8 + 1) != 0x3C) ok = 0;
 
     if (ok) cx_print("TILETEXT OK");
     else    cx_print("TILETEXT FAIL");

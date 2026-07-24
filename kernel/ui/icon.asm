@@ -6,7 +6,7 @@
 ; 24x24 in the port's 2bpp format (tools/icongen.py builds the sheet).
 ; The sheet rides bank 17 (graphics extras); ONE definition serves both
 ; bitmap modes, the way the CXF font does its glyphs:
-;   mode 0  the 2bpp indices ARE the framebuffer colours -> gfx2_blit
+;   mode 0  the 2bpp indices ARE the framebuffer colours -> gfx2h_blit
 ;   mode 1  each 2-bit index expands through icon_map to an 8bpp pixel
 ;   modes 2/3  no bitmap: nothing to draw (WG_ICON refuses there too)
 ;

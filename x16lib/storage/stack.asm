@@ -164,12 +164,14 @@ stack_notempty
 ; (sp == 0, or sp has wrapped below 0 to > STACK_TOP)
 ; ---------------------------------------------------------------------
 stack_isfull
-    lda stack_sp
-    ora stack_sp+1
-    beq stack_full                   ; sp == 0
     lda stack_sp+1
     cmp #$20                    ; sp >= $2000: wrapped past the bottom
     bcs stack_full
+    bne stack_notfull
+    lda stack_sp
+    cmp #2                      ; 0 or 1 byte free is full for pushw
+    bcc stack_full
+stack_notfull
     clc
     rts
 stack_full
